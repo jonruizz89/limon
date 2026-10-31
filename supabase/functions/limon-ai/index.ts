@@ -149,7 +149,7 @@ async function recommend(uid: string, when: string, force: boolean, city = 'madr
   const taste = (prof && prof.taste) || null;
   const learned: Record<string, number> = (prof && prof.learned) || {};
   const key = (city === 'madrid' ? '' : city + ':') + when + ':' + from;
-  const sig = JSON.stringify([taste && taste.at, ints, learned, (dis || []).length]);
+  const sig = JSON.stringify(['v2', taste && taste.at, ints, learned, (dis || []).length]);
   if (!force) {
     const { data: c } = await admin.from('reco_cache').select('items,created_at').eq('user_id', uid).eq('key', key).maybeSingle();
     if (c && c.items && c.items.sig === sig && Date.now() - new Date(c.created_at).getTime() < 12 * 3600e3) return { ...c.items, cached: true, usd: 0 };
@@ -211,6 +211,8 @@ async function recommend(uid: string, when: string, force: boolean, city = 'madr
   }).join('\n');
   const system = 'Eres el recomendador de Limón, una app de planes en la ciudad. Eliges entre 6 y 10 planes para una persona a partir de su perfil. ' +
     'Prioriza lo que conecta con un interés concreto suyo sobre lo genérico; varía tipos de plan y días; no repitas un mismo ciclo; ' +
+    'da prioridad a los planes con día concreto (conciertos, funciones, fiestas, charlas…) frente a exposiciones, cursos o ciclos que duran semanas ' +
+    '(en «cuándo» aparecen como inicio→fin): elige como mucho 2 de esos largos, salvo que no haya otra cosa que encaje; ' +
     'descarta lo que choque con lo que evita. El motivo, de menos de 100 caracteres y sin repetir el título ni la fecha, debe citar ' +
     'el interés concreto (no "porque te gusta la cultura").';
   const user = `Perfil:\n${perfil}\n\nCandidatos (id | cuándo | título | lugar | categorías | temas | descripción):\n${lines}`;

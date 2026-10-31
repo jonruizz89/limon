@@ -2338,11 +2338,14 @@ function startApp(DATA, TAX, sync) {
     if (!r) { loadAI(w, false); return `<div class="ai"><h2>Eligiendo tus planes…</h2></div>`; }
     if (r.loading) return `<div class="ai"><h2>Eligiendo tus planes…</h2></div>`;
     if (r.error) return `<div class="ai"><h2>Elegidos para ti</h2><p class="note" style="margin:0">${esc(r.error)}</p></div>`;
-    const list = (r.planes || []).map(p => ({ e: BYID['e' + p.id], why: p.por_que })).filter(x => x.e && !isDismissed(x.e) && passF(x.e, occurs(x.e, ...range(w))));
+    const list = (r.planes || []).map(p => ({ e: BYID['e' + p.id], why: p.por_que })).filter(x => x.e && !isDismissed(x.e) && passF(x.e, occurs(x.e, ...range(w))))
+      .map(x => ({ ...x, occ: occurs(x.e, ...range(w)) }));
     if (!list.length) return '';
+    // primero lo que tiene día concreto (por fecha y hora); las exposiciones y ciclos largos, al final
+    list.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || (largo(x.e, x.occ) ? parse(x.e.fin) - parse(y.e.fin) : (x.occ.date - y.occ.date) || ((startHour(x.e) ?? 99) - (startHour(y.e) ?? 99))));
     return `<section class="ai" aria-label="Elegidos para ti"><h2>Elegidos para ti</h2>
       <p class="note" style="margin:0">Hemos repasado ${r.candidatos || 'los'} planes que encajan contigo y nos quedamos con estos.</p>
-      ${list.map(x => card(x.e, { occ: occurs(x.e, ...range(w)), reason: x.why })).join('')}
+      ${conSeccion(list, x => card(x.e, { occ: x.occ, reason: x.why })).replace(SEC_LARGOS, '<h3 class="sec-largos" style="margin-bottom:0;font:600 14px var(--f-body);color:var(--quiet)">Y en curso estos días</h3>')}
       <button class="btn ghost" data-ai-refresh style="align-self:flex-start">Volver a elegir</button></section>`;
   }
   async function loadAI(w, force) {

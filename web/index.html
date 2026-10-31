@@ -137,6 +137,8 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
 #v-intereses .panel.fold:not(.open) > :not(:first-child) { display: none !important }
 #v-intereses .panel.fold:not(.open) { gap: 0 }
 #v-intereses .panel.fold > h2:first-child::after, #v-intereses .panel.fold > :first-child h2::after { content: '▾'; display: inline-block; margin-left: 8px; font-size: .75em; color: var(--quiet); transition: transform .15s }
+#v-intereses .panel.fold.top { border: 2px solid var(--accent) }
+.sec-largos { margin-top: 18px }
 #v-intereses .panel.fold.open > h2:first-child::after, #v-intereses .panel.fold.open > :first-child h2::after { transform: rotate(180deg) }
 .ph { margin: 8px 0 0; font: 600 14px var(--f-body) }
 .stars { color: #E0A800; letter-spacing: 1px }
@@ -614,6 +616,10 @@ function startApp(DATA, TAX, sync) {
     if (+ini === +fin) return { date: ini, ongoing: false };
     return { date: ini < a ? a : ini, ongoing: ini < a, ini, fin };
   }
+  // plan «largo»: exposición, curso o ciclo de más de una semana (o ya empezado). En las listas van detrás de los planes con fecha
+  const largo = (e, occ) => !!(occ && occ.ongoing) || (e.sesiones.length <= 1 && (parse(e.fin) - parse(e.inicio)) / 864e5 > 6);
+  const SEC_LARGOS = '<h2 class="sec-largos">En curso: exposiciones, cursos y ciclos</h2>';
+  const conSeccion = (lista, html) => { let dentro = false, antes = false; return lista.map((x, i) => { const l = largo(x.e, x.occ); const h = l && !dentro && antes ? SEC_LARGOS : ''; if (l) dentro = true; else antes = true; return h + html(x, i); }).join(''); };
   const isFamily = e => e.cats.some(c => c === 'infantil' || c === 'cuentacuentos' || c === 'titeres' || c === 'talleres_familia');
   const isPet = e => e.cats.some(c => groupOf(c) === 'mascotas');
 
@@ -1545,7 +1551,7 @@ function startApp(DATA, TAX, sync) {
   const personRow = (p, actions) => `<div class="row-item"><div style="min-width:0;flex:1"><button class="btnlink" data-prof="${esc(p.username)}"><b>${esc(p.name)}</b></button> <span class="note">@${esc(p.username)}${p.public ? '' : ' · 🔒'}</span></div><div class="seg">${actions}</div></div>`;
   function renderSocial() {
     const box = $('social'); if (!box) return;
-    if (!logged) { box.innerHTML = '<h2 style="margin:0">Amigos</h2><p class="note">Entra con tu cuenta (en «Tu cuenta», más abajo) para seguir a tus amigos, ver a qué planes van y que Limón te recomiende también por lo que hacen.</p>'; return; }
+    if (!logged) { box.innerHTML = '<h2 style="margin:0">Amigos</h2><p class="note">Entra con tu cuenta (arriba, en «Entra o crea tu cuenta») para seguir a tus amigos, ver a qué planes van y que Limón te recomiende también por lo que hacen.</p>'; return; }
     const me = SOC.me;
     if (!me || !me.username || SOC.editing) {
       const ed = me && me.username;
@@ -1667,7 +1673,7 @@ function startApp(DATA, TAX, sync) {
         <label class="full">Detalles (opcional)<textarea class="search" name="body" rows="3" maxlength="1500" placeholder="Cuéntanos qué te gustaría y por qué, o qué ha fallado y dónde"></textarea></label>
         <div class="full" id="idea-sim">${IDEAS_SIM.length ? `<p class="note" style="margin:0">¿Es alguna de estas? Mejor vótala para que sume:</p>` + IDEAS_SIM.map(ideaRow).join('') : ''}</div>
         <div class="seg full"><button class="btn" type="submit">Enviar</button><span class="note" id="idea-msg" role="status"></span></div></form>`
-        : '<p class="note">Entra con tu cuenta (en «Tu cuenta», más abajo) para proponer ideas y votar.</p>'}
+        : '<p class="note">Entra con tu cuenta (arriba, en «Entra o crea tu cuenta») para proponer ideas y votar.</p>'}
       <div class="seg" role="tablist">${tabs.map(([k, l]) => `<button class="pill" data-idea-tab="${k}" aria-pressed="${IDEAS_TAB === k}">${l}</button>`).join('')}</div>
       <div>${list.slice(0, 40).map(ideaRow).join('') || '<p class="note">Aún no hay nada aquí. ¡Estrena el tablón!</p>'}</div>`;
   }
@@ -2293,12 +2299,12 @@ function startApp(DATA, TAX, sync) {
         const s = (e.unico ? 3 : 0) + (e.destacado ? 2 : 0) + (e.fuentes.length > 1 ? 1 : 0);
         items.push({ e, occ, s });  // en pueblos con pocos destacados, detrás van los demás por fecha
       }
-      items.sort((x, y) => zoneSort(x.e, y.e, y.s - x.s || x.occ.date - y.occ.date));
+      items.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, y.s - x.s || x.occ.date - y.occ.date));
       $('pt-h').textContent = 'Lo más destacado ' + ({ semana: 'esta semana', finde: 'este finde', mes: 'en los próximos 30 días' })[state.when];
       $('pt-lead').textContent = 'Aún no sabemos qué te gusta. Marca tus intereses y esta lista pasa a ser solo para ti.';
       logList(items.slice(0, state.ptShown).map(x => x.e.id));
       $('pt-list').innerHTML = avisoHoy() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + `<button class="btn" data-goto="intereses" data-fold="in-panel">Elegir mis intereses</button>` + friendsBlock(a, b) +
-        items.slice(0, state.ptShown).map(x => card(x.e, { occ: x.occ })).join('');
+        conSeccion(items.slice(0, state.ptShown), x => card(x.e, { occ: x.occ }));
       $('pt-more').hidden = items.length <= state.ptShown;
       document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));
       return;
@@ -2310,15 +2316,15 @@ function startApp(DATA, TAX, sync) {
       if (ZONE) sc.s -= Math.min(2, zkm(e) / 10);  // a igualdad de gustos, antes lo cercano
       items.push({ e, occ, sc });
     }
-    items.sort((x, y) => (y.sc.s - x.sc.s) || (x.occ.date - y.occ.date));
+    items.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || (y.sc.s - x.sc.s) || (x.occ.date - y.occ.date));
     const top = items.slice(0, state.ptShown);
-    const dated = top.filter(x => !x.occ.ongoing).sort((x, y) => x.occ.date - y.occ.date || y.sc.s - x.sc.s);
-    const going = top.filter(x => x.occ.ongoing).sort((x, y) => parse(x.e.fin) - parse(y.e.fin));
+    const dated = top.filter(x => !largo(x.e, x.occ)).sort((x, y) => x.occ.date - y.occ.date || y.sc.s - x.sc.s);
+    const going = top.filter(x => largo(x.e, x.occ)).sort((x, y) => parse(x.e.fin) - parse(y.e.fin));
     const label = { semana: 'esta semana', finde: 'este finde', mes: 'los próximos 30 días' }[state.when];
     $('pt-h').textContent = items.length ? `${items.length} planes para ti ${label}` : `Nada para ti ${label}`;
     $('pt-lead').textContent = items.length ? `Los ${top.length} que mejor encajan con tus intereses. Toca el título para ver más.` : 'Prueba con un rango más amplio o marca más intereses.';
     const html = (dated.length ? `<h2>Con fecha</h2>` + dated.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '') +
-      (going.length ? `<h2>En curso: exposiciones y ciclos</h2>` + going.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '');
+      (going.length ? SEC_LARGOS + going.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '');
     logList(top.map(x => x.e.id));
     $('pt-list').innerHTML = shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) + aiBlock() + (html ? '<h2>Todo lo que encaja</h2>' + html.replace('<h2>Con fecha</h2>', '') : '<div class="empty">No hay eventos que encajen con tus intereses en estas fechas.</div>');
     $('pt-more').hidden = items.length <= state.ptShown;
@@ -2349,7 +2355,7 @@ function startApp(DATA, TAX, sync) {
   function renderTaste() {
     if (document.activeElement !== $('ts-text')) $('ts-text').value = tasteText || '';
     $('ts-go').disabled = !logged;
-    if (!logged) $('ts-msg').textContent = 'Entra con tu cuenta (en «Tu cuenta», más abajo) para usarlo.';
+    if (!logged) $('ts-msg').textContent = 'Entra con tu cuenta (arriba, en «Entra o crea tu cuenta») para usarlo.';
     else if ($('ts-msg').textContent.startsWith('Entra')) $('ts-msg').textContent = '';
     if (!taste) { $('ts-out').innerHTML = ''; return; }
     const cats = (taste.categorias || []).slice().sort((a, b) => b.peso - a.peso);
@@ -2362,8 +2368,10 @@ function startApp(DATA, TAX, sync) {
   function setTaste(t) { taste = t; store.set('taste', taste); Object.keys(aiReco).forEach(k => delete aiReco[k]); }
 
   function renderUnicos() {
-    const list = EV.filter(e => e.unico && !isDismissed(e) && parse(e.fin) >= today && inZone(e)).sort((a, b) => zoneSort(a, b, a.inicio.localeCompare(b.inicio)));
-    $('un-list').innerHTML = list.map(e => card(e)).join('') || '<div class="empty">No hay planes únicos en las próximas semanas.</div>';
+    const list = EV.filter(e => e.unico && !isDismissed(e) && parse(e.fin) >= today && inZone(e))
+      .map(e => ({ e, occ: occurs(e, today, addDays(today, 400)) })).filter(x => x.occ)
+      .sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, x.occ.date - y.occ.date));
+    $('un-list').innerHTML = conSeccion(list, x => card(x.e, { occ: x.occ })) || '<div class="empty">No hay planes únicos en las próximas semanas.</div>';
   }
   function renderExplorar() {
     const q = $('ex-q').value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -2382,11 +2390,12 @@ function startApp(DATA, TAX, sync) {
       if (q) { const h = (e.titulo + ' ' + (e.lugar || '') + ' ' + (e.distrito || '') + ' ' + (e.serie || '') + ' ' + (e.temas || []).join(' ') + ' ' + e.cats.map(labelOf).join(' ') + ' ' + (e.descripcion || '')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); if (!h.includes(q)) continue; }
       res.push({ e, occ });
     }
-    res.sort((x, y) => zoneSort(x.e, y.e, x.occ.date - y.occ.date));
+    const hora = e => { const h = startHour(e); return h == null ? 99 : h; };
+    res.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, (x.occ.date - y.occ.date) || (hora(x.e) - hora(y.e))));
     const f = state.filter;
     $('ex-active').innerHTML = f ? `<button class="filterchip" id="ex-clear" aria-label="Quitar filtro">${esc(f.kind === 'cat' ? labelOf(f.value) : f.kind === 'id' ? f.label : f.value)} <span aria-hidden="true">✕</span></button>` : '';
     $('ex-count').textContent = res.length + (res.length === 1 ? ' evento' : ' eventos');
-    $('ex-list').innerHTML = (res.length ? zoneNote() : '') + (res.slice(0, state.exShown).map(x => card(x.e, { occ: x.occ })).join('') || '<div class="empty">Ningún evento con esos filtros.</div>');
+    $('ex-list').innerHTML = (res.length ? zoneNote() : '') + (conSeccion(res.slice(0, state.exShown), x => card(x.e, { occ: x.occ })) || '<div class="empty">Ningún evento con esos filtros.</div>');
     $('ex-more').hidden = res.length <= state.exShown;
   }
   function renderAgenda() {
@@ -2437,7 +2446,21 @@ function startApp(DATA, TAX, sync) {
         <div class="tablewrap"><table class="cov"><thead><tr><th>Web</th><th class="n">Veces</th><th>Ejemplo</th></tr></thead><tbody>${au.cands.map(c => `<tr><td>${esc(c.domain)}</td><td class="n">${c.hits}</td><td>${c.example_url ? `<a href="${esc(c.example_url)}" target="_blank" rel="noopener">${esc((c.example_title || c.example_url).slice(0, 70))}</a>` : ''}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
     }
   }
+  // Perfil: sin sesión, «Entra o crea tu cuenta» va arriba y abierto; con sesión, «Tu cuenta» (cerrar sesión, datos…) al final
+  function placeAccount() {
+    const acc = $('account'), first = $('taste'), last = $('mail'); if (!acc || !first || !last) return;
+    const h = acc.querySelector('h2');
+    if (!logged) {
+      if (acc.nextElementSibling !== first) first.before(acc);
+      acc.classList.add('open', 'top'); if (h) { h.textContent = 'Entra o crea tu cuenta'; h.setAttribute('aria-expanded', 'true'); }
+    } else {
+      if (acc.previousElementSibling !== last) last.after(acc);
+      if (acc.classList.contains('top')) { acc.classList.remove('top', 'open'); if (h) h.setAttribute('aria-expanded', 'false'); }
+      if (h) h.textContent = 'Tu cuenta';
+    }
+  }
   function renderAll() {
+    placeAccount();
     $('stamp').innerHTML = `<button class="citybtn" id="city-btn" aria-haspopup="dialog" aria-label="Cambiar de ciudad (ahora ${esc(CITY.name)})">${esc(CITY.name)} <span aria-hidden="true">▾</span></button> · ${(ZONE ? EV.filter(inZone).length : META.eventos).toLocaleString('es-ES')} eventos`;
     document.querySelectorAll('.n-unicos').forEach(n => { n.textContent = EV.filter(e => e.unico && parse(e.fin) >= today && inZone(e)).length || ''; });
     $('n-unicos').textContent = EV.filter(e => e.unico && parse(e.fin) >= today && inZone(e)).length || '';

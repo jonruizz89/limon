@@ -149,7 +149,7 @@ def probe(src, city):
 
 
 LABEL = {'ical': 'Calendario iCal', 'datos': 'Datos abiertos', 'jsonld': 'schema.org en la página', 'jsonld_fichas': 'schema.org en cada ficha',
-         'rss': 'RSS leído con IA', 'ia': 'Página leída con IA', 'kulturklik': 'API Kulturklik (Open Data Euskadi)'}
+         'rss': 'RSS leído con IA', 'ia': 'Página leída con IA', 'kulturklik': 'API Kulturklik (Open Data Euskadi)', 'barcelona': 'API Open Data BCN'}
 
 
 def main(cid, retry=False):
@@ -167,7 +167,7 @@ def main(cid, retry=False):
         cfg = dict(s.get('config') or {})
         if recipe:
             cfg.update(recipe); ok += 1
-            sb('PATCH', f'sources?id=eq.{s["id"]}', {'status': 'activa', 'active': True, 'method': LABEL[recipe['method']], 'config': cfg,
+            sb('PATCH', f'sources?id=eq.{s["id"]}', {'status': 'activa', 'active': True, 'method': LABEL.get(recipe['method'], 'API municipal'), 'config': cfg,
                                                      'events_last': len(ev), 'notes': None}, 'return=minimal')
             print(f'✓ {s["name"]}: {LABEL[recipe["method"]]} · {len(ev)} eventos · ej.: {ev[0]["titulo"][:60]} ({ev[0]["inicio"]})')
         else:

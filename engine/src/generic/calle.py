@@ -2,7 +2,8 @@
 
 Fuentes: Tráfico Euskadi (api.euskadi.eus/traffic), que publica las incidencias de cada ayuntamiento con fechas y coordenadas
 (Bilbao = 5, Vitoria-Gasteiz = 6, Donostia = 7), la web del Ayuntamiento de Gijón (cortes de tráfico y cambios de autobús)
-y los avisos de Renfe Cercanías de cada núcleo (Bilbao, San Sebastián, Asturias). Se queda con lo vigente o próximo (30 días) que afecta a la calle y reemplaza las filas
+los cortes de tráfico de datos abiertos del Ayuntamiento de Málaga
+y los avisos de Renfe Cercanías de cada núcleo (Bilbao, San Sebastián, Asturias, Málaga). Se queda con lo vigente o próximo (30 días) que afecta a la calle y reemplaza las filas
 de `closures` de esa ciudad. Las ocupaciones menores (contenedores, andamios, aleros, toldos…) se descartan.
 """
 import datetime as dt, html, json, re, sys
@@ -134,10 +135,56 @@ def gijon_rows(cid):
     return rows
 
 
+MALAGA = 'https://datosabiertos.malaga.eu/recursos/transporte/trafico/da_cortesTrafico-4326.geojson'
+
+
+def malaga_rows(cid):
+    """Málaga: cortes y ocupaciones de calzada del Ayuntamiento (datos abiertos, CC BY 4.0, GeoJSON con puntos)."""
+    st, _, txt, _ = fetch(MALAGA, accept='application/json', ua=UA_API)
+    if st != 200:
+        print('Málaga', st); return []
+    today = dt.date.today()
+    until = (today + dt.timedelta(days=30)).isoformat()
+    rows, minor = [], 0
+    def fecha(v):
+        m = re.match(r'(\d{1,2})/(\d{1,2})/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?', (v or '').strip())
+        if not m:
+            return None, None
+        d = f'{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}'
+        h = f'{int(m.group(4)):02d}:{m.group(5)}' if m.group(4) and f'{m.group(4)}:{m.group(5)}' not in ('0:00', '00:00', '23:59') else None
+        return d, h
+    for f in (json.loads(txt) or {}).get('features') or []:
+        pr = f.get('properties') or {}
+        ini, h1 = fecha(pr.get('DESDE'))
+        fin, h2 = fecha(pr.get('HASTA'))
+        fin = fin or ini
+        if not ini or fin < today.isoformat() or ini > until:
+            continue
+        afect = (pr.get('TIPOAFECTACION') or '').strip()
+        desc = re.sub(r'\s+', ' ', pr.get('DESCRIPCION') or '').strip()
+        if not desc or afect == 'Ocupación de estacionamiento' or (afect != 'Corte' and MINOR.search(fold(desc)) and not TRAFFIC.search(desc)):
+            minor += 1; continue
+        sts = streets_of(desc) or [titlecase((pr.get('DIRECCION') or '').strip().rstrip(',').strip())]
+        try:
+            lng, lat = (f.get('geometry') or {}).get('coordinates')[:2]
+            geom = {'pts': [{'p': [round(lat, 6), round(lng, 6)], 'n': sts[0] if sts else desc[:60]}], 'segs': []}
+        except (TypeError, ValueError):
+            geom = None
+        kind = 'evento' if EVENT.search(desc) else 'obras' if (pr.get('TIPOCORTE') or '').strip() == 'Obras' else 'otro'
+        title = (afect + ': ' if afect else '') + desc
+        rows.append({'city_id': cid, 'title': title[:110], 'kind': kind, 'summary': desc[:600], 'streets': [x for x in sts if x][:4], 'lines': [], 'stations': [],
+                     'district': None, 'ranges': [{'from': max(ini, today.isoformat()), 'to': fin, 'start': h1, 'end': h2, 'holidays': True, 'weekdays': []}],
+                     'source_url': 'https://callejero.malaga.eu/?gplayers=corte-trafico&gp=o', 'source_name': 'Ayuntamiento de Málaga (datos abiertos)', 'geom': geom})
+    print(f'{len(rows)} avisos vigentes o próximos · {minor} ocupaciones menores descartadas')
+    return rows
+
+
 def main(cid):
     city = load_city(cid)
     if cid == 'gijon':
         return save(cid, gijon_rows(cid), city)
+    if cid == 'malaga':
+        return save(cid, malaga_rows(cid), city)
     if cid not in SOURCES:
         print('Sin fuente de calle para', cid); return
     src, src_name = SOURCES[cid]
@@ -191,7 +238,7 @@ def main(cid):
 
 # Avisos de Renfe Cercanías (GTFS-RT público y sin clave). Madrid ya los recibe por el Consorcio (closures.py).
 RENFE = 'https://gtfsrt.renfe.com/alerts.json'
-NUCLEO = {'bilbao': '60', 'donostia': '61', 'gijon': '20'}
+NUCLEO = {'bilbao': '60', 'donostia': '61', 'gijon': '20', 'malaga': '32'}
 SOLO_ACCESIBILIDAD = re.compile(r'ascensor|escaleras? mec[aá]nica', re.I)
 
 

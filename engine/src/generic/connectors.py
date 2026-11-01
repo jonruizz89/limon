@@ -205,6 +205,79 @@ def gij_read(cfg, max_pages=40):
     return out
 
 
+# ---------- Barcelona · Open Data BCN (agenda diaria + agenda cultural del Ayuntamiento, CC BY 4.0)
+# Las descargas de archivo (CSV/JSON) devuelven 403, pero la API del almacén de datos (CKAN datastore) responde.
+BCN = 'https://opendata-ajuntament.barcelona.cat/data/api/action/datastore_search_sql'
+BCN_RES = ('877ccf66-9106-4ae2-be51-95a9f6469e4c', '3abb2414-1ee0-446e-9c25-380e938adb73')  # agenda diaria, agenda cultural
+BCN_COLS = ('register_id,name,start_date,end_date,timetable,addresses_road_name,addresses_start_street_number,'
+            'addresses_district_name,addresses_neighborhood_name,geo_epgs_4326_lat,geo_epgs_4326_lon')
+
+
+def bcn_match(city):
+    return {'method': 'barcelona'} if fold(city.get('name')) == 'barcelona' else None
+
+
+def _bcn_horario(t):
+    """Del cuadro de horarios (HTML): hora de inicio si solo hay una, y el precio."""
+    filas = re.findall(r'<tr(?![^>]*header)[^>]*>(.*?)</tr>', t or '', re.S)
+    horas, precios = set(), []
+    for f in filas:
+        cel = [_clean(c) for c in re.findall(r'<td[^>]*>(.*?)</td>', f, re.S)]
+        if len(cel) >= 2:
+            m = re.search(r'(\d{1,2})[.:](\d{2})', cel[1])
+            if m:
+                horas.add(f'{int(m.group(1)):02d}:{m.group(2)}')
+        if len(cel) >= 3 and cel[2]:
+            precios.append(cel[2])
+    txt = ' '.join(precios)
+    gratis = bool(re.search(r'gratu[iï]t|entrada lliure|acc[eé]s lliure|gratis|entrada libre', fold(txt)))
+    m = re.search(r'(\d+(?:[.,]\d+)?)\s*€', txt)
+    precio = 'Gratis' if gratis and not m else (f'{m.group(1).replace(".", ",")} €' if m else None)
+    return (next(iter(horas)) if len(horas) == 1 else None), precio, gratis
+
+
+def bcn_read(cfg, max_rows=20000):
+    hoy = dt.date.today().isoformat()
+    out, vistos = [], set()
+    for res in BCN_RES:
+        off = 0
+        while off < max_rows:
+            sql = (f'SELECT {BCN_COLS} FROM "{res}" WHERE end_date >= \'{hoy}\' ORDER BY _id LIMIT 1000 OFFSET {off}')
+            for intento in range(3):
+                st, _, txt, _ = fetch(f'{BCN}?{urllib.parse.urlencode({"sql": sql})}', accept=JSON, ua=UA_API)
+                if st == 200:
+                    break
+                time.sleep(5 * (intento + 1))
+            if st != 200:
+                print(f'  Barcelona: {res[:8]} desde {off} sin respuesta ({st})')
+                break
+            recs = (json.loads(txt).get('result') or {}).get('records') or []
+            for e in recs:
+                rid = (e.get('register_id') or '').lstrip('\ufeff').strip()
+                name = _clean(e.get('name'))
+                ini, fin = (e.get('start_date') or '')[:10], (e.get('end_date') or e.get('start_date') or '')[:10]
+                if not rid or rid in vistos or not name or not ini:
+                    continue
+                vistos.add(rid)
+                hora, precio, gratis = _bcn_horario(e.get('timetable'))
+                try:
+                    lat, lng = float(e.get('geo_epgs_4326_lat')), float(e.get('geo_epgs_4326_lon'))
+                except (TypeError, ValueError):
+                    lat = lng = None
+                calle = ' '.join(x for x in [_clean(e.get('addresses_road_name')), _clean(e.get('addresses_start_street_number'))] if x)
+                web = f'https://guia.barcelona.cat/es/detall/{rid}_{rid}.html'
+                out.append({
+                    'titulo': name[:300], 'descripcion': '', 'inicio': ini, 'fin': max(ini, fin),
+                    'hora': hora if ini == fin else None, 'lugar': None, 'direccion': calle or None,
+                    'lat': lat, 'lng': lng, 'distrito': _clean(e.get('addresses_district_name')) or None,
+                    'precio': precio, 'gratis': gratis, 'imagen': None, 'web_organizador': web, 'url': web,
+                })
+            if len(recs) < 1000:
+                break
+            off += 1000
+    return out
+
+
 CONNECTORS = {
     'kulturklik': {'name': 'Kulturklik · Agenda cultural de Euskadi', 'url': 'https://www.kulturklik.euskadi.eus/', 'layer': 'regional',
                    'license': 'Open Data Euskadi (CC BY 4.0)', 'match': kk_match, 'read': kk_read},
@@ -212,6 +285,8 @@ CONNECTORS = {
                  'layer': 'municipal', 'license': 'Datos abiertos del Ayuntamiento de Zaragoza (CC BY 4.0)', 'match': zgz_match, 'read': zgz_read},
     'gijon': {'name': 'Agenda del Ayuntamiento de Gijón/Xixón', 'url': 'https://www.gijon.es/es/eventos', 'layer': 'municipal',
               'license': 'Enlace a la ficha original', 'match': gij_match, 'read': gij_read},
+    'barcelona': {'name': 'Agenda de Barcelona (Open Data BCN: agenda diaria y cultural)', 'url': 'https://guia.barcelona.cat/es/agenda',
+                  'layer': 'municipal', 'license': 'Open Data BCN (CC BY 4.0)', 'match': bcn_match, 'read': bcn_read},
 }
 
 

@@ -2,8 +2,8 @@
 
 Fuentes: Tráfico Euskadi (api.euskadi.eus/traffic), que publica las incidencias de cada ayuntamiento con fechas y coordenadas
 (Bilbao = 5, Vitoria-Gasteiz = 6, Donostia = 7), la web del Ayuntamiento de Gijón (cortes de tráfico y cambios de autobús)
-los cortes de tráfico de datos abiertos del Ayuntamiento de Málaga
-y los avisos de Renfe Cercanías de cada núcleo (Bilbao, San Sebastián, Asturias, Málaga). Se queda con lo vigente o próximo (30 días) que afecta a la calle y reemplaza las filas
+los cortes de tráfico de datos abiertos del Ayuntamiento de Málaga, las obras en la vía pública de Open Data BCN
+y los avisos de Renfe Cercanías de cada núcleo (Bilbao, San Sebastián, Asturias, Málaga, Rodalies de Barcelona). Se queda con lo vigente o próximo (30 días) que afecta a la calle y reemplaza las filas
 de `closures` de esa ciudad. Las ocupaciones menores (contenedores, andamios, aleros, toldos…) se descartan.
 """
 import datetime as dt, html, json, re, sys
@@ -179,8 +179,50 @@ def malaga_rows(cid):
     return rows
 
 
+BCN_OBRES = 'https://opendata-ajuntament.barcelona.cat/data/api/action/datastore_search_sql'
+BCN_OBRES_RES = '4e6b3bfe-2f47-4d35-aa7d-3e4bcc930cea'  # obras en el espacio público (el CSV no se descarga: 403; la API sí responde)
+
+
+def bcn_rows(cid):
+    """Barcelona: obras en ejecución en la vía pública (Open Data BCN, CC BY 4.0), con su polígono."""
+    import urllib.parse
+    today = dt.date.today()
+    until = (today + dt.timedelta(days=30)).isoformat()
+    sql = (f'SELECT codi,titol,descripcio,ubicacio,tipusobra,estat,data_inici,data_fi,nom_districte,url_web_obres,geometria_wgs84 '
+           f'FROM "{BCN_OBRES_RES}" WHERE estat <> \'Finalitzada\' AND data_fi >= \'{today.isoformat()}\' AND data_inici <= \'{until}\' LIMIT 2000')
+    st, _, txt, _ = fetch(f'{BCN_OBRES}?{urllib.parse.urlencode({"sql": sql})}', accept='application/json', ua=UA_API)
+    if st != 200:
+        print('Barcelona', st); return []
+    rows = []
+    for o in (json.loads(txt).get('result') or {}).get('records') or []:
+        ini, fin = (o.get('data_inici') or '')[:10], (o.get('data_fi') or '')[:10]
+        if not ini or not fin:
+            continue
+        ubic = nice(o.get('ubicacio') or '').strip(' ,')
+        ubic = re.sub(r',?\s*(Ciutat Vella|Eixample|Sants-Montju[iï]c|Les Corts|Sarri[aà]-Sant Gervasi|Gr[aà]cia|Horta-Guinard[oó]|Nou Barris|Sant Andreu|Sant Mart[ií])?,?\s*\d{5}\s*Barcelona.*$', '', ubic)
+        ubic = re.sub(r',\s*9999$', '', ubic)
+        tipo = (o.get('tipusobra') or '').strip()
+        desc = re.sub(r'\s+', ' ', ' '.join(x for x in [o.get('titol') or '', o.get('descripcio') or ''] if x)).strip()
+        pts = [(float(b), float(a)) for a, b in re.findall(r'(-?\d+\.\d+)\s+(-?\d+\.\d+)', o.get('geometria_wgs84') or '')]
+        geom = None
+        if pts:
+            lat, lng = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+            geom = {'pts': [{'p': [round(lat, 6), round(lng, 6)], 'n': ubic[:60] or tipo}], 'segs': []}
+        summary = f'{tipo}. {ubic}. {desc}'.strip(' .')
+        rows.append({'city_id': cid, 'title': (f'Obras ({tipo.lower()}) en {ubic}' if ubic else desc or tipo)[:110], 'kind': 'obras',
+                     'summary': summary[:600], 'streets': [ubic[:80]] if ubic else [], 'lines': [], 'stations': [],
+                     'district': (o.get('nom_districte') or '').strip() or None,
+                     'ranges': [{'from': max(ini, today.isoformat()), 'to': fin, 'start': None, 'end': None, 'holidays': True, 'weekdays': []}],
+                     'source_url': (o.get('url_web_obres') or 'https://ajuntament.barcelona.cat/obres/').replace('http://', 'https://'),
+                     'source_name': 'Ayuntamiento de Barcelona (Open Data BCN)', 'geom': geom})
+    print(f'{len(rows)} obras en ejecución o próximas')
+    return rows
+
+
 def main(cid):
     city = load_city(cid)
+    if cid == 'barcelona':
+        return save(cid, bcn_rows(cid), city)
     if cid == 'gijon':
         return save(cid, gijon_rows(cid), city)
     if cid == 'malaga':
@@ -238,7 +280,7 @@ def main(cid):
 
 # Avisos de Renfe Cercanías (GTFS-RT público y sin clave). Madrid ya los recibe por el Consorcio (closures.py).
 RENFE = 'https://gtfsrt.renfe.com/alerts.json'
-NUCLEO = {'bilbao': '60', 'donostia': '61', 'gijon': '20', 'malaga': '32'}
+NUCLEO = {'bilbao': '60', 'donostia': '61', 'gijon': '20', 'malaga': '32', 'barcelona': '51'}
 SOLO_ACCESIBILIDAD = re.compile(r'ascensor|escaleras? mec[aá]nica', re.I)
 
 
@@ -267,7 +309,7 @@ def renfe_rows(cid):
         fin = dt.datetime.fromtimestamp(int(p['end'])).date() if p.get('end') else today + dt.timedelta(days=7)
         if fin < today:
             continue
-        lineas = sorted({m.group(1) for r in rutas if r.startswith(nuc + 'T') for m in [re.search(r'(C\d+[a-z]?)$', r)] if m})
+        lineas = sorted({m.group(1) for r in rutas if r.startswith(nuc + 'T') for m in [re.search(r'((?:C|R|RG|RL|RT)\d+[a-zN]?)$', r)] if m})
         if len(lineas) >= 4:
             lineas = []  # el aviso va a todas las líneas del núcleo: es de una estación o general, no de una línea
         m = re.match(r'([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ \-/]{2,40})[:.]\s*(.*)', t)
@@ -278,7 +320,8 @@ def renfe_rows(cid):
             m2 = re.search(r'estaci[oó]n de ([A-ZÁÉÍÓÚÑ][\w\-]+(?: [A-ZÁÉÍÓÚÑ][\w\-]+)?)', t)
             estacion = m2.group(1) if m2 else None
         frase = re.split(r'(?<=[.;])\s', cuerpo, 1)[0].rstrip('.;')
-        titulo = ('Cercanías ' + '/'.join(lineas[:3]) + ' · ' if lineas else 'Cercanías · ') + (estacion + ': ' if estacion and estacion not in frase else '') + frase
+        red = 'Rodalies' if nuc == '51' else 'Cercanías'
+        titulo = (red + ' ' + '/'.join(lineas[:3]) + ' · ' if lineas else red + ' · ') + (estacion + ': ' if estacion and estacion not in frase else '') + frase
         titulo = titulo if len(titulo) <= 110 else titulo[:107].rsplit(' ', 1)[0] + '…'
         if titulo.lower() in vistos:
             continue
@@ -286,7 +329,8 @@ def renfe_rows(cid):
         out.append({'city_id': cid, 'title': titulo, 'kind': 'cercanias', 'summary': t[:600], 'streets': [], 'lines': lineas,
                     'stations': [estacion] if estacion else [], 'district': None,
                     'ranges': [{'from': max(ini, today).isoformat(), 'to': fin.isoformat(), 'start': None, 'end': None, 'holidays': True, 'weekdays': []}],
-                    'source_url': 'https://www.renfe.com/es/es/cercanias', 'source_name': 'Renfe Cercanías', 'geom': None})
+                    'source_url': 'https://rodalies.gencat.cat/' if nuc == '51' else 'https://www.renfe.com/es/es/cercanias',
+                    'source_name': 'Rodalies de Catalunya' if nuc == '51' else 'Renfe Cercanías', 'geom': None})
     print(f'{len(out)} avisos de Renfe Cercanías')
     return out
 

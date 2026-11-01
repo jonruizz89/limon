@@ -53,14 +53,14 @@ jobs:
             engine/raw/osm_ways.json
           key: closures-${{ github.run_id }}
 
-  # resto de ciudades con fuente de calle (motor genérico): ayuntamientos de Bilbao, Vitoria-Gasteiz y Donostia (Tráfico Euskadi), Gijón (web municipal) y Málaga (datos abiertos)
+  # resto de ciudades con fuente de calle (motor genérico): ayuntamientos de Bilbao, Vitoria-Gasteiz y Donostia (Tráfico Euskadi), Gijón (web municipal), Málaga y Barcelona (datos abiertos)
   otras:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        city: [bilbao, vitoria, donostia, gijon, malaga]
+        city: [bilbao, vitoria, donostia, gijon, malaga, barcelona]
     defaults:
       run:
         working-directory: engine/src/generic
@@ -74,5 +74,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET: ${{ secrets.SUPABASE_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          BUREO_CITY_MAX_USD: "0.2"
+          BUREO_CITY_MAX_USD: "0.5"
         run: python3 calle.py ${{ matrix.city }}

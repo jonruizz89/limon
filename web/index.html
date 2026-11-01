@@ -1778,7 +1778,7 @@ function startApp(DATA, TAX, sync) {
   // ---------- selector de zona: primero provincia (o ciudad), luego «Toda la provincia» o un municipio
   function zoneGroups() {
     const isAdm = me && me.role === 'admin', all = DATA.cities || [];
-    const vis = c => c.status === 'publicada' || isAdm || c.id === CITY.id;
+    const vis = c => c.status === 'publicada' || c.id === CITY.id;  // los borradores no salen en el selector (tampoco al admin): se previsualizan con ?c=<id>
     const groups = [];
     for (const c of all.filter(x => !x.parent || !all.some(p => p.id === x.parent && vis(p)))) {
       if (!vis(c)) continue;
@@ -1825,7 +1825,7 @@ function startApp(DATA, TAX, sync) {
       <label class="note" id="zone-m-wrap" style="display:flex;flex-direction:column;gap:4px">Municipio
         <select class="search" id="zone-m"></select></label>
       <div class="seg"><button class="btn" data-zone-go>Ver planes</button><button class="btn ghost" data-zone-locate>📍 Donde estoy</button></div>
-      <p class="note" style="margin:0">Tus intereses, tu agenda y tus amigos son los mismos en todas las zonas.${isAdm ? ' Las zonas en borrador solo las ves tú.' : ''} De momento: Madrid, Barcelona, Euskadi (Bizkaia, Gipuzkoa y Araba), Zaragoza y Gijón; iremos añadiendo más.</p>`);
+      <p class="note" style="margin:0">Tus intereses, tu agenda y tus amigos son los mismos en todas las zonas.${isAdm && (DATA.cities || []).some(c => c.status !== 'publicada') ? ' Zonas en borrador (solo con enlace): ' + (DATA.cities || []).filter(c => c.status !== 'publicada').map(c => `<a href="?c=${esc(c.id)}">${esc(c.name)}</a>`).join(', ') + '.' : ''} De momento: Madrid, Barcelona, Euskadi (Bizkaia, Gipuzkoa y Araba), Zaragoza y Gijón; iremos añadiendo más.</p>`);
     const fill = () => {
       const g = groups.find(x => x.id === $('zone-p').value) || groups[0];
       $('zone-m').innerHTML = g.options.map(o => `<option value="${esc(o.v)}" ${o.v === zone ? 'selected' : ''}>${esc(o.t)}</option>`).join('');

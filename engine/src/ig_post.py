@@ -27,7 +27,17 @@ def probar_facebook():
     global API
     API = 'https://graph.facebook.com/v21.0'
     me = get('me', fields='id,name')
-    print('Token de Facebook de:', me.get('name'), '·', me.get('id'))
+    print('Token de Facebook de:', me.get('name'), '·', me.get('id'), '·', sorted(me))
+    dbg = get('debug_token', input_token=tok).get('data', {})
+    print('Tipo:', dbg.get('type'), '· válido:', dbg.get('is_valid'), '· caduca:', dbg.get('expires_at'), '· permisos:', dbg.get('scopes'))
+    ids = sorted({i for g in dbg.get('granular_scopes') or [] for i in g.get('target_ids') or []})
+    print('Cuentas asignadas:', ids)
+    for i in ids:
+        try:
+            info = get(i, fields='id,username,followers_count,media_count')
+            print('  →', json.dumps(info, ensure_ascii=False))
+        except SystemExit as e:
+            print('  →', i, str(e)[:150])
     for path, f in (('me/accounts', 'name,instagram_business_account{id,username,followers_count,media_count}'),
                     ('me/instagram_accounts', 'id,username')):
         try:

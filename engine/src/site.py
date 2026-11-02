@@ -509,7 +509,7 @@ for cuenta, zid, nombre, tags in CUENTAS:
         txt = re.sub(r'\s+', ' ', e.get('description') or '').strip()
         if len(txt) > 220:
             txt = txt[:217].rsplit(' ', 1)[0] + '…'
-        ls = [f"{ico(e)} {e['title']}", f"🗓️ {dia}{' · ' + h if h else ''}", f"📍 {sitio_corto(e['lugar']) if e['lugar'] else z['name']}"]
+        ls = [f"{ico(e)} {e['title']}", f"🗓️ {dia}{' · ' + h if h else ''}", f"📍 {e['lugar'].strip(' .') if e['lugar'] else z['name']}"]
         if precio:
             ls.append(f"🎟️ {precio}")
         if txt:

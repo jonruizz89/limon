@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 const WEB = path.resolve(process.argv[2] || '../web');
 const DIR = path.join(WEB, 'redes');
 const lista = JSON.parse(fs.readFileSync(path.join(DIR, 'redes.json'), 'utf8'));
+const V = Date.now().toString(36);  // las imágenes cambian cada día con el mismo nombre: sin esto el navegador enseña las de ayer junto al texto de hoy
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const browser = await chromium.launch();
@@ -49,9 +50,9 @@ for (const r of lista) {
     reel = true;
   } catch (e) { console.log(`${r.cuenta}: sin reel (${e.message.slice(0, 120)})`); }
   const imgs = Array.from({ length: r.slides }, (_, i) =>
-    `<a href="s${i}.png" download="limon-${r.cuenta}-${i + 1}.png"><img src="s${i}.png" alt="Imagen ${i + 1}" loading="lazy"></a>`).join('');
+    `<a href="s${i}.png?v=${V}" download="limon-${r.cuenta}-${i + 1}.png"><img src="s${i}.png?v=${V}" alt="Imagen ${i + 1}" loading="lazy"></a>`).join('');
   // pie de cada foto (Instagram permite un texto por imagen del carrusel)
-  const pies = (r.pies || []).map((t, i) => `<div class="pie"><img src="s${i}.png" alt=""><div><b>Foto ${i + 1}</b><textarea readonly id="p${i}">${esc(t)}</textarea>
+  const pies = (r.pies || []).map((t, i) => `<div class="pie"><img src="s${i}.png?v=${V}" alt=""><div><b>Foto ${i + 1}</b><textarea readonly id="p${i}">${esc(t)}</textarea>
     <button class="cp" data-t="p${i}">Copiar pie ${i + 1}</button></div></div>`).join('');
   fs.writeFileSync(path.join(dir, 'index.html'), `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>Post de ${esc(r.nombre)} · ${esc(r.rango)}</title>
@@ -63,7 +64,7 @@ button{font:600 16px system-ui;background:#231D02;color:#FFD43B;border:0;border-
 <body><h1>🍋 Este finde en ${esc(r.nombre)} · ${esc(r.rango)}</h1>
 <p>Toca cada imagen para descargarla (en el móvil: mantén pulsado → Guardar imagen). Súbelas en este orden como carrusel.</p>
 <div class="g">${imgs}</div>
-${reel ? `<h2>Reel</h2><p>Vídeo vertical con las mismas tarjetas. Al subirlo, añade una canción desde la biblioteca de Instagram y usa el mismo texto.</p><video src="reel.mp4" controls playsinline muted style="width:60%;max-width:300px;border-radius:12px;display:block"></video><p><a href="reel.mp4" download="limon-${r.cuenta}-reel.mp4">Descargar el reel</a></p>` : ''}
+${reel ? `<h2>Reel</h2><p>Vídeo vertical con las mismas tarjetas. Al subirlo, añade una canción desde la biblioteca de Instagram y usa el mismo texto.</p><video src="reel.mp4?v=${V}" controls playsinline muted style="width:60%;max-width:300px;border-radius:12px;display:block"></video><p><a href="reel.mp4?v=${V}" download="limon-${r.cuenta}-reel.mp4">Descargar el reel</a></p>` : ''}
 <h2>Texto del post</h2><textarea id="t" readonly>${esc(r.texto)}</textarea>
 <button class="cp" data-t="t">Copiar texto</button>
 ${pies ? `<h2>Texto de cada foto</h2><p>Al subir el carrusel, toca cada foto y pega su texto (opcional: el texto del post de arriba sigue valiendo para todo).</p>${pies}` : ''}

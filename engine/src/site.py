@@ -304,7 +304,7 @@ def sitio_corto(t):
 
 def corto(e, vie):
     a = d(e['starts_on'])
-    dia = DIAS[max(a, vie).weekday()][:3] if not e['largo'] else 'todo el finde'
+    dia = DIAS[max(a, vie).weekday()][:3] if not e['largo'] and a >= vie else 'todo el finde'
     h = e.get('time_text') if e.get('time_text') and len(e['time_text']) < 12 and not e['largo'] else ''
     return f"{dia}{' ' + h if h else ''}"
 
@@ -533,14 +533,16 @@ for cuenta, zid, nombre, tags in CUENTAS:
         def hora(e):
             return e.get('time_text') if e.get('time_text') and len(e['time_text']) <= 12 and not e['largo'] else ''
         def pie_bi(e, es):
-            # el título y la descripción van una sola vez (en el idioma de la fuente); la fecha, el lugar y el precio, en los dos
+            # título, lugar y descripción una sola vez (en el idioma de la fuente); fecha y precio, en catalán y en castellano
             cab, _, resto = es.partition('\n')
             info_es, _, desc = resto.partition('\n\n')
+            lugar = next((l for l in info_es.split('\n') if l.startswith('📍')), '')
+            es_ = '\n'.join(l for l in info_es.split('\n') if not l.startswith('📍'))
             h = hora(e)
+            dca = dia_ca(e)
             precio = 'Gratuït' if e.get('is_free') else (e.get('price_text') or '') if len(e.get('price_text') or '') <= 40 else ''
-            ca = [f"🗓️ {dia_ca(e).capitalize() if dia_ca(e)[0].islower() else dia_ca(e)}{' · ' + h if h else ''}",
-                  f"📍 {e['lugar'].strip(' .') if e['lugar'] else z['name']}"] + ([f"🎟️ {precio}"] if precio else [])
-            return '\n'.join([cab, '\n'.join(ca), '', info_es] + (['', desc] if desc else []))
+            ca = '\n'.join([f"🗓️ {dca[0].upper() + dca[1:]}{' · ' + h if h else ''}"] + ([f"🎟️ {precio}"] if precio else []))
+            return '\n'.join([cab, lugar, '', ca, '', es_] + (['', desc] if desc else []))
         pies = ([f"🍋 {len(sel)} plans per aquest cap de setmana a Barcelona ({rango}). Llisca 👉\n\n" + pies[0]] +
                 [pie_bi(e, t) for e, t in zip(sel, pies[1:-1])] +
                 ["✌️ I molts més: tots els plans de Barcelona, amb mapa, filtres i la teva agenda, gratis a limonplanes.com (enllaç a la bio) 🍋\n\n" + pies[-1]])

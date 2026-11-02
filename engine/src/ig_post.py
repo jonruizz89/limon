@@ -7,6 +7,8 @@ import json, os, sys, urllib.error, urllib.parse, urllib.request
 
 API = 'https://graph.instagram.com'
 cuenta, modo = sys.argv[1], (sys.argv[2] if len(sys.argv) > 2 else 'yo')
+# identificador de cada cuenta de Instagram en Meta (no es secreto); el token «unified login» (EAA…) no deja buscarlo
+IG_ID = {'madrid': '17841416628695228'}
 tok = (os.environ.get(f'IG_{cuenta.upper()}_TOKEN') or '').strip()
 if not tok:
     sys.exit(f'Falta el secreto IG_{cuenta.upper()}_TOKEN')
@@ -55,6 +57,19 @@ def probar_facebook():
 
 if modo == 'yo':  # solo forma, nunca el contenido
     print(f'Token: {len(tok)} caracteres, empieza por «{tok[:3]}», solo letras y números: {tok.isalnum()}')
+if modo == 'yo' and IG_ID.get(cuenta) and not tok.startswith('IG'):
+    for host in ('https://graph.facebook.com/v21.0', 'https://graph.instagram.com/v21.0'):
+        API = host
+        try:
+            me = get(IG_ID[cuenta], fields='id,username,followers_count,media_count')
+            print(f"Token correcto ({host.split('/')[2]}): @{me.get('username')} · {me.get('media_count')} publicaciones · {me.get('followers_count')} seguidores")
+            lim = get(f"{IG_ID[cuenta]}/content_publishing_limit", fields='quota_usage,config')
+            print('Límite de publicación (24 h):', json.dumps(lim.get('data', lim), ensure_ascii=False)[:200])
+            sys.exit(0)
+        except SystemExit as e:
+            if e.code == 0:
+                raise
+            print(host.split('/')[2], '→', str(e)[:200])
 if modo == 'yo' and not tok.startswith('IG'):
     print('El token no es de «Instagram Login» (no empieza por IG): pruebo como token de Facebook')
     probar_facebook()

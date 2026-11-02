@@ -73,7 +73,7 @@ ${pies ? `<h2>Texto de cada foto</h2><p>Al subir el carrusel, toca cada foto y p
 <script>document.querySelectorAll('.cp').forEach(b=>b.onclick=async()=>{const t=document.getElementById(b.dataset.t);try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand('copy')}b.textContent='¡Copiado!'})</script>
 </body></html>`);
   // lo que publica engine/src/ig_post.py (carrusel automático)
-  fs.writeFileSync(path.join(dir, 'post.json'), JSON.stringify({ cuenta: r.cuenta, nombre: r.nombre, rango: r.rango, slides: r.slides, texto: r.texto, pies: r.pies || [], v: V, reel }));
+  fs.writeFileSync(path.join(dir, 'post.json'), JSON.stringify({ cuenta: r.cuenta, nombre: r.nombre, rango: r.rango, slides: r.slides, texto: r.texto, pies: r.pies || [], tags: r.tags || [], v: V, reel }));
   console.log(`${r.cuenta}: ${r.slides} imágenes`);
 }
 const links = lista.map(r => `<li><a href="${r.cuenta}/">${esc(r.nombre)}</a> · ${esc(r.rango)}</li>`).join('');

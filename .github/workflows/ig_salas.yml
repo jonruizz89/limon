@@ -1,0 +1,31 @@
+name: Instagram de los lugares
+
+# Propone la cuenta de Instagram oficial de los lugares con planes próximos (para etiquetarlos en los carruseles).
+# Quedan como «propuesta»; solo se etiquetan cuando Jon las confirma (venues.instagram_estado = 'ok').
+on:
+  schedule:
+    - cron: "23 8 * * 2,3"   # martes y miércoles por la mañana, antes del carrusel del jueves
+  workflow_dispatch:
+    inputs:
+      max:
+        description: "Máximo de lugares a mirar"
+        default: "60"
+
+permissions:
+  contents: read
+
+jobs:
+  buscar:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine/src/generic
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET: ${{ secrets.SUPABASE_SECRET }}
+        run: python3 ig_salas.py ${{ inputs.max || '60' }}

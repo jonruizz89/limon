@@ -118,14 +118,18 @@ if modo == 'carrusel':
     print(f"Carrusel de @{cuenta} · {p['nombre']} · {p['rango']} · {len(imgs)} imágenes · texto de {len(texto)} caracteres")
     print(texto[:600] + ('…' if len(texto) > 600 else ''))
     if os.environ.get('IG_DRY') == '1':
+        print('Etiquetas:', ', '.join(f'foto {i + 1}: @{t}' for i, t in enumerate(p.get('tags') or []) if t) or 'ninguna')
         for u in imgs:  # comprobar que las imágenes existen antes de un día de verdad
             with urllib.request.urlopen(u, timeout=60) as r:
                 assert r.status == 200 and r.headers.get('Content-Type', '').startswith('image/jpeg'), u
         print('Prueba: no se publica nada (IG_DRY=1). Las imágenes están accesibles.')
         sys.exit(0)
+    tags = (p.get('tags') or []) + [None] * len(imgs)
+    print('Etiquetas:', ', '.join(f'foto {i + 1}: @{t}' for i, t in enumerate(tags[:len(imgs)]) if t) or 'ninguna')
     hijos = []
-    for u in imgs:
-        hijos.append(post(f'{uid}/media', image_url=u, is_carousel_item='true')['id'])
+    for u, t in zip(imgs, tags):
+        extra = {'user_tags': json.dumps([{'username': t, 'x': 0.5, 'y': 0.85}])} if t else {}
+        hijos.append(post(f'{uid}/media', image_url=u, is_carousel_item='true', **extra)['id'])
     for h in hijos:
         esperar(h)
     car = post(f'{uid}/media', media_type='CAROUSEL', children=','.join(hijos), caption=texto)['id']

@@ -71,7 +71,7 @@ REDES_Z = {c['id']: {k: (c.get('features') or {}).get(k) for k in ('instagram', 
 groups = {g['id']: g['name'] for g in get('category_groups?select=id,name&order=position') if g['id'] != 'otros'}
 cats = {c['id']: c for c in get('categories?select=id,group_id,label&order=position')}
 cols = ('id,city_id,title,description,details,starts_on,ends_on,time_text,district,price_text,is_free,image_url,organizer_url,lat,lng,is_unique,ai_unique,'
-        'venues(name),event_categories(category_id),event_sources(url,sources(name,license))')
+        'venues(name,instagram,instagram_estado),event_categories(category_id),event_sources(url,sources(name,license))')
 ids = ','.join(c['id'] for c in cities)
 evs = get(f'events?select={cols}&city_id=in.({ids})&ends_on=gte.{HOY.isoformat()}&starts_on=lte.{HASTA_FICHA.isoformat()}&order=starts_on,id')
 print(len(evs), 'eventos;', len(cities), 'zonas publicadas')
@@ -79,6 +79,8 @@ byc = {c['id']: c for c in cities}
 for e in evs:
     e['grupos'] = sorted({cats[c['category_id']]['group_id'] for c in e.get('event_categories') or [] if c['category_id'] in cats} & set(groups), key=list(groups).index)
     e['lugar'] = (e.get('venues') or {}).get('name')
+    ve = e.get('venues') or {}
+    e['ig'] = ve.get('instagram') if ve.get('instagram_estado') == 'ok' else None  # se etiqueta en el carrusel
     e['url'] = f"/evento/{e['id']}-{slug(e['title'])}/"
     e['largo'] = (d(e['ends_on']) - d(e['starts_on'])).days > 6
     e['img'] = e['image_url'] if OFICIAL.match(e.get('image_url') or '') else ''
@@ -552,7 +554,7 @@ for cuenta, zid, nombre, tags in CUENTAS:
                     "\n\n🔒 Desa't aquest carrusel per quan toqui decidir pla i comparteix-lo amb qui sempre et pregunta «què fem aquest cap de setmana?»")
         cuerpo_es = texto.rsplit('\n\n', 1)[0]
         texto = f"{texto_ca}\n\n—\n\n{cuerpo_es}\n\n{tags}"
-    REDES.append({'cuenta': cuenta, 'nombre': nombre, 'rango': rango, 'slides': len(sel) + 2, 'texto': texto, 'pies': pies, 'enlace': f"{BASE}/planes/{zid}/este-finde/"})
+    REDES.append({'cuenta': cuenta, 'nombre': nombre, 'rango': rango, 'slides': len(sel) + 2, 'texto': texto, 'pies': pies, 'tags': [None] + [e.get('ig') for e in sel] + [None], 'enlace': f"{BASE}/planes/{zid}/este-finde/"})
 if REDES:
     json.dump(REDES, open(os.path.join(WEB, 'redes', 'redes.json'), 'w', encoding='utf-8'), ensure_ascii=False)
 print(len(REDES), 'carruseles para redes')

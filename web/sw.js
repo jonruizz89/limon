@@ -24,6 +24,18 @@ async function networkFirst(req, fallbackUrl, fresh) {
     return (await c.match(req)) || (fallbackUrl && (await c.match(fallbackUrl))) || Response.error();
   }
 }
+// planes del día (datos/eventos-<zona>.json?d=<fecha>): primero la red; se guarda una sola copia por zona (sin la fecha),
+// para abrir sin cobertura con los últimos planes y sin acumular un archivo por día
+async function datos(req) {
+  const c = await caches.open(VERSION), key = req.url.split('?')[0];
+  try {
+    const r = await fetch(req);
+    if (r && r.ok) c.put(key, r.clone());
+    return r;
+  } catch (e) {
+    return (await c.match(key)) || Response.error();
+  }
+}
 async function staleWhileRevalidate(req) {
   const c = await caches.open(VERSION), hit = await c.match(req);
   const fresh = fetch(req).then((r) => { if (r && r.ok) c.put(req, r.clone()); return r; }).catch(() => hit);
@@ -42,6 +54,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const u = new URL(req.url);
   if (req.mode === 'navigate') { e.respondWith(networkFirst(req, 'index.html', true)); return; }
+  if (u.origin === self.location.origin && u.pathname.includes('/datos/')) { e.respondWith(datos(req)); return; }
   if (u.origin === self.location.origin) {
     // código (html, js): siempre la última versión si hay red, para que la página y su código no se desfasen
     e.respondWith(/\.(js|html|webmanifest)$|\/$/.test(u.pathname) ? networkFirst(req, null, true) : staleWhileRevalidate(req)); return;

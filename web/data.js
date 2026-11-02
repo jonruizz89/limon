@@ -39,6 +39,21 @@
     const today = ymd(new Date());
     const cols = 'id,city_id,title,description,starts_on,ends_on,time_text,district,price_text,is_free,image_url,organizer_url,' +
       'is_unique,is_featured,ai_unique,topics,series,lat,lng,first_seen_at,venues(name),event_sessions(on_date),event_categories(category_id),event_sources(url,sources(name))';
+    // 1) planes del día en archivos estáticos (CDN, comprimidos y en caché): una descarga por zona, sin cargar Supabase
+    //    + los planes que hayan entrado después de generarlos; 2) si algo falla, la consulta directa de siempre
+    const zonas = C.scope || [C.city];
+    try {
+      const arch = await Promise.all(zonas.map((z) => fetch('datos/eventos-' + encodeURIComponent(z) + '.json?d=' + today, { cache: 'default' })
+        .then((r) => { if (!r.ok) throw new Error('sin archivo ' + z); return r.json(); })));
+      const gen = arch.map((a) => a.generado).sort()[0];
+      if (!gen || Date.now() - Date.parse(gen) > 40 * 3600e3) throw new Error('archivo viejo');
+      if (window.limonSplash) window.limonSplash(0.7);
+      const byId = new Map();
+      for (const a of arch) for (const e of a.eventos) if (e.ends_on >= today) byId.set(e.id, e);
+      const nuevos = await sb.from('events').select(cols).in('city_id', zonas).gte('ends_on', today).gt('first_seen_at', gen).limit(1000);
+      if (!nuevos.error) for (const e of nuevos.data) byId.set(e.id, e);
+      return mapEvents([...byId.values()].sort((a, b) => (a.starts_on < b.starts_on ? -1 : a.starts_on > b.starts_on ? 1 : a.id - b.id)));
+    } catch (err) { console.warn('planes desde Supabase:', err.message || err); }
     const out = [];
     for (let from = 0; ; from += 1000) {
       // zona: una ciudad, una provincia entera (sus eventos + los de sus ciudades) o un municipio de la provincia
@@ -50,6 +65,9 @@
       if (window.limonSplash) window.limonSplash(Math.min(0.85, 0.3 + (from / 1000 + 1) * 0.12));
       if (r.data.length < 1000) break;
     }
+    return mapEvents(out);
+  }
+  function mapEvents(out) {
     return out.map((e) => ({
       id: 'e' + e.id,
       titulo: e.title,

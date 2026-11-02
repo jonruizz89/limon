@@ -22,7 +22,28 @@
   sb.auth.onAuthStateChange((evt) => { if (evt === 'PASSWORD_RECOVERY') { recovery = true; if (window.__limonPw) window.__limonPw(); } });
   const ymd = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 
+  // archivos estáticos que publica la web cada vez que se cargan datos (engine/src/export_events.py)
+  const hoyStr = () => ymd(new Date());
+  async function estatico(nombre, maxHoras) {
+    try {
+      const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
+      const r = await fetch('datos/' + encodeURIComponent(nombre) + '.json?d=' + hoyStr(), { signal: ctl.signal });
+      clearTimeout(t);
+      if (!r.ok) return null;
+      const j = await r.json();
+      if (maxHoras && (!j.generado || Date.now() - Date.parse(j.generado) > maxHoras * 3600e3)) return null;
+      return j;
+    } catch (e) { return null; }
+  }
+  // Supabase con tiempo máximo: si no responde (p. ej. bloqueos de IPs de Cloudflare los días de partido), la app sigue
+  const aTiempo = (p, ms) => Promise.race([Promise.resolve(p), new Promise((ok) => setTimeout(() => ok({ data: null, error: { message: 'sin respuesta' } }), ms))]);
+
   async function loadTaxonomy() {
+    const st = await estatico('taxonomia', 24 * 7);
+    if (st) return st.grupos.filter((x) => x.id !== 'otros').map((x) => ({
+      id: x.id, name: x.name,
+      items: st.categorias.filter((k) => k.group_id === x.id).map((k) => ({ id: k.id, label: k.label }))
+    }));
     const [g, c] = await Promise.all([
       sb.from('category_groups').select('id,name,position').order('position'),
       sb.from('categories').select('id,group_id,label,position').eq('is_generic', false).order('position')
@@ -50,8 +71,8 @@
       if (window.limonSplash) window.limonSplash(0.7);
       const byId = new Map();
       for (const a of arch) for (const e of a.eventos) if (e.ends_on >= today) byId.set(e.id, e);
-      const nuevos = await sb.from('events').select(cols).in('city_id', zonas).gte('ends_on', today).gt('first_seen_at', gen).limit(1000);
-      if (!nuevos.error) for (const e of nuevos.data) byId.set(e.id, e);
+      const nuevos = await aTiempo(sb.from('events').select(cols).in('city_id', zonas).gte('ends_on', today).gt('first_seen_at', gen).limit(1000), 5000);
+      if (!nuevos.error && nuevos.data) for (const e of nuevos.data) byId.set(e.id, e);
       return mapEvents([...byId.values()].sort((a, b) => (a.starts_on < b.starts_on ? -1 : a.starts_on > b.starts_on ? 1 : a.id - b.id)));
     } catch (err) { console.warn('planes desde Supabase:', err.message || err); }
     const out = [];
@@ -96,7 +117,10 @@
 
   async function loadClosures() {
     if (C.muni) return [];
-    const r = await sb.from('closures').select('title,kind,summary,streets,lines,stations,district,ranges,source_url,source_name,geom').in('city_id', C.scope || [C.city]);
+    const zonas = C.scope || [C.city];
+    const st = await Promise.all(zonas.map((z) => estatico('cortes-' + z, 30)));
+    if (st.every(Boolean)) return st.flatMap((x) => x.cortes);
+    const r = await aTiempo(sb.from('closures').select('title,kind,summary,streets,lines,stations,district,ranges,source_url,source_name,geom').in('city_id', C.scope || [C.city]), 6000);
     if (r.error) { console.warn('cortes', r.error); return []; }
     return r.data;
   }
@@ -104,23 +128,24 @@
   // avisos naranja y rojo de AEMET para la zona (se actualizan cada media hora en Supabase)
   window.limonAvisos = async function () {
     try {
-      const r = await sb.from('weather_alerts').select('level,phenomenon,zone,starts,ends').in('city_id', C.scope || [C.city]).gte('ends', new Date().toISOString()).order('starts');
-      return r.error ? [] : r.data;
+      const r = await aTiempo(sb.from('weather_alerts').select('level,phenomenon,zone,starts,ends').in('city_id', C.scope || [C.city]).gte('ends', new Date().toISOString()).order('starts'), 5000);
+      return r.error || !r.data ? [] : r.data;
     } catch (e) { return []; }
   };
 
   async function loadAudit() {
-    const r = await sb.from('coverage_runs').select('run_at,group_id,found,missing,pct_missing').eq('city_id', C.city).order('run_at', { ascending: false }).limit(40);
-    if (r.error || !r.data.length) return null;
+    const r = await aTiempo(sb.from('coverage_runs').select('run_at,group_id,found,missing,pct_missing').eq('city_id', C.city).order('run_at', { ascending: false }).limit(40), 5000);
+    if (r.error || !r.data || !r.data.length) return null;
     const last = r.data[0].run_at;
     const c = await sb.from('source_candidates').select('domain,hits,example_url,example_title,status').eq('city_id', C.city).eq('status', 'nueva').order('hits', { ascending: false }).limit(12);
     return { runs: r.data.filter((x) => x.run_at === last), cands: c.data || [] };
   }
 
   async function loadSources() {
-    const r = await sb.from('sources').select('name,url,method,license,last_run_at').in('city_id', C.scope || [C.city]).eq('status', 'activa').order('id');
-    if (r.error) throw r.error;
-    return r.data;
+    const st = await Promise.all((C.scope || [C.city]).map((z) => estatico('fuentes-' + z, 24 * 7)));
+    if (st.every(Boolean)) return st.flatMap((x) => x.fuentes);
+    const r = await aTiempo(sb.from('sources').select('name,url,method,license,last_run_at').in('city_id', C.scope || [C.city]).eq('status', 'activa').order('id'), 6000);
+    return r.error || !r.data ? [] : r.data;
   }
 
   const toDbId = (id) => Number(String(id).replace(/^e/, ''));
@@ -443,7 +468,8 @@
   }
 
   async function loadCities() {
-    const r = await sb.from('cities').select('id,name,region,lat,lng,bbox,districts,stadiums,features,status,position,kind,parent,munis').order('position');
+    const st = await estatico('ciudades', 24 * 7);
+    const r = st ? { data: st.ciudades } : await aTiempo(sb.from('cities').select('id,name,region,lat,lng,bbox,districts,stadiums,features,status,position,kind,parent,munis').order('position'), 8000);
     CITIES = r.data || [];
     const qp = new URLSearchParams(location.search);
     let saved = null; try { saved = localStorage.getItem('bureo.city'); } catch (e) { }

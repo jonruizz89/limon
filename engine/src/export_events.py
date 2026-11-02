@@ -32,8 +32,22 @@ hoy = dt.datetime.now(dt.timezone(dt.timedelta(hours=1))).date().isoformat()
 ahora = dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')
 d = os.path.join(WEB, 'datos')
 os.makedirs(d, exist_ok=True)
+def dump(nombre, datos):
+    json.dump(datos, open(os.path.join(d, nombre + '.json'), 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
+
+
+# lo que la app necesita para arrancar, también en estático: si Supabase no responde (p. ej. bloqueos de IPs de
+# Cloudflare los días de partido), la app abre igual con planes y cortes; solo fallan las funciones de cuenta
+ciudades = get('cities?select=id,name,region,lat,lng,bbox,districts,stadiums,features,status,position,kind,parent,munis&order=position')
+dump('ciudades', {'generado': ahora, 'ciudades': ciudades})
+dump('taxonomia', {'generado': ahora,
+                   'grupos': get('category_groups?select=id,name,position&order=position'),
+                   'categorias': get('categories?select=id,group_id,label,position&is_generic=eq.false&order=position')})
+for c in ciudades:
+    dump(f"fuentes-{c['id']}", {'generado': ahora, 'fuentes': get(f"sources?select=name,url,method,license,last_run_at&city_id=eq.{c['id']}&status=eq.activa&order=id")})
+    dump(f"cortes-{c['id']}", {'generado': ahora, 'cortes': get(f"closures?select=title,kind,summary,streets,lines,stations,district,ranges,source_url,source_name,geom&city_id=eq.{c['id']}&order=id")})
 total = 0
-for c in get('cities?select=id&order=position'):
+for c in ciudades:
     evs = get(f"events?select={urllib.parse.quote(COLS, safe=',()')}&city_id=eq.{c['id']}&ends_on=gte.{hoy}&order=starts_on,id")
     json.dump({'generado': ahora, 'zona': c['id'], 'eventos': evs}, open(os.path.join(d, f"eventos-{c['id']}.json"), 'w', encoding='utf-8'),
               ensure_ascii=False, separators=(',', ':'))

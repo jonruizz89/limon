@@ -7,7 +7,7 @@ on:
   schedule:
     - cron: "37 4 * * *"   # cada mañana, con los planes del día en las páginas para buscadores
   workflow_run:  # en cuanto se cargan planes nuevos, se regeneran los archivos que descarga la app
-    workflows: ["Actualización nocturna", "Ciudades (motor genérico)", "Clasificar con IA"]
+    workflows: ["Actualización nocturna", "Ciudades (motor genérico)", "Clasificar con IA", "Cortes de calle"]
     types: [completed]
   workflow_dispatch:
 

@@ -501,12 +501,28 @@ for cuenta, zid, nombre, tags in CUENTAS:
     slide(base + f's{len(sel) + 1}.html', brand + LEMON.replace('<svg ', '<svg class="big" ', 1) +
                                          '<h1 style="margin-top:44px;font-size:78px">Y muchos más planes</h1><div class="sub">Con mapa, filtros y tu agenda, gratis.</div>'
                                          '<div class="url">limonplanes.com</div><div class="n">Enlace en la bio</div>', 'y')
+    # textos por foto (Instagram deja poner un pie a cada imagen del carrusel)
+    def pie(e):
+        dia = 'Todo el finde' if e['largo'] or d(e['starts_on']) < vie else DIAS[d(e['starts_on']).weekday()].capitalize() + f" {d(e['starts_on']).day}"
+        h = e.get('time_text') if e.get('time_text') and len(e['time_text']) <= 12 and not e['largo'] else ''
+        precio = 'Gratis' if e.get('is_free') else (e.get('price_text') or '') if len(e.get('price_text') or '') <= 40 else ''
+        txt = re.sub(r'\s+', ' ', e.get('description') or '').strip()
+        if len(txt) > 220:
+            txt = txt[:217].rsplit(' ', 1)[0] + '…'
+        ls = [f"{ico(e)} {e['title']}", f"🗓️ {dia}{' · ' + h if h else ''}", f"📍 {sitio_corto(e['lugar']) if e['lugar'] else z['name']}"]
+        if precio:
+            ls.append(f"🎟️ {precio}")
+        if txt:
+            ls += ['', txt]
+        return '\n'.join(ls)
+    pies = [f"🍋 {len(sel)} planes para este finde en {nombre} ({rango}). Desliza 👉"] + [pie(e) for e in sel] + \
+           [f"✌️ Y muchos más: todos los planes de {nombre}, con mapa, filtros y tu agenda, gratis en limonplanes.com (enlace en la bio) 🍋"]
     texto = (f"🍋 Este finde en {nombre} ({rango}): {len(sel)} planes que no te puedes perder\n\n" +
              '\n'.join(f"{ico(e)} {e['title']} — {corto(e, vie)}" + (f", {sitio_corto(e['lugar'])}" if e['lugar'] else '') for e in sel) +
              f"\n\n✌️ Y esto es solo una parte: todos los planes de {nombre}, con mapa y filtros, en limonplanes.com (enlace en la bio) 👆"
              "\n\n🔒 Guárdate este carrusel para cuando toque decidir plan y compártelo con quien siempre te pregunta «¿qué hacemos este finde?»"
              f"\n\n{tags}")
-    REDES.append({'cuenta': cuenta, 'nombre': nombre, 'rango': rango, 'slides': len(sel) + 2, 'texto': texto, 'enlace': f"{BASE}/planes/{zid}/este-finde/"})
+    REDES.append({'cuenta': cuenta, 'nombre': nombre, 'rango': rango, 'slides': len(sel) + 2, 'texto': texto, 'pies': pies, 'enlace': f"{BASE}/planes/{zid}/este-finde/"})
 if REDES:
     json.dump(REDES, open(os.path.join(WEB, 'redes', 'redes.json'), 'w', encoding='utf-8'), ensure_ascii=False)
 print(len(REDES), 'carruseles para redes')

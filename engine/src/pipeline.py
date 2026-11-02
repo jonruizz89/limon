@@ -288,7 +288,7 @@ def madrid():
         if not os.path.exists(os.path.join(RAW, fn)):
             print('aviso: falta', fn)
             continue
-        for e in json.load(open(os.path.join(RAW, fn)))['@graph']:
+        for e in json.loads(open(os.path.join(RAW, fn), encoding='utf-8').read(), strict=False)['@graph']:  # a veces trae saltos de línea sin escapar
             tipo = e.get('@type', '').split('/')[-1]
             base = MADRID_TIPO.get(tipo, [])
             org = e.get('organization') or {}

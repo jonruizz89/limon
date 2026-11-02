@@ -42,7 +42,9 @@ def probar_facebook():
         except SystemExit as e:
             print('  →', i, str(e)[:150])
     for path, f in (('me/accounts', 'name,instagram_business_account{id,username,followers_count,media_count}'),
-                    ('me/instagram_accounts', 'id,username')):
+                    ('me/businesses', 'id,name,owned_instagram_accounts{id,username},instagram_accounts{id,username}'),
+                    ('me/assigned_pages', 'id,name,instagram_business_account{id,username}'),
+                    ('me/ig_accounts', 'id,username')):
         try:
             q = {'fields': f, 'access_token': tok}
             with urllib.request.urlopen(f'{API}/{path}?{urllib.parse.urlencode(q)}', timeout=60) as r:

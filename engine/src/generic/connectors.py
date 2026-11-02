@@ -268,7 +268,7 @@ def bcn_read(cfg, max_rows=20000):
                 web = f'https://guia.barcelona.cat/es/detall/{rid}_{rid}.html'
                 out.append({
                     'titulo': name[:300], 'descripcion': '', 'inicio': ini, 'fin': max(ini, fin),
-                    'hora': hora if ini == fin else None, 'lugar': None, 'direccion': calle or None,
+                    'hora': hora if ini == fin else None, 'lugar': calle or None, 'direccion': calle or None,  # la agenda no trae el nombre del equipamiento: al menos la dirección
                     'lat': lat, 'lng': lng, 'distrito': _clean(e.get('addresses_district_name')) or None,
                     'precio': precio, 'gratis': gratis, 'imagen': None, 'web_organizador': web, 'url': web,
                 })

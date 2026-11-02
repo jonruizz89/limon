@@ -2,7 +2,7 @@ name: Instagram
 
 # Carrusel semanal «Este finde» en las cuentas de Instagram de cada zona (API de Instagram, «unified login»).
 # El token de cada cuenta va en el secreto IG_<CUENTA>_TOKEN; nunca se imprime en el registro (el repositorio es público).
-# IG_AUTO = "0": las ejecuciones programadas solo enseñan lo que publicarían. Se pone a "1" cuando Jon lo da por bueno.
+# IG_AUTO = "1": las ejecuciones programadas publican de verdad ("0" = solo enseñar lo que publicarían).
 on:
   schedule:
     - cron: "7 18 * * 4"    # jueves ~19:07 en Madrid (invierno) · carrusel del finde
@@ -26,7 +26,7 @@ permissions:
   actions: write
 
 env:
-  IG_AUTO: "0"
+  IG_AUTO: "1"
 
 jobs:
   ig:

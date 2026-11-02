@@ -26,9 +26,12 @@ def probar_facebook():
     # token de Facebook (empieza por EAA…, p. ej. de usuario del sistema): la cuenta de Instagram se alcanza por graph.facebook.com
     global API
     API = 'https://graph.facebook.com/v21.0'
-    me = get('me', fields='id,name')
-    print('Token de Facebook de:', me.get('name'), '·', me.get('id'), '·', sorted(me))
-    dbg = get('debug_token', input_token=tok).get('data', {})
+    me = get('me')
+    print('Token de Facebook de:', json.dumps(me, ensure_ascii=False)[:200])
+    try:
+        dbg = get('debug_token', input_token=tok).get('data', {})
+    except SystemExit as e:
+        print('debug_token:', str(e)[:160]); dbg = {}
     print('Tipo:', dbg.get('type'), '· válido:', dbg.get('is_valid'), '· caduca:', dbg.get('expires_at'), '· permisos:', dbg.get('scopes'))
     ids = sorted({i for g in dbg.get('granular_scopes') or [] for i in g.get('target_ids') or []})
     print('Cuentas asignadas:', ids)
@@ -48,6 +51,8 @@ def probar_facebook():
             print(path, '→', e.code, json.loads(e.read().decode() or '{}').get('error', {}).get('message', '')[:150])
 
 
+if modo == 'yo':  # solo forma, nunca el contenido
+    print(f'Token: {len(tok)} caracteres, empieza por «{tok[:3]}», solo letras y números: {tok.isalnum()}')
 if modo == 'yo' and not tok.startswith('IG'):
     print('El token no es de «Instagram Login» (no empieza por IG): pruebo como token de Facebook')
     probar_facebook()

@@ -97,7 +97,7 @@ while True:
     if len(got) < 1000:
         break
     off += 1000
-ajenos, ajenos_keys = {}, []
+ajenos, ajenos_keys, sin_lugar = {}, [], {}
 def igual(a, b):
     return a == b or (min(len(a), len(b)) >= 12 and (a.startswith(b) or b.startswith(a)))
 for r in rows:
@@ -112,12 +112,19 @@ for r in rows:
             return not generico
         m = 1 if generico else 2.5  # 600 m para títulos genéricos; 1,5 km para el resto (las fuentes sitúan distinto un mismo recinto)
         return abs(la - r['lat']) < 0.0055 * m and abs(lo - r['lng']) < 0.0075 * m
-    hit = next(((i, k) for (pt, i, k, v, la, lo) in prev.get(r['starts_on'], []) if igual(t, pt) and (len(t) >= 20 or cerca(v, la, lo))), None)
+    hit = next(((i, k, v) for (pt, i, k, v, la, lo) in prev.get(r['starts_on'], []) if igual(t, pt) and (len(t) >= 20 or cerca(v, la, lo))), None)
     if hit:
         ajenos[r['ext_key']] = hit[0]
         ajenos_keys.append(hit[1])
+        if not hit[2] and r.get('venue_id'):  # el que ya estaba no tenía lugar y ahora sí lo sabemos
+            sin_lugar.setdefault(r['venue_id'], []).append(hit[0])
 if ajenos:
     print('ya estaban por otra fuente', len(ajenos))
+for v, ids_ in sin_lugar.items():
+    for part in chunks(sorted(set(ids_)), 200):
+        api('PATCH', 'events?venue_id=is.null&id=in.(' + ','.join(map(str, part)) + ')', {'venue_id': v}, 'return=minimal')
+if sin_lugar:
+    print('lugar añadido a', sum(len(x) for x in sin_lugar.values()), 'eventos que no lo tenían')
 rows = [r for r in rows if r['ext_key'] not in ajenos]
 
 eid = dict(ajenos)

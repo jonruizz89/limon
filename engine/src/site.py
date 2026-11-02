@@ -451,7 +451,8 @@ CUENTAS = [('madrid', 'madrid', 'Madrid', '#madrid #planesmadrid #quehacerenmadr
            ('donostia', 'gipuzkoa', 'Donostia y Gipuzkoa', '#donostia #sansebastian #gipuzkoa #planesdonostia #agendadonostia #findesemana'),
            ('gasteiz', 'araba', 'Vitoria-Gasteiz y Araba', '#vitoria #gasteiz #vitoriagasteiz #araba #alava #planesvitoria #findesemana'),
            ('zaragoza', 'zaragoza', 'Zaragoza', '#zaragoza #planeszaragoza #quehacerenzaragoza #agendazaragoza #findesemana'),
-           ('gijon', 'gijon', 'Gijón', '#gijon #xixon #asturias #planesgijon #agendagijon #findesemana')]
+           ('gijon', 'gijon', 'Gijón', '#gijon #xixon #asturias #planesgijon #agendagijon #findesemana'),
+           ('barcelona', 'barcelona', 'Barcelona', '#barcelona #bcn #planesbarcelona #plansbarcelona #quefeubarcelona #agendabarcelona #capdesetmana')]
 LEMON = open(os.path.join(WEB, 'limon.svg'), encoding='utf-8').read().replace('<title>Limón</title>', '')
 SLIDE_CSS = """*{box-sizing:border-box;margin:0}html,body{width:1080px;height:1350px;overflow:hidden}
 body{font-family:'IBM Plex Sans',sans-serif;color:#231D02;display:flex;flex-direction:column;align-items:center;text-align:center;padding:175px 140px}

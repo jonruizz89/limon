@@ -216,6 +216,71 @@ def categorias(base, titulo, desc='', publico=''):
     return out
 
 
+# --------------------------------------------------------------------------- limpieza de la agenda municipal
+DISTRITOS_MAD = ['Centro', 'Arganzuela', 'Retiro', 'Salamanca', 'Chamartín', 'Tetuán', 'Chamberí', 'Fuencarral-El Pardo',
+                 'Moncloa-Aravaca', 'Latina', 'Carabanchel', 'Usera', 'Puente de Vallecas', 'Moratalaz', 'Ciudad Lineal',
+                 'Hortaleza', 'Villaverde', 'Villa de Vallecas', 'Vicálvaro', 'San Blas-Canillejas', 'Barajas']
+_DIST = {}
+for _d in DISTRITOS_MAD:
+    _DIST[norm(_d)] = _d
+    for _p in re.split(r'-', _d):
+        _DIST.setdefault(norm(_p), _d)
+
+
+def distrito_de(t):
+    n = re.sub(r'^distrito de ', '', norm(t)).strip()
+    n = re.sub(r'\s+', ' ', n)
+    return _DIST.get(n)
+
+
+def sin_sufijo(titulo, lugar):
+    """«Body Marbling en papel - Villa de Vallecas» → («Body Marbling en papel», 'Villa de Vallecas', None);
+    «Taller X - Biblioteca Mario Vargas Llosa» → («Taller X», None, 'Biblioteca Mario Vargas Llosa').
+    También «Juan Sin Miedo en Villaverde». Devuelve (título, distrito, lugar) y solo toca sufijos que sean un distrito o el propio lugar."""
+    m = re.match(r'^(.{4,}?)\s+[-–]\s+([^-–]+)$', titulo)
+    if m:
+        cola = m.group(2).strip()
+        d = distrito_de(cola)
+        if d:
+            return m.group(1).strip(), d, None
+        if re.match(r'(biblioteca|centro cultural|c\.?c\.?) ', cola, re.I):
+            lt, lc = set(norm(lugar or '').split()), set(norm(cola).split()) - {'biblioteca', 'centro', 'cultural', 'cc', 'de', 'del', 'la', 'el'}
+            if not lugar or lc <= lt:
+                return m.group(1).strip(), None, None if lugar else cola
+    m = re.match(r'^(.{4,}?)\s+en\s+([A-ZÁÉÍÓÚ][\w áéíóúñÁÉÍÓÚÑ\-]+)$', titulo)
+    if m and distrito_de(m.group(2)):
+        return m.group(1).strip(), distrito_de(m.group(2)), None
+    return titulo, None, None
+
+
+_DIAS = {'MO': 0, 'TU': 1, 'WE': 2, 'TH': 3, 'FR': 4, 'SA': 5, 'SU': 6}
+
+
+def dias_recurrentes(e, ini, fin):
+    """Sesiones de un taller o ciclo semanal (p. ej. «todos los miércoles» del 4 al 25). Las exposiciones abiertas casi
+    todos los días no se expanden: siguen como plan «en curso» de inicio a fin."""
+    r = e.get('recurrence') or {}
+    if not ini or not fin or r.get('frequency') != 'WEEKLY':
+        return []
+    dias = {_DIAS[x] for x in str(r.get('days') or '').split(',') if x in _DIAS}
+    if not dias or len(dias) > 3 or (fin - ini).days > 180:
+        return []
+    paso = max(1, int(r.get('interval') or 1))
+    fuera = set()
+    for x in str(e.get('excluded-days') or '').split(';'):
+        try:
+            dd, mm, aa = x.strip().split('/')
+            fuera.add(dt.date(int(aa), int(mm), int(dd)))
+        except ValueError:
+            pass
+    out, d0 = [], ini
+    while d0 <= fin and len(out) < 40:
+        if d0.weekday() in dias and ((d0 - ini).days // 7) % paso == 0 and d0 not in fuera:
+            out.append(d0.isoformat())
+        d0 += dt.timedelta(days=1)
+    return out
+
+
 # --------------------------------------------------------------------------- lectores
 def madrid():
     evs = []
@@ -230,13 +295,16 @@ def madrid():
             loc = e.get('location') or {}
             dist = ((e.get('address') or {}).get('district') or {}).get('@id', '').split('/')[-1]
             desc = clean(e.get('description'))
+            lugar = clean(e.get('event-location')) or org.get('organization-name')
+            titulo, dist_t, lugar_t = sin_sufijo(clean(e['title']), lugar)
+            ini, fin = d(e['dtstart']), d(e['dtend']) or d(e['dtstart'])
             evs.append({
                 'fuente': 'Agenda municipal de Madrid', 'fuente_id': 'madrid:' + e['id'],
-                'titulo': clean(e['title']), 'descripcion': desc,
-                'inicio': d(e['dtstart']), 'fin': d(e['dtend']) or d(e['dtstart']),
+                'titulo': titulo, 'descripcion': desc,
+                'inicio': ini, 'fin': fin, 'dias': dias_recurrentes(e, ini, fin),
                 'hora': (e.get('time') or '').strip() or None,
-                'lugar': clean(e.get('event-location')) or org.get('organization-name'),
-                'distrito': re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', dist) or None,
+                'lugar': lugar or lugar_t,
+                'distrito': re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', dist) or dist_t or None,
                 'lat': loc.get('latitude'), 'lng': loc.get('longitude'),
                 'precio': clean(e.get('price')) or None, 'gratis': e.get('free') == 1,
                 'url': e.get('link'), 'publico': e.get('audience') or '',
@@ -408,7 +476,7 @@ def unir(evs):
     for g in grupos.values():
         g.sort(key=lambda x: x['inicio'])
         e = dict(g[0])
-        e['sesiones'] = sorted({x['inicio'].isoformat() for x in g})
+        e['sesiones'] = sorted({x['inicio'].isoformat() for x in g} | {s for x in g for s in x.get('dias') or []})
         e['inicio'] = min(x['inicio'] for x in g)
         e['fin'] = max(x['fin'] for x in g)
         e['cats'] = list(dict.fromkeys(c for x in g for c in x['cats']))
@@ -507,7 +575,7 @@ def main():
         e['inicio'] = e['inicio'].isoformat()
         e['fin'] = e['fin'].isoformat()
         e['sesiones'] = e['sesiones'][:40]
-        for k in ('fuente', 'fuente_id', 'url', 'publico', 'tipo_origen', 'evento_ciudad', 'no_geo'):
+        for k in ('fuente', 'fuente_id', 'url', 'publico', 'tipo_origen', 'evento_ciudad', 'no_geo', 'dias'):
             e.pop(k, None)
     eventos.sort(key=lambda x: x['id'])
     try:  # situar en el mapa y en su distrito (si están los índices del callejero)

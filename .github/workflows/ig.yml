@@ -1,0 +1,36 @@
+name: Instagram
+
+# Pruebas y (más adelante) publicación automática en las cuentas de Instagram de cada zona.
+# El token de cada cuenta va en el secreto IG_<CUENTA>_TOKEN; nunca se imprime en el registro (el repositorio es público).
+on:
+  workflow_dispatch:
+    inputs:
+      cuenta:
+        description: "madrid, bilbao o barcelona"
+        required: true
+        default: madrid
+      modo:
+        description: "yo = comprobar el token sin publicar"
+        required: true
+        default: yo
+
+permissions:
+  contents: read
+
+jobs:
+  ig:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instagram
+        env:
+          IG_MADRID_TOKEN: ${{ secrets.IG_MADRID_TOKEN }}
+          IG_BILBAO_TOKEN: ${{ secrets.IG_BILBAO_TOKEN }}
+          IG_BARCELONA_TOKEN: ${{ secrets.IG_BARCELONA_TOKEN }}
+        run: python3 src/ig_post.py "${{ inputs.cuenta }}" "${{ inputs.modo }}"

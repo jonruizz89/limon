@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        zona: [madrid, bizkaia]   # añadir aquí cada zona cuando tenga su cuenta y sus secretos X_<ZONA>_TOKEN / X_<ZONA>_SECRET
+        zona: [madrid, bizkaia, barcelona]   # añadir aquí cada zona cuando tenga su cuenta y sus secretos X_<ZONA>_TOKEN / X_<ZONA>_SECRET
     defaults:
       run:
         working-directory: engine
@@ -87,6 +87,8 @@ jobs:
           X_MADRID_SECRET: ${{ secrets.X_MADRID_SECRET }}
           X_BIZKAIA_TOKEN: ${{ secrets.X_BILBAO_TOKEN }}   # la cuenta de Bilbao publica la zona Bizkaia
           X_BIZKAIA_SECRET: ${{ secrets.X_BILBAO_SECRET }}
+          X_BARCELONA_TOKEN: ${{ secrets.X_BARCELONA_TOKEN }}
+          X_BARCELONA_SECRET: ${{ secrets.X_BARCELONA_SECRET }}
         run: python3 src/x_post.py ${{ matrix.zona }} ${{ steps.m.outputs.modo }}
       - name: Marcar como publicado hoy
         if: steps.m.outputs.auto == '1' && steps.m.outputs.modo != 'none' && steps.hecho.outputs.cache-hit != 'true' && success()

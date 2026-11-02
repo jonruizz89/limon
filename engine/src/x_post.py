@@ -21,11 +21,12 @@ KIND = {'manifestacion': ('📣', 0), 'evento': ('🎉', 1), 'metro': ('🚇', 1
 MAX = 255  # X cuenta los emojis como 2 caracteres: margen
 # uno o dos hashtags por zona y tipo de post (más parecería spam)
 TAGS = {'madrid': {'cortes': '#Madrid', 'metro': '#MetroMadrid', 'hoy': '#QuéHacerEnMadrid', 'finde': '#QuéHacerEnMadrid'},
-        'bizkaia': {'cortes': '#Bilbao', 'hoy': '#Bilbao #Bizkaia', 'finde': '#Bilbao #Bizkaia'}}
+        'bizkaia': {'cortes': '#Bilbao', 'hoy': '#Bilbao #Bizkaia', 'finde': '#Bilbao #Bizkaia'},
+        'barcelona': {'cortes': '#Barcelona', 'metro': '#Rodalies', 'hoy': '#Barcelona #PlansBCN', 'finde': '#Barcelona #PlansBCN'}}
 # nombre en los posts cuando el de la zona no basta (los cortes de Bizkaia son solo de Bilbao)
 NOMBRE = {'bizkaia': {'cortes': 'Bilbao', 'hoy': 'Bilbao y Bizkaia', 'finde': 'Bilbao y Bizkaia'}}
 # carpeta de /redes/ con la portada del carrusel de cada zona (la imagen del post del jueves)
-CUENTA = {'madrid': 'madrid', 'bizkaia': 'bilbao', 'gipuzkoa': 'donostia', 'araba': 'gasteiz', 'zaragoza': 'zaragoza', 'gijon': 'gijon'}
+CUENTA = {'madrid': 'madrid', 'bizkaia': 'bilbao', 'gipuzkoa': 'donostia', 'araba': 'gasteiz', 'zaragoza': 'zaragoza', 'gijon': 'gijon', 'barcelona': 'barcelona'}
 
 
 def get(path):

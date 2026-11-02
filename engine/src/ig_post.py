@@ -22,6 +22,26 @@ def get(path, **q):
         sys.exit(f"Instagram respondió {e.code}: {err.get('message', '')[:200]} (tipo {err.get('type')}, código {err.get('code')})")
 
 
+def probar_facebook():
+    # token de Facebook (empieza por EAA…, p. ej. de usuario del sistema): la cuenta de Instagram se alcanza por graph.facebook.com
+    global API
+    API = 'https://graph.facebook.com/v21.0'
+    me = get('me', fields='id,name')
+    print('Token de Facebook de:', me.get('name'), '·', me.get('id'))
+    for path, f in (('me/accounts', 'name,instagram_business_account{id,username,followers_count,media_count}'),
+                    ('me/instagram_accounts', 'id,username')):
+        try:
+            q = {'fields': f, 'access_token': tok}
+            with urllib.request.urlopen(f'{API}/{path}?{urllib.parse.urlencode(q)}', timeout=60) as r:
+                print(path, '→', json.dumps(json.loads(r.read().decode()).get('data'), ensure_ascii=False)[:500])
+        except urllib.error.HTTPError as e:
+            print(path, '→', e.code, json.loads(e.read().decode() or '{}').get('error', {}).get('message', '')[:150])
+
+
+if modo == 'yo' and not tok.startswith('IG'):
+    print('El token no es de «Instagram Login» (no empieza por IG): pruebo como token de Facebook')
+    probar_facebook()
+    sys.exit(0)
 if modo == 'yo':
     me = get('me', fields='user_id,username,account_type,media_count,followers_count')
     print(f"Token correcto: @{me.get('username')} · cuenta {me.get('account_type')} · {me.get('media_count')} publicaciones · {me.get('followers_count')} seguidores")

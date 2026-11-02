@@ -522,6 +522,34 @@ for cuenta, zid, nombre, tags in CUENTAS:
              f"\n\n✌️ Y esto es solo una parte: todos los planes de {nombre}, con mapa y filtros, en limonplanes.com (enlace en la bio) 👆"
              "\n\n🔒 Guárdate este carrusel para cuando toque decidir plan y compártelo con quien siempre te pregunta «¿qué hacemos este finde?»"
              f"\n\n{tags}")
+    if cuenta == 'barcelona':  # en Barcelona, primero en catalán y después en castellano
+        DIES = ['dilluns', 'dimarts', 'dimecres', 'dijous', 'divendres', 'dissabte', 'diumenge']
+        DC = ['dl.', 'dt.', 'dc.', 'dj.', 'dv.', 'ds.', 'dg.']
+        def dia_ca(e, curt=False):
+            if e['largo'] or d(e['starts_on']) < vie:
+                return 'tot el cap de setmana'
+            a = max(d(e['starts_on']), vie)
+            return DC[a.weekday()] if curt else DIES[a.weekday()].capitalize() + f" {a.day}"
+        def hora(e):
+            return e.get('time_text') if e.get('time_text') and len(e['time_text']) <= 12 and not e['largo'] else ''
+        def pie_bi(e, es):
+            # el título y la descripción van una sola vez (en el idioma de la fuente); la fecha, el lugar y el precio, en los dos
+            cab, _, resto = es.partition('\n')
+            info_es, _, desc = resto.partition('\n\n')
+            h = hora(e)
+            precio = 'Gratuït' if e.get('is_free') else (e.get('price_text') or '') if len(e.get('price_text') or '') <= 40 else ''
+            ca = [f"🗓️ {dia_ca(e).capitalize() if dia_ca(e)[0].islower() else dia_ca(e)}{' · ' + h if h else ''}",
+                  f"📍 {e['lugar'].strip(' .') if e['lugar'] else z['name']}"] + ([f"🎟️ {precio}"] if precio else [])
+            return '\n'.join([cab, '\n'.join(ca), '', info_es] + (['', desc] if desc else []))
+        pies = ([f"🍋 {len(sel)} plans per aquest cap de setmana a Barcelona ({rango}). Llisca 👉\n\n" + pies[0]] +
+                [pie_bi(e, t) for e, t in zip(sel, pies[1:-1])] +
+                ["✌️ I molts més: tots els plans de Barcelona, amb mapa, filtres i la teva agenda, gratis a limonplanes.com (enllaç a la bio) 🍋\n\n" + pies[-1]])
+        texto_ca = (f"🍋 Aquest cap de setmana a Barcelona ({rango}): {len(sel)} plans que no et pots perdre\n\n" +
+                    '\n'.join(f"{ico(e)} {e['title']} — {dia_ca(e, True)}{' ' + hora(e) if hora(e) else ''}" + (f", {sitio_corto(e['lugar'])}" if e['lugar'] else '') for e in sel) +
+                    "\n\n✌️ I això només és una part: tots els plans de Barcelona, amb mapa i filtres, a limonplanes.com (enllaç a la bio) 👆"
+                    "\n\n🔒 Desa't aquest carrusel per quan toqui decidir pla i comparteix-lo amb qui sempre et pregunta «què fem aquest cap de setmana?»")
+        cuerpo_es = texto.rsplit('\n\n', 1)[0]
+        texto = f"{texto_ca}\n\n—\n\n{cuerpo_es}\n\n{tags}"
     REDES.append({'cuenta': cuenta, 'nombre': nombre, 'rango': rango, 'slides': len(sel) + 2, 'texto': texto, 'pies': pies, 'enlace': f"{BASE}/planes/{zid}/este-finde/"})
 if REDES:
     json.dump(REDES, open(os.path.join(WEB, 'redes', 'redes.json'), 'w', encoding='utf-8'), ensure_ascii=False)

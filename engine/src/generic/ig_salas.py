@@ -18,6 +18,10 @@ NO_USER = {'p', 'reel', 'reels', 'explore', 'accounts', 'stories', 'tv', 'about'
            'instagram', 'www', 'web', 'tags'}
 IG = re.compile(r'instagram\.com/(?!p/|reel/|explore/)([A-Za-z0-9_.]{2,30})/?(?=["\'?#<\s])', re.I)
 
+GENERICAS = {'centro', 'civico', 'cultural', 'teatro', 'teatre', 'museo', 'museu', 'sala', 'nacional', 'municipal', 'publica', 'biblioteca',
+             'madrid', 'barcelona', 'bilbao', 'bizkaia', 'donostia', 'zaragoza', 'gijon', 'vitoria', 'gasteiz', 'catalunya', 'espacio', 'espai',
+             'auditorio', 'auditori', 'palacio', 'casa', 'calle', 'carrer', 'plaza', 'placa', 'parque', 'lugar', 'determinar', 'fundacion',
+             'arte', 'artes', 'contemporaneo', 'kultur', 'kulturgunea', 'etxea', 'aretoa'}
 hoy = dt.date.today()
 hasta = (hoy + dt.timedelta(days=12)).isoformat()
 ciudades = [c['id'] for c in sb('GET', 'cities?select=id&status=eq.publicada') or []]
@@ -59,6 +63,13 @@ for vid in pend:
         for h in set(x.lower() for x in cache[dom]):
             votos[h] += 1
             origen.setdefault(h, dom)
+    if not votos:
+        continue
+    # solo si la cuenta o la web se parecen al nombre del lugar: si no, suele ser la del organizador o la del festival
+    import unicodedata
+    fold = lambda t: ''.join(c for c in unicodedata.normalize('NFD', (t or '').lower()) if unicodedata.category(c) != 'Mn')
+    claves = [w for w in re.findall(r'[a-z0-9]{4,}', fold(v['name'])) if w not in GENERICAS]
+    votos = collections.Counter({h: n for h, n in votos.items() if any(w in h or w in origen[h].replace('.', '') for w in claves)})
     if not votos:
         continue
     h, n = votos.most_common(1)[0]

@@ -21,6 +21,7 @@ for (const r of lista) {
     await page.goto(pathToFileURL(html).href, { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);
     await page.screenshot({ path: path.join(dir, `s${i}.png`) });
+    await page.screenshot({ path: path.join(dir, `s${i}.jpg`), type: 'jpeg', quality: 92 });  // la API de Instagram solo acepta JPEG
     if (i === 0) {  // en el reel la portada no dice «Desliza»: pasa sola
       await page.evaluate(() => { const n = document.querySelector('.n'); if (n) n.style.visibility = 'hidden'; });
       await page.screenshot({ path: path.join(dir, 'p0.png') });
@@ -71,6 +72,8 @@ ${pies ? `<h2>Texto de cada foto</h2><p>Al subir el carrusel, toca cada foto y p
 <p>Enlace para la bio o las historias: <a href="${esc(r.enlace)}">${esc(r.enlace)}</a></p>
 <script>document.querySelectorAll('.cp').forEach(b=>b.onclick=async()=>{const t=document.getElementById(b.dataset.t);try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand('copy')}b.textContent='¡Copiado!'})</script>
 </body></html>`);
+  // lo que publica engine/src/ig_post.py (carrusel automático)
+  fs.writeFileSync(path.join(dir, 'post.json'), JSON.stringify({ cuenta: r.cuenta, nombre: r.nombre, rango: r.rango, slides: r.slides, texto: r.texto, pies: r.pies || [], v: V, reel }));
   console.log(`${r.cuenta}: ${r.slides} imágenes`);
 }
 const links = lista.map(r => `<li><a href="${r.cuenta}/">${esc(r.nombre)}</a> · ${esc(r.rango)}</li>`).join('');

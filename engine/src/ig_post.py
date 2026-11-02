@@ -1,6 +1,8 @@
 """Instagram (API de Instagram con inicio de sesión de Instagram, cuentas profesionales).
 
 Uso: python3 src/ig_post.py <cuenta> yo        → comprueba el token (no publica nada)
+     python3 src/ig_post.py <cuenta> carrusel  → publica el carrusel «Este finde» de limonplanes.com/redes/<cuenta>/
+        (con IG_DRY=1 solo enseña lo que publicaría)
 El token de cada cuenta va en el secreto IG_<CUENTA>_TOKEN (p. ej. IG_MADRID_TOKEN). Nunca se imprime.
 """
 import json, os, sys, urllib.error, urllib.parse, urllib.request
@@ -8,7 +10,7 @@ import json, os, sys, urllib.error, urllib.parse, urllib.request
 API = 'https://graph.instagram.com'
 cuenta, modo = sys.argv[1], (sys.argv[2] if len(sys.argv) > 2 else 'yo')
 # identificador de cada cuenta de Instagram en Meta (no es secreto); el token «unified login» (EAA…) no deja buscarlo
-IG_ID = {'madrid': '17841416628695228'}
+IG_ID = {'madrid': '17841416628695228', 'bilbao': '17841410416056018', 'barcelona': '17841464371378986'}
 tok = (os.environ.get(f'IG_{cuenta.upper()}_TOKEN') or '').strip()
 if not tok:
     sys.exit(f'Falta el secreto IG_{cuenta.upper()}_TOKEN')
@@ -79,3 +81,55 @@ if modo == 'yo':
     print(f"Token correcto: @{me.get('username')} · cuenta {me.get('account_type')} · {me.get('media_count')} publicaciones · {me.get('followers_count')} seguidores")
     lim = get(f"{me.get('user_id') or me.get('id')}/content_publishing_limit", fields='quota_usage,config')
     print('Límite de publicación (24 h):', json.dumps(lim.get('data', lim), ensure_ascii=False)[:200])
+
+
+def post(path, **q):
+    q['access_token'] = tok
+    req = urllib.request.Request(f'{API}/{path}', data=urllib.parse.urlencode(q).encode(), method='POST')
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        err = json.loads(e.read().decode() or '{}').get('error', {})
+        sys.exit(f"Instagram respondió {e.code} en {path.split('/')[-1]}: {err.get('message', '')[:200]} ({err.get('error_user_msg', '')[:200]})")
+
+
+def esperar(cid, intentos=30):
+    import time
+    for _ in range(intentos):
+        st = get(cid, fields='status_code,status').get('status_code')
+        if st == 'FINISHED':
+            return
+        if st in ('ERROR', 'EXPIRED'):
+            sys.exit(f'Instagram no pudo procesar {cid}: {st}')
+        time.sleep(5)
+    sys.exit(f'Instagram tarda demasiado en procesar {cid}')
+
+
+if modo == 'carrusel':
+    import datetime as dt
+    API = 'https://graph.facebook.com/v21.0'
+    uid = IG_ID[cuenta]
+    base = f'https://limonplanes.com/redes/{cuenta}/'
+    with urllib.request.urlopen(base + 'post.json?x=' + dt.datetime.now().strftime('%H%M%S'), timeout=60) as r:
+        p = json.loads(r.read().decode())
+    texto = p['texto'] if len(p['texto']) <= 2200 else p['texto'][:2190].rsplit('\n', 1)[0] + '\n…'
+    imgs = [f"{base}s{i}.jpg?v={p.get('v', '')}" for i in range(min(p['slides'], 10))]
+    print(f"Carrusel de @{cuenta} · {p['nombre']} · {p['rango']} · {len(imgs)} imágenes · texto de {len(texto)} caracteres")
+    print(texto[:600] + ('…' if len(texto) > 600 else ''))
+    if os.environ.get('IG_DRY') == '1':
+        for u in imgs:  # comprobar que las imágenes existen antes de un día de verdad
+            with urllib.request.urlopen(u, timeout=60) as r:
+                assert r.status == 200 and r.headers.get('Content-Type', '').startswith('image/jpeg'), u
+        print('Prueba: no se publica nada (IG_DRY=1). Las imágenes están accesibles.')
+        sys.exit(0)
+    hijos = []
+    for u in imgs:
+        hijos.append(post(f'{uid}/media', image_url=u, is_carousel_item='true')['id'])
+    for h in hijos:
+        esperar(h)
+    car = post(f'{uid}/media', media_type='CAROUSEL', children=','.join(hijos), caption=texto)['id']
+    esperar(car)
+    pub = post(f'{uid}/media_publish', creation_id=car)
+    link = get(pub['id'], fields='permalink').get('permalink')
+    print('Publicado:', link)

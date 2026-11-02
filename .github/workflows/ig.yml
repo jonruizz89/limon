@@ -1,36 +1,87 @@
 name: Instagram
 
-# Pruebas y (más adelante) publicación automática en las cuentas de Instagram de cada zona.
+# Carrusel semanal «Este finde» en las cuentas de Instagram de cada zona (API de Instagram, «unified login»).
 # El token de cada cuenta va en el secreto IG_<CUENTA>_TOKEN; nunca se imprime en el registro (el repositorio es público).
+# IG_AUTO = "0": las ejecuciones programadas solo enseñan lo que publicarían. Se pone a "1" cuando Jon lo da por bueno.
 on:
+  schedule:
+    - cron: "7 18 * * 4"    # jueves ~19:07 en Madrid (invierno) · carrusel del finde
+    - cron: "37 18 * * 4"   #   segundo intento (no repite si ya se publicó)
   workflow_dispatch:
     inputs:
       cuenta:
-        description: "madrid, bilbao o barcelona"
+        description: "madrid, bilbao, barcelona o todas"
         required: true
         default: madrid
       modo:
-        description: "yo = comprobar el token sin publicar"
+        description: "yo = comprobar el token · carrusel = publicar el carrusel del finde"
         required: true
         default: yo
+      prueba:
+        description: "1 = solo enseñar lo que se publicaría"
+        default: "1"
 
 permissions:
   contents: read
+  actions: write
+
+env:
+  IG_AUTO: "0"
 
 jobs:
   ig:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cuenta: [madrid, bilbao, barcelona]
     defaults:
       run:
         working-directory: engine
     steps:
+      - name: ¿Toca esta cuenta?
+        id: m
+        working-directory: .
+        run: |
+          if [ "${{ github.event_name }}" = schedule ]; then
+            h=$(TZ=Europe/Madrid date +%H); h=$((10#$h)); dow=$(TZ=Europe/Madrid date +%u)
+            # GitHub a veces lanza las tareas horas tarde: un jueves por la noche ya no tiene sentido
+            if [ "$dow" -eq 4 ] && [ "$h" -lt 22 ]; then m=carrusel; else m=none; fi
+            dry=$([ "$IG_AUTO" = 1 ] && echo 0 || echo 1)
+          else
+            c="${{ inputs.cuenta }}"; m="${{ inputs.modo }}"; dry="${{ inputs.prueba }}"
+            if [ "$c" != todas ] && [ "$c" != "${{ matrix.cuenta }}" ]; then m=none; fi
+          fi
+          echo "modo=$m" >> "$GITHUB_OUTPUT"; echo "dry=$dry" >> "$GITHUB_OUTPUT"
+          echo "dia=$(TZ=Europe/Madrid date +%F)" >> "$GITHUB_OUTPUT"
+          echo "Toca: $m (prueba: $dry)"
       - uses: actions/checkout@v4
+        if: steps.m.outputs.modo != 'none'
       - uses: actions/setup-python@v5
+        if: steps.m.outputs.modo != 'none'
         with:
           python-version: "3.12"
+      - name: ¿Ya publicado hoy?
+        id: hecho
+        if: steps.m.outputs.modo == 'carrusel' && steps.m.outputs.dry != '1'
+        uses: actions/cache/restore@v4
+        with:
+          path: engine/.ig-hecho
+          key: ig-${{ matrix.cuenta }}-${{ steps.m.outputs.dia }}
+          lookup-only: true
       - name: Instagram
+        if: steps.m.outputs.modo != 'none' && steps.hecho.outputs.cache-hit != 'true'
         env:
+          IG_DRY: ${{ steps.m.outputs.dry }}
           IG_MADRID_TOKEN: ${{ secrets.IG_MADRID_TOKEN }}
           IG_BILBAO_TOKEN: ${{ secrets.IG_BILBAO_TOKEN }}
           IG_BARCELONA_TOKEN: ${{ secrets.IG_BARCELONA_TOKEN }}
-        run: python3 src/ig_post.py "${{ inputs.cuenta }}" "${{ inputs.modo }}"
+        run: python3 src/ig_post.py "${{ matrix.cuenta }}" "${{ steps.m.outputs.modo }}"
+      - name: Marcar como publicado hoy
+        if: steps.m.outputs.modo == 'carrusel' && steps.m.outputs.dry != '1' && steps.hecho.outputs.cache-hit != 'true' && success()
+        run: echo ok > .ig-hecho
+      - if: steps.m.outputs.modo == 'carrusel' && steps.m.outputs.dry != '1' && steps.hecho.outputs.cache-hit != 'true' && success()
+        uses: actions/cache/save@v4
+        with:
+          path: engine/.ig-hecho
+          key: ig-${{ matrix.cuenta }}-${{ steps.m.outputs.dia }}

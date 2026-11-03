@@ -640,9 +640,9 @@ function startApp(DATA, TAX, sync) {
   const isDismissed = e => dismissed.includes(e.id);
   const BYID = Object.fromEntries(EV.map(e => [e.id, e]));
   let toastTimer = null, toastUndo = null;
-  function toast(msg, undo) {
-    $('toast-t').textContent = msg; $('toast-undo').hidden = !undo; toastUndo = undo || null;
-    $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 5000);
+  function toast(msg, undo, label) {
+    $('toast-t').textContent = msg; $('toast-undo').hidden = !undo; $('toast-undo').textContent = label || 'Deshacer'; toastUndo = undo || null;
+    $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, label ? 9000 : 5000);
   }
 
   // ---------- filtros: zona, hora del día, días y precio (compartidos por Para ti y Explorar)
@@ -821,7 +821,7 @@ function startApp(DATA, TAX, sync) {
     let t = DIA[d.getDay()] + ' ' + d.getDate() + ' ' + MES[d.getMonth()];
     if (+ini !== +fin && e.sesiones.length <= 1) t = (occ && occ.ongoing ? 'En curso' : 'Desde ' + t) + ', hasta el ' + fin.getDate() + ' ' + MES[fin.getMonth()];
     else if (e.sesiones.length > 1) t += ' · ' + e.sesiones.length + ' sesiones';
-    const h = e.hora && e.hora.length < 40 ? e.hora : null;
+    const h = e.hora && e.hora.length < 40 && !/consult/i.test(e.hora) ? e.hora : null;
     return t + (h ? ' · ' + h : '');
   }
   // si la fuente no trae descripción, se muestra lo leído de la ficha original (se pide al abrir la ficha)
@@ -853,7 +853,11 @@ function startApp(DATA, TAX, sync) {
     const open = !!state.open[e.id];
     const cats = e.cats.filter(c => c !== 'sin_categoria').slice(0, 3);
     const vh = ventajaHit(e);
-    const price = (e.gratis ? '<span class="tag free">Gratis</span>' : (e.precio && e.precio.length < 40 ? `<span class="tag">${esc(e.precio)}</span>` : '')) + (vh ? `<span class="tag free" title="La ficha menciona condiciones para: ${esc(vh)}. Compruébalo en la web.">Posible descuento para ti</span>` : '');
+    const precioVale = e.precio && e.precio.length < 40 && !/consult|^[\s\-–—.?]*$/i.test(e.precio);  // «Consultar página oficial» o «--» no dicen nada
+    const nEst = (NEW.has(e.id) ? 1 : 0) + (e.gratis || precioVale ? 1 : 0) + (e.unico ? 1 : 0), cupo = Math.max(1, 4 - nEst);  // como mucho 4 etiquetas en total
+    const temas = (e.temas || []).slice(0, Math.min(2, cupo)), cats3 = cats.slice(0, cupo - temas.length);
+    const lug = ((e.lugar ? esc(e.lugar) : '') + (userPos && e.lat ? ` · <span class="dist">a ${fmtDist(km(userPos, [e.lat, e.lng]))}</span>` : '') + (ZONE && zkm(e) > 0 && zkm(e) < 999 ? ` · <span class="dist">${e.distrito && !(e.lugar || '').includes(e.distrito) ? esc(e.distrito) + ', ' : ''}a ${fmtDist(zkm(e))} de ${esc(ZONE.name)}</span>` : '')).replace(/^ · /, '');
+    const price = (e.gratis ? '<span class="tag free">Gratis</span>' : (precioVale ? `<span class="tag">${esc(e.precio)}</span>` : '')) + (vh ? `<span class="tag free" title="La ficha menciona condiciones para: ${esc(vh)}. Compruébalo en la web.">Posible descuento para ti</span>` : '');
     const why = opt.info ? `<div class="why">${esc(opt.info)}</div>` : opt.reason ? `<div class="why"><b>Por qué:</b> ${esc(opt.reason)}</div>` : opt.why && opt.why.length ? `<div class="why">Te encaja: ${esc(opt.why.slice(0, 3).join(' · '))}</div>` : '';
     const more = open ? `<div class="more" id="m-${e.id}">
         ${imgOf(e) ? `<img class="evimg" src="${esc(imgOf(e))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}
@@ -883,11 +887,11 @@ function startApp(DATA, TAX, sync) {
         <div class="body">
           <h3 class="title"><button data-open="${e.id}" aria-expanded="${open}" aria-controls="m-${e.id}">${esc(e.titulo)}</button></h3>
           <div class="meta">${esc(whenText(e, occ))}</div>
-          <div class="meta">${esc(e.lugar || 'Lugar por confirmar')}${userPos && e.lat ? ` · <span class="dist">a ${fmtDist(km(userPos, [e.lat, e.lng]))}</span>` : ''}${ZONE && zkm(e) > 0 && zkm(e) < 999 ? ` · <span class="dist">${e.distrito && !(e.lugar || '').includes(e.distrito) ? esc(e.distrito) + ', ' : ''}a ${fmtDist(zkm(e))} de ${esc(ZONE.name)}</span>` : ''}</div>
+          ${lug ? `<div class="meta">${lug}</div>` : ''}
           ${streetWarn(e, occ)}${rainWarn(e, occ)}${crewHtml(e)}${friendsHtml(e)}
           ${e.serie ? `<button class="serie link" data-f-serie="${esc(e.serie)}" aria-label="Ver todo el ciclo: ${esc(e.serie)}">${esc(e.serie)} ›</button>` : ''}
         </div></div>
-      <div class="tags">${NEW.has(e.id) ? '<span class="tag nuevo">Nuevo</span>' : ''}${price}${e.unico ? '<span class="tag uni">Único</span>' : ''}${(e.temas || []).slice(0, 2).map(t => `<button class="tag tema link" data-f-tema="${esc(t)}" aria-label="Más planes sobre ${esc(t)}">${esc(t)}</button>`).join('')}${cats.map(c => `<button class="tag link" data-f-cat="${esc(c)}" aria-label="Más planes de ${esc(labelOf(c))}">${esc(labelOf(c))}</button>`).join('')}${e.fuentes.length > 1 ? `<span class="tag">${e.fuentes.length} fuentes</span>` : ''}</div>
+      <div class="tags">${NEW.has(e.id) ? '<span class="tag nuevo">Nuevo</span>' : ''}${price}${e.unico ? '<span class="tag uni">Único</span>' : ''}${temas.map(t => `<button class="tag tema link" data-f-tema="${esc(t)}" aria-label="Más planes sobre ${esc(t)}">${esc(t)}</button>`).join('')}${cats3.map(c => `<button class="tag link" data-f-cat="${esc(c)}" aria-label="Más planes de ${esc(labelOf(c))}">${esc(labelOf(c))}</button>`).join('')}</div>
       ${why}${more}
       <button class="save" data-save="${e.id}" aria-pressed="${isSaved}" aria-label="${isSaved ? 'Quitar de mi agenda' : 'Guardar en mi agenda'}">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
@@ -1811,9 +1815,7 @@ function startApp(DATA, TAX, sync) {
     if (window.__limonNoZone) { window.__limonNoZone = false; store.set('zoneAsked', 1); toast('Aún no estamos en tu zona: te enseñamos Madrid. Puedes cambiar de zona arriba.'); }
     const show = !window.limonCity.chosen() && !store.get('zoneAsked', 0) && 'geolocation' in navigator;
     box.hidden = !show; if (!show) return;
-    box.innerHTML = `<div class="consent" role="region" aria-label="Tu zona" style="margin:10px 0">
-      <div><b>¿No estás en ${esc(CITY.name)}?</b> Te enseñamos los planes de donde estés. Tu ubicación no sale de tu móvil.</div>
-      <div class="seg"><button class="btn" data-zone-locate>📍 Usar mi ubicación</button><button class="btn ghost" data-zone-pick>Elegir zona</button><button class="btnlink" data-zone-hint-x>Ahora no</button></div></div>`;
+    box.innerHTML = `<p class="note" role="region" aria-label="Tu zona" style="margin:0 0 10px">¿No estás en ${esc(CITY.name)}? <button class="btnlink" data-zone-locate title="Tu ubicación no sale de tu móvil">📍 Ver los de donde estoy</button> · <button class="btnlink" data-zone-pick>Elegir zona</button> · <button class="btnlink" data-zone-hint-x>Ocultar</button></p>`;
   }
   function openZone() {
     const groups = zoneGroups(), zone = window.limonCity.zone();
@@ -2259,6 +2261,7 @@ function startApp(DATA, TAX, sync) {
   // permiso para estadísticas: se pregunta una vez, dentro de la lista (sin ventanas emergentes)
   function consentCard() {
     if (!window.limonConsent || window.limonConsent.get() !== null) return '';
+    if (store.get('abiertos', 0) < 2) return '';  // se pregunta cuando ya ha curioseado un poco, no nada más llegar
     return `<div class="consent" role="region" aria-label="Estadísticas de uso">
       <p style="margin:0"><b>¿Nos ayudas a mejorar Limón?</b> Si nos dejas, guardamos qué planes abres, guardas o compartes para mejorar las recomendaciones de todos y saber qué tipo de planes interesan en la ciudad. Sin anuncios y sin vender datos de nadie.</p>
       <div class="seg"><button class="btn" data-consent="1">Vale</button><button class="btn ghost" data-consent="0">No, gracias</button><a class="note" href="privacidad.html#estadisticas">Más información</a></div></div>`;
@@ -2283,10 +2286,12 @@ function startApp(DATA, TAX, sync) {
   }
   // aviso bien visible arriba de Para ti cuando hay planes nuevos desde la última visita
   function newBanner() {
-    const n = nNew(); if (!n || F.nuevos) return '';
+    const n = nNew(); if (!n || F.nuevos || first) return '';  // en la primera visita no hay «última visita»
     return `<div class="consent" role="region" aria-label="Planes nuevos" style="margin:0 0 10px;flex-direction:row;align-items:center;justify-content:space-between;gap:10px">
       <div><b>✨ ${n} ${n === 1 ? 'plan nuevo' : 'planes nuevos'}</b> desde tu última visita.</div><button class="btn" data-nuevos-ver>Verlos</button></div>`;
   }
+  // mete algo después de la 3.ª tarjeta (o al final si hay menos)
+  function tras3(html, extra) { let n = 0, at = -1; html.replace(/<\/article>/g, (m, k) => { if (++n === 3) at = k + m.length; return m; }); return at < 0 ? html + extra : html.slice(0, at) + extra + html.slice(at); }
   function renderParaTi() {
     $('new-hint').innerHTML = newBanner();
     const [a, b] = range(state.when);
@@ -2301,10 +2306,10 @@ function startApp(DATA, TAX, sync) {
       }
       items.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, y.s - x.s || x.occ.date - y.occ.date));
       $('pt-h').textContent = 'Lo más destacado ' + ({ semana: 'esta semana', finde: 'este finde', mes: 'en los próximos 30 días' })[state.when];
-      $('pt-lead').textContent = 'Aún no sabemos qué te gusta. Marca tus intereses y esta lista pasa a ser solo para ti.';
+      $('pt-lead').textContent = 'Todos los planes de ' + CITY.name + ' en un sitio, gratis y sin anuncios. Marca tus intereses y esta lista será solo para ti.';
       logList(items.slice(0, state.ptShown).map(x => x.e.id));
-      $('pt-list').innerHTML = avisoHoy() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + `<button class="btn" data-goto="intereses" data-fold="in-panel">Elegir mis intereses</button>` + friendsBlock(a, b) +
-        conSeccion(items.slice(0, state.ptShown), x => card(x.e, { occ: x.occ }));
+      $('pt-list').innerHTML = avisoHoy() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) +
+        tras3(conSeccion(items.slice(0, state.ptShown), x => card(x.e, { occ: x.occ })), `<button class="btn" data-goto="intereses" data-fold="in-panel" style="margin:4px 0 14px">✨ Elegir mis intereses</button>`);
       $('pt-more').hidden = items.length <= state.ptShown;
       document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));
       return;
@@ -2321,8 +2326,8 @@ function startApp(DATA, TAX, sync) {
     const dated = top.filter(x => !largo(x.e, x.occ)).sort((x, y) => x.occ.date - y.occ.date || y.sc.s - x.sc.s);
     const going = top.filter(x => largo(x.e, x.occ)).sort((x, y) => parse(x.e.fin) - parse(y.e.fin));
     const label = { semana: 'esta semana', finde: 'este finde', mes: 'los próximos 30 días' }[state.when];
-    $('pt-h').textContent = items.length ? `${items.length} planes para ti ${label}` : `Nada para ti ${label}`;
-    $('pt-lead').textContent = items.length ? `Los ${top.length} que mejor encajan con tus intereses. Toca el título para ver más.` : 'Prueba con un rango más amplio o marca más intereses.';
+    $('pt-h').textContent = items.length ? `${items.length} ${items.length === 1 ? 'plan' : 'planes'} para ti ${label}` : `Nada para ti ${label}`;
+    $('pt-lead').textContent = items.length ? (top.length === 1 ? 'El que mejor encaja' : `Los ${top.length} que mejor encajan`) + ' con tus intereses. Toca el título para ver más.' : 'Prueba con un rango más amplio o marca más intereses.';
     const html = (dated.length ? `<h2>Con fecha</h2>` + dated.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '') +
       (going.length ? SEC_LARGOS + going.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '');
     logList(top.map(x => x.e.id));
@@ -2333,7 +2338,7 @@ function startApp(DATA, TAX, sync) {
   // ---------- selección de la IA (servidor): 6–10 planes con el porqué
   function aiBlock() {
     const w = state.when;
-    if (!logged) return `<div class="ai"><h2>Elegidos para ti</h2><p class="note" style="margin:0">Entra con tu cuenta y cada semana te elegiremos los mejores planes, con el porqué de cada uno.</p><button class="btn ghost" data-goto="intereses" style="align-self:flex-start">Entrar</button></div>`;
+    if (!logged) return `<div class="ai"><h2>Elegidos para ti</h2><p class="note" style="margin:0">Con una cuenta gratis, cada semana te elegimos los mejores planes con el porqué de cada uno, y te avisamos antes de los que guardes.</p><button class="btn" data-goto="intereses" style="align-self:flex-start">Crear cuenta gratis</button></div>`;
     const r = aiReco[w];
     if (!r) { loadAI(w, false); return `<div class="ai"><h2>Eligiendo tus planes…</h2></div>`; }
     if (r.loading) return `<div class="ai"><h2>Eligiendo tus planes…</h2></div>`;
@@ -2607,7 +2612,9 @@ function startApp(DATA, TAX, sync) {
       const id = s.dataset.save, on = !saved.includes(id);
       saved = on ? saved.concat(id) : saved.filter(x => x !== id); store.set('saved', saved);
       if (BYID[id]) learn(BYID[id], on ? 'save' : 'unsave');
-      renderAll(); return;
+      renderAll();
+      if (on && !logged && (saved.length === 1 || saved.length === 3)) toast('Guardado. Con una cuenta gratis te avisamos antes de que empiece.', () => go('intereses'), 'Crear cuenta');
+      return;
     }
     const dm = ev.target.closest('[data-dismiss]');
     if (dm) {
@@ -2695,7 +2702,7 @@ function startApp(DATA, TAX, sync) {
       const c = ev.target.closest('.card');
       if (c && !ev.target.closest('a, button, .more')) o = c.querySelector('[data-open]');
     }
-    if (o) { const id = o.dataset.open; state.open[id] = !state.open[id]; if (state.open[id]) { const all = [...document.querySelectorAll('#v-' + state.tab + ' [data-open]')].map(x => x.dataset.open); track('abrir', id, { pos: all.indexOf(id) + 1 || null }); } renderAll(); const el = document.querySelector(`[data-open="${id}"]`); if (el) el.focus(); return; }
+    if (o) { const id = o.dataset.open; state.open[id] = !state.open[id]; if (state.open[id]) { store.set('abiertos', store.get('abiertos', 0) + 1); const all = [...document.querySelectorAll('#v-' + state.tab + ' [data-open]')].map(x => x.dataset.open); track('abrir', id, { pos: all.indexOf(id) + 1 || null }); } renderAll(); const el = document.querySelector(`[data-open="${id}"]`); if (el) el.focus(); return; }
     const g = ev.target.closest('[data-grp]');
     if (g) { state.groupsOpen[g.dataset.grp] = !state.groupsOpen[g.dataset.grp]; renderIntereses(); return; }
     const c = ev.target.closest('[data-cat]');

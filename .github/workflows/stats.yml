@@ -30,3 +30,11 @@ jobs:
             -H "apikey: $SUPABASE_SECRET" -H "Authorization: Bearer $SUPABASE_SECRET" -H "Prefer: return=minimal")
           echo "anterior a $limit: $code"
           test "$code" = "204"
+      - uses: actions/checkout@v4
+      - name: Visitas a la web (Cloudflare Web Analytics; solo si hay token)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET: ${{ secrets.SUPABASE_SECRET }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: python3 engine/src/visitas_web.py

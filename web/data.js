@@ -533,6 +533,8 @@
       sp(0.15);
       await loadCities();
       sp(0.3);
+      // contador anónimo de aperturas por ciudad y día (solo un número: sin datos de la persona ni del dispositivo)
+      if (location.hostname === 'limonplanes.com') aTiempo(sb.rpc('contar_apertura', { p_city: C.city }), 4000).catch(() => { });
       const [tax, evs, srcs, cuts, audit] = await Promise.all([loadTaxonomy(), loadEvents(), loadSources(), loadClosures(), loadAudit().catch(() => null)]);
       centerOn(evs);
       const last = srcs.map((s) => s.last_run_at).filter(Boolean).sort().pop();

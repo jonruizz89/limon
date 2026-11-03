@@ -47,3 +47,5 @@ extension_in_public:pg_net
 # AEMET: tablas internas del lector de avisos (solo las usa el servidor)
 rls_enabled_no_policy:aemet_zonas
 rls_enabled_no_policy:aemet_peticiones
+rls_enabled_no_policy:app_opens
+rls_enabled_no_policy:web_visits

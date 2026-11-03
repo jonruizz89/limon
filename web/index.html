@@ -553,7 +553,7 @@ table.cov td.n, table.cov th.n { text-align: right }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261103a"></script>
+<script src="data.js?v=20261103b"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -594,7 +594,9 @@ function startApp(DATA, TAX, sync) {
   // ---------- fechas
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  // se llama miles de veces por pantalla: cada fecha se convierte una sola vez (nadie modifica estas fechas; addDays copia)
+  const PARSED = new Map();
+  const parse = s => { let d = PARSED.get(s); if (!d) { const [y, m, dd] = s.split('-').map(Number); d = new Date(y, m - 1, dd); PARSED.set(s, d); } return d; };
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
   const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   const DIA = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
@@ -2441,6 +2443,7 @@ function startApp(DATA, TAX, sync) {
       <p class="note">Las sesiones de un mismo evento se agrupan en una sola tarjeta. Si el mismo evento aparece en varias fuentes se une en uno y se conservan todos los enlaces: ahora hay ${m.multifuente} eventos con más de una fuente.</p>
       <p class="note">Las categorías, temas y ciclos se asignan automáticamente a partir del título y la descripción. ${m.sin_categoria} eventos (${Math.round(100 * m.sin_categoria / Math.max(1, m.eventos))} %) se quedan sin categoría.</p>
       <p class="note">${CITY.id === 'madrid' ? 'Contiene información de la agenda del Ayuntamiento de Madrid (datos.madrid.es, licencia CC BY 4.0), de esMadrid.com, de la Agenda Cultural del Ministerio de Cultura y de las webs de cada recinto.' : 'Contiene información de las fuentes de la tabla, encontradas y leídas automáticamente.'} Cada tarjeta enlaza a su fuente original.</p>`;
+    if (DATA.audit === undefined && window.limonAudit) { DATA.audit = null; window.limonAudit().then(a => { DATA.audit = a; if (state.tab === 'fuentes') renderFuentes(); }); }
     const au = DATA.audit;
     if (au && au.runs.length) {
       const when = new Date(au.runs[0].run_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
@@ -2775,7 +2778,8 @@ function startApp(DATA, TAX, sync) {
     get: () => ({ prefs, opts, saved, streets, dismissed, went, nofui, learned, taste }),
     setUser(v) { logged = v; Object.keys(aiReco).forEach(k => delete aiReco[k]); renderAll(); loadMe(); loadInvites(); loadSocial(); loadIdeas(); loadPast(); },
     set(p) {
-      if (p.prefs) prefs = p.prefs; if (p.opts) opts = Object.assign({}, opts, p.opts, { dist: opts.dist });  // la distancia es de cada dispositivo: la cuenta no la pisa if (p.saved) saved = p.saved; if (p.streets) streets = p.streets;
+      if (p.prefs) prefs = p.prefs; if (p.opts) opts = Object.assign({}, opts, p.opts, { dist: opts.dist });  // la distancia es de cada dispositivo: la cuenta no la pisa
+      if (p.saved) saved = p.saved; if (p.streets) streets = p.streets;
       if (p.dismissed) dismissed = p.dismissed; if (p.went) went = p.went; if (p.nofui) nofui = p.nofui; if (p.learned) learned = p.learned;
       if ('taste' in p) { taste = p.taste; try { localStorage.setItem('bureo.taste', JSON.stringify(taste)); } catch (e) { } }
       if ('taste_text' in p) { tasteText = p.taste_text || ''; try { localStorage.setItem('bureo.taste_text', JSON.stringify(tasteText)); } catch (e) { } }

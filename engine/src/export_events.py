@@ -2,7 +2,9 @@
 (un archivo estático, comprimido y en caché) en lugar de pedírselos a Supabase en cada apertura.
 
 Uso: python3 src/export_events.py ../web
-Mismo formato que devuelve la consulta de la app (data.js → loadEvents), para que el mapeo sea idéntico.
+Formato compacto (formato 2): claves cortas, sin nulos ni falsos, nombres de fuente en una lista aparte y
+coordenadas a 5 decimales; la app (data.js → desdeCompacto) lo devuelve a la forma de la consulta de Supabase.
+Pesa la mitad sin comprimir (menos que leer en el móvil) y un 15–35 % menos comprimido.
 """
 import datetime as dt, json, os, re, sys, urllib.parse, urllib.request
 
@@ -46,10 +48,55 @@ dump('taxonomia', {'generado': ahora,
 for c in ciudades:
     dump(f"fuentes-{c['id']}", {'generado': ahora, 'fuentes': get(f"sources?select=name,url,method,license,last_run_at&city_id=eq.{c['id']}&status=eq.activa&order=id")})
     dump(f"cortes-{c['id']}", {'generado': ahora, 'cortes': get(f"closures?select=title,kind,summary,streets,lines,stations,district,ranges,source_url,source_name,geom&city_id=eq.{c['id']}&order=id")})
+def compacto(zona, evs):
+    fuentes, idx, out = [], {}, []
+    for e in evs:
+        r = {'i': e['id'], 't': e['title'], 's': e['starts_on']}
+        if e['ends_on'] != e['starts_on']:
+            r['f'] = e['ends_on']
+        for k, c in (('description', 'de'), ('time_text', 'h'), ('district', 'd'), ('price_text', 'p'), ('image_url', 'im'),
+                     ('series', 'se'), ('topics', 'tp')):
+            if e.get(k):
+                r[c] = e[k]
+        if e.get('is_free'):
+            r['g'] = 1
+        if e.get('is_unique') or e.get('ai_unique'):
+            r['u'] = 1
+        if e.get('is_featured'):
+            r['x'] = 1
+        if e.get('lat') is not None and e.get('lng') is not None:
+            r['la'], r['lo'] = round(e['lat'], 5), round(e['lng'], 5)
+        if e.get('first_seen_at'):
+            r['a'] = dt.datetime.fromisoformat(e['first_seen_at']).astimezone(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ')
+        if e.get('venues') and e['venues'].get('name'):
+            r['v'] = e['venues']['name']
+        ss = sorted(x['on_date'] for x in e.get('event_sessions') or [])
+        if ss and ss != [e['starts_on']]:
+            r['ss'] = ss
+        if e.get('event_categories'):
+            r['c'] = [x['category_id'] for x in e['event_categories']]
+        urls = set()
+        for x in e.get('event_sources') or []:
+            n = (x.get('sources') or {}).get('name') or 'Fuente'
+            if n not in idx:
+                idx[n] = len(fuentes)
+                fuentes.append(n)
+            r.setdefault('fu', []).append([idx[n], x['url']] if x.get('url') else [idx[n]])
+            urls.add(x.get('url'))
+        if e.get('organizer_url') and e['organizer_url'] not in urls:
+            r['w'] = e['organizer_url']
+        elif e.get('organizer_url'):  # es el enlace de una de sus fuentes: se guarda su posición (número)
+            r['w'] = next(i for i, x in enumerate(e['event_sources']) if x.get('url') == e['organizer_url'])
+        if e.get('city_id') != zona:
+            r['m'] = e['city_id']
+        out.append(r)
+    return {'generado': ahora, 'zona': zona, 'formato': 2, 'fuentes': fuentes, 'eventos': out}
+
+
 total = 0
 for c in ciudades:
     evs = get(f"events?select={urllib.parse.quote(COLS, safe=',()')}&city_id=eq.{c['id']}&ends_on=gte.{hoy}&order=starts_on,id")
-    json.dump({'generado': ahora, 'zona': c['id'], 'eventos': evs}, open(os.path.join(d, f"eventos-{c['id']}.json"), 'w', encoding='utf-8'),
+    json.dump(compacto(c['id'], evs), open(os.path.join(d, f"eventos-{c['id']}.json"), 'w', encoding='utf-8'),
               ensure_ascii=False, separators=(',', ':'))
     total += len(evs)
     print(f"{c['id']}: {len(evs)} planes, {os.path.getsize(os.path.join(d, f'eventos-' + c['id'] + '.json')) // 1024} kB")

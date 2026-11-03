@@ -56,6 +56,31 @@
     }));
   }
 
+  // formato compacto de los archivos (export_events.py, formato 2) → la misma forma que devuelve Supabase
+  function desdeCompacto(a) {
+    if (a.formato !== 2) return a.eventos;
+    const F = a.fuentes || [];
+    return a.eventos.map((r) => {
+      const fu = (r.fu || []).map((x) => ({ url: x[1] || null, sources: { name: F[x[0]] || 'Fuente' } }));
+      return {
+        id: r.i, city_id: r.m || a.zona, title: r.t, description: r.de || null, starts_on: r.s, ends_on: r.f || r.s,
+        time_text: r.h || null, district: r.d || null, price_text: r.p || null, is_free: !!r.g, image_url: r.im || null,
+        organizer_url: typeof r.w === 'number' ? (fu[r.w] || {}).url || null : r.w || null,
+        is_unique: !!r.u, is_featured: !!r.x, ai_unique: false, topics: r.tp || [], series: r.se || null,
+        lat: r.la ?? null, lng: r.lo ?? null, first_seen_at: r.a || null, venues: r.v ? { name: r.v } : null,
+        event_sessions: (r.ss || []).map((d) => ({ on_date: d })), event_categories: (r.c || []).map((c) => ({ category_id: c })),
+        event_sources: fu
+      };
+    });
+  }
+  // la descarga de los planes de la zona empieza nada más abrir, a la vez que la de las ciudades
+  const PEDIDOS = {};
+  function pedirEventos(z) {
+    if (!PEDIDOS[z]) PEDIDOS[z] = fetch('datos/eventos-' + encodeURIComponent(z) + '.json?d=' + ymd(new Date()), { cache: 'default' })
+      .then((r) => { if (!r.ok) throw new Error('sin archivo ' + z); return r.json(); });
+    return PEDIDOS[z];
+  }
+
   async function loadEvents() {
     const today = ymd(new Date());
     const cols = 'id,city_id,title,description,starts_on,ends_on,time_text,district,price_text,is_free,image_url,organizer_url,' +
@@ -64,14 +89,14 @@
     //    + los planes que hayan entrado después de generarlos; 2) si algo falla, la consulta directa de siempre
     const zonas = C.scope || [C.city];
     try {
-      const arch = await Promise.all(zonas.map((z) => fetch('datos/eventos-' + encodeURIComponent(z) + '.json?d=' + today, { cache: 'default' })
-        .then((r) => { if (!r.ok) throw new Error('sin archivo ' + z); return r.json(); })));
+      const arch = await Promise.all(zonas.map(pedirEventos));
       const gen = arch.map((a) => a.generado).sort()[0];
       if (!gen || Date.now() - Date.parse(gen) > 40 * 3600e3) throw new Error('archivo viejo');
       if (window.limonSplash) window.limonSplash(0.7);
       const byId = new Map();
-      for (const a of arch) for (const e of a.eventos) if (e.ends_on >= today) byId.set(e.id, e);
-      const nuevos = await aTiempo(sb.from('events').select(cols).in('city_id', zonas).gte('ends_on', today).gt('first_seen_at', gen).limit(1000), 5000);
+      for (const a of arch) for (const e of desdeCompacto(a)) if (e.ends_on >= today) byId.set(e.id, e);
+      // lo que haya entrado después de generar los archivos: si Supabase tarda, se abre sin ello (sale en el siguiente archivo)
+      const nuevos = await aTiempo(sb.from('events').select(cols).in('city_id', zonas).gte('ends_on', today).gt('first_seen_at', gen).limit(1000), 800);
       if (!nuevos.error && nuevos.data) for (const e of nuevos.data) byId.set(e.id, e);
       return mapEvents([...byId.values()].sort((a, b) => (a.starts_on < b.starts_on ? -1 : a.starts_on > b.starts_on ? 1 : a.id - b.id)));
     } catch (err) { console.warn('planes desde Supabase:', err.message || err); }
@@ -531,11 +556,15 @@
     try {
       const sp = window.limonSplash || (() => { });
       sp(0.15);
+      // adelanta la descarga más grande con la zona que probablemente toque (la del enlace o la última elegida)
+      let zg = new URLSearchParams(location.search).get('c'); try { zg = zg || (localStorage.getItem('bureo.city') || '').split('|')[0]; } catch (e) { }
+      if (/^[a-z0-9_-]{2,30}$/.test(zg || C.city)) pedirEventos(zg || C.city).catch(() => { });
       await loadCities();
       sp(0.3);
       // contador anónimo de aperturas por ciudad y día (solo un número: sin datos de la persona ni del dispositivo)
       if (location.hostname === 'limonplanes.com') aTiempo(sb.rpc('contar_apertura', { p_city: C.city }), 4000).catch(() => { });
-      const [tax, evs, srcs, cuts, audit] = await Promise.all([loadTaxonomy(), loadEvents(), loadSources(), loadClosures(), loadAudit().catch(() => null)]);
+      const [tax, evs, srcs, cuts] = await Promise.all([loadTaxonomy(), loadEvents(), loadSources(), loadClosures()]);
+      window.limonAudit = () => loadAudit().catch(() => null);  // auditoría de cobertura: solo se pide al abrir «Fuentes»
       centerOn(evs);
       const last = srcs.map((s) => s.last_run_at).filter(Boolean).sort().pop();
       const meta = {
@@ -546,7 +575,7 @@
         generado: last ? new Date(last).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) : 'sin datos'
       };
       sp(0.9);
-      app = startApp({ eventos: evs, meta, closures: cuts, audit, city: CITY, cities: CITIES }, tax, sync);
+      app = startApp({ eventos: evs, meta, closures: cuts, audit: undefined, city: CITY, cities: CITIES }, tax, sync);
       wireAccount();
       requestAnimationFrame(() => sp(1));
     } catch (e) {

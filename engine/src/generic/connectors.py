@@ -332,6 +332,83 @@ def bcn_read(cfg, max_rows=20000):
     return out
 
 
+# ---------- Madrid · Pasea Madrid (visitas guiadas gratuitas del Ayuntamiento: patrimonio, quintas, Beti Jai…)
+# La central de reservas lista cada visita con su página: título, fechas («Del 13 de noviembre al 18 de diciembre»),
+# descripción y punto de encuentro. Los días y horas concretos los da un calendario de reserva aparte: entra como plan con rango.
+PASEA = 'https://paseamadrid.reservaspatrimonio.es'
+_MESES = {m: i + 1 for i, m in enumerate('enero febrero marzo abril mayo junio julio agosto septiembre octubre noviembre diciembre'.split())}
+
+
+def pasea_match(city):
+    return {'method': 'paseamadrid'} if fold(city.get('name')) == 'madrid' else None
+
+
+def _texto(h):
+    return _clean(re.sub(r'<(script|style)[^>]*>.*?</\1>|<!--.*?-->', ' ', h or '', flags=re.S | re.I))
+
+
+def _rango(t, hoy):
+    m = re.search(r'\bDel (\d{1,2}) de (\w+)(?: de (\d{4}))? al (\d{1,2}) de (\w+)(?: de (\d{4}))?', t, re.I)
+    if not m or fold(m.group(2)) not in _MESES or fold(m.group(5)) not in _MESES:
+        return None
+    m1, m2 = _MESES[fold(m.group(2))], _MESES[fold(m.group(5))]
+    if m.group(6) or m.group(3):  # con año: el que falte se deduce del otro
+        y2 = int(m.group(6) or m.group(3))
+        y1 = int(m.group(3) or (y2 - 1 if m1 > m2 else y2))
+    else:  # sin año: la temporada en curso o la próxima (si el mes ya pasó hace mucho, es del año que viene)
+        y1 = hoy.year + (1 if m1 < hoy.month - 6 else 0)
+        y2 = y1 + (1 if m2 < m1 else 0)
+    try:
+        return dt.date(y1, m1, int(m.group(1))), dt.date(y2, m2, int(m.group(4)))
+    except ValueError:
+        return None
+
+
+def pasea_read(cfg):
+    hoy = dt.date.today()
+    st, _, txt, _ = fetch(PASEA + '/')
+    if st != 200:
+        print('  Pasea Madrid: portada', st)
+        return []
+    paginas = list(dict.fromkeys(re.findall(r'href="(/\d+-[^"]+)"', txt)))
+    vistos, out = {}, []
+    for ruta in paginas:
+        st, _, h, _ = fetch(PASEA + ruta)
+        if st != 200:
+            continue
+        t = _texto(h)
+        m = re.search(r'(Visita[^“"]*|Itinerario[^“"]*|Ruta[^“"]*)[“"]([^”"]{3,150})[”"]\s*(-\s*Personas mayores)?', t)
+        r = _rango(t, hoy)
+        if not m or not r or r[1] < hoy:
+            continue
+        mayores = bool(m.group(3))
+        base = f'{m.group(1).strip().capitalize()}: {m.group(2).strip()}'
+        titulo = base + (' (mayores de 65)' if mayores else '')
+        desc = re.search(r'-\s*info\s+(.*?)\s+AFORO\b', t)
+        punto = re.search(r'PUNTO DE ENCUENTRO\s+(.*?)\s+(?:ACCESIBILIDAD|DESCARGAR|METRO|AUTOB[ÚU]S|DURACI[ÓO]N)\b', t)
+        dur = re.search(r'DURACI[ÓO]N\s+(.{1,40}?)\s+(?:OBSERVACIONES|SELECCIONE)', t)
+        texto = (desc.group(1) if desc else '')[:900]
+        extra = ' '.join(x for x in [f'Duración: {dur.group(1)}.' if dur else '', 'Gratis, con inscripción previa en la central de reservas de Pasea Madrid.',
+                                     'Solo para mayores de 65 años.' if mayores else ''] if x)
+        e = {'titulo': titulo[:300], 'descripcion': (texto + ' ' + extra).strip(), 'inicio': r[0].isoformat(), 'fin': r[1].isoformat(),
+             'hora': None, 'lugar': punto.group(1).strip()[:200] if punto else None, 'direccion': punto.group(1).strip()[:200] if punto else None,
+             'lat': None, 'lng': None, 'distrito': None, 'precio': 'Gratis', 'gratis': True, 'imagen': None,
+             'web_organizador': PASEA + ruta, 'url': PASEA + ruta}
+        # si la misma visita existe para todos los públicos, la de mayores no se repite
+        if base in vistos:
+            if not mayores and vistos[base]['_mayores']:
+                out.remove(vistos[base])
+            else:
+                continue
+        e['_mayores'] = mayores
+        vistos[base] = e
+        out.append(e)
+    for e in out:
+        e.pop('_mayores', None)
+    print(f'  Pasea Madrid: {len(out)} visitas de {len(paginas)} páginas')
+    return out
+
+
 CONNECTORS = {
     'kulturklik': {'name': 'Kulturklik · Agenda cultural de Euskadi', 'url': 'https://www.kulturklik.euskadi.eus/', 'layer': 'regional',
                    'license': 'Open Data Euskadi (CC BY 4.0)', 'match': kk_match, 'read': kk_read},
@@ -341,6 +418,8 @@ CONNECTORS = {
               'license': 'Enlace a la ficha original', 'match': gij_match, 'read': gij_read},
     'barcelona': {'name': 'Agenda de Barcelona (Open Data BCN: agenda diaria y cultural)', 'url': 'https://guia.barcelona.cat/es/agenda',
                   'layer': 'municipal', 'license': 'Open Data BCN (CC BY 4.0)', 'match': bcn_match, 'read': bcn_read},
+    'paseamadrid': {'name': 'Pasea Madrid (visitas guiadas del Ayuntamiento)', 'url': PASEA, 'layer': 'municipal',
+                    'license': 'Enlace a la ficha original', 'match': pasea_match, 'read': pasea_read},
 }
 
 

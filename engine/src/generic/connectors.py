@@ -219,7 +219,7 @@ _BCN_TIPOS = r'(c|carrer|cl|pl|placa|pg|passeig|pje|passatge|av|avda|avinguda|ct
 _BCN_PRIO = ['Centres cívics', 'Biblioteques municipals', 'Biblioteques', 'Teatres', 'Auditoris', 'Museus municipals', 'Museus', 'Cinemes',
              'Casals de barri comunitaris', 'Casals i espais per a joves', 'Ateneus de fabricació', 'Sales de festes', 'Tablaos flamencs',
              'Bars i pubs musicals', 'Discoteques', 'Universitats', "Casals d'avis", 'Casals infantils', 'Arxius municipals', 'Parcs i jardins']
-_BCN_GEN = set('teatre teatres biblioteca auditori auditoris sala sales de estudi d museu cinema espai'.split())
+_BCN_GEN = set('teatre teatres biblioteca auditori auditoris auditorium sala sales de del estudi d museu cinema espai jardi conferencies'.split())
 # recintos que el listado nombra por una de sus partes y la gente conoce por el conjunto
 _BCN_FIJOS = {'sant adria|20': 'Fabra i Coats - Fàbrica de Creació', 'palau musica|2': 'Palau de la Música Catalana'}
 
@@ -241,7 +241,8 @@ def _bcn_equipaments():
         st, _, txt, _ = fetch(f'{BCN}?{urllib.parse.urlencode({"sql": sql})}', accept=JSON, ua=UA_API)
         recs = (json.loads(txt).get('result') or {}).get('records') or [] if st == 200 else []
         for r in recs:
-            k, cat, n = _bcn_clave(r.get('addresses_road_name'), r.get('addresses_start_street_number')), r.get('secondary_filters_name'), ' '.join((r.get('name') or '').split())
+            k, cat = _bcn_clave(r.get('addresses_road_name'), r.get('addresses_start_street_number')), r.get('secondary_filters_name')
+            n = re.sub(r'\s*\*.*$', '', ' '.join((r.get('name') or '').split()))  # fuera «*Tancada temporalment», «*Poble Espanyol»…
             if k and cat in _BCN_PRIO and n and not all(w in _BCN_GEN for w in re.findall(r'[a-z]+', fold(n))):
                 por.setdefault(k, []).append((_BCN_PRIO.index(cat), n))
         if len(recs) < 1000:

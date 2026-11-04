@@ -67,7 +67,7 @@
         time_text: r.h || null, district: r.d || null, price_text: r.p || null, is_free: !!r.g, image_url: r.im || null,
         organizer_url: typeof r.w === 'number' ? (fu[r.w] || {}).url || null : r.w || null,
         is_unique: !!r.u, is_featured: !!r.x, ai_unique: false, topics: r.tp || [], series: r.se || null,
-        lat: r.la ?? null, lng: r.lo ?? null, first_seen_at: r.a || null, venues: r.v ? { name: r.v } : null,
+        lat: r.la ?? null, lng: r.lo ?? null, first_seen_at: r.a || null, venues: r.v ? { name: r.v, address: r.vd || null } : null,
         event_sessions: (r.ss || []).map((d) => ({ on_date: d })), event_categories: (r.c || []).map((c) => ({ category_id: c })),
         event_sources: fu
       };
@@ -84,7 +84,7 @@
   async function loadEvents() {
     const today = ymd(new Date());
     const cols = 'id,city_id,title,description,starts_on,ends_on,time_text,district,price_text,is_free,image_url,organizer_url,' +
-      'is_unique,is_featured,ai_unique,topics,series,lat,lng,first_seen_at,venues(name),event_sessions(on_date),event_categories(category_id),event_sources(url,sources(name))';
+      'is_unique,is_featured,ai_unique,topics,series,lat,lng,first_seen_at,venues(name,address),event_sessions(on_date),event_categories(category_id),event_sources(url,sources(name))';
     // 1) planes del día en archivos estáticos (CDN, comprimidos y en caché): una descarga por zona, sin cargar Supabase
     //    + los planes que hayan entrado después de generarlos; 2) si algo falla, la consulta directa de siempre
     const zonas = C.scope || [C.city];
@@ -122,6 +122,7 @@
       fin: e.ends_on,
       hora: e.time_text,
       lugar: e.venues ? e.venues.name : null,
+      direccion: e.venues ? e.venues.address || null : null,
       // en la provincia, el «distrito» es el municipio: los planes de Bilbao cuentan como «Bilbao»
       distrito: e.city_id !== C.city && C.names ? C.names[e.city_id] : e.district,
       lat: e.lat, lng: e.lng,

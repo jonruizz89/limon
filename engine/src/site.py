@@ -71,7 +71,7 @@ REDES_Z = {c['id']: {k: (c.get('features') or {}).get(k) for k in ('instagram', 
 groups = {g['id']: g['name'] for g in get('category_groups?select=id,name&order=position') if g['id'] != 'otros'}
 cats = {c['id']: c for c in get('categories?select=id,group_id,label&order=position')}
 cols = ('id,city_id,title,description,details,starts_on,ends_on,time_text,district,price_text,is_free,image_url,organizer_url,lat,lng,is_unique,ai_unique,'
-        'venues(name,instagram,instagram_estado),event_categories(category_id),event_sources(url,sources(name,license))')
+        'venues(name,address,instagram,instagram_estado),event_categories(category_id),event_sources(url,sources(name,license))')
 ids = ','.join(c['id'] for c in cities)
 evs = get(f'events?select={cols}&city_id=in.({ids})&ends_on=gte.{HOY.isoformat()}&starts_on=lte.{HASTA_FICHA.isoformat()}&order=starts_on,id')
 print(len(evs), 'eventos;', len(cities), 'zonas publicadas')
@@ -79,6 +79,7 @@ byc = {c['id']: c for c in cities}
 for e in evs:
     e['grupos'] = sorted({cats[c['category_id']]['group_id'] for c in e.get('event_categories') or [] if c['category_id'] in cats} & set(groups), key=list(groups).index)
     e['lugar'] = (e.get('venues') or {}).get('name')
+    e['direccion'] = (e.get('venues') or {}).get('address')
     ve = e.get('venues') or {}
     e['ig'] = ve.get('instagram') if ve.get('instagram_estado') == 'ok' else None  # se etiqueta en el carrusel
     e['url'] = f"/evento/{e['id']}-{slug(e['title'])}/"
@@ -409,6 +410,8 @@ for e in evs:
     if e.get('organizer_url') and not any(s['url'] == e['organizer_url'] for s in srcs):
         links += f'<p><a href="{esc(e["organizer_url"])}" rel="nofollow noopener" target="_blank">Web del organizador ↗</a></p>'
     body = f"<h1>{esc(e['title'])}</h1><p class='lead'>{esc(cuando(e))}{' · ' + esc(sitio) if sitio else ''}</p>"
+    if e.get('direccion'):
+        body += f"<p class='m'>📍 {esc(e['direccion'])}</p>"
     if e['img']:
         body += f'<img class="hero" src="{esc(e["img"])}" alt="" loading="lazy">'
     body += '<div class="card">' + (f'<p>{esc(txt)}</p>' if txt else '') + \
@@ -419,6 +422,8 @@ for e in evs:
         if mas:
             body += f'<h2>Más planes en {esc(z["name"])}</h2><ul class="ev">' + ''.join(li(x, z) for x in mas) + f'</ul><p><a href="/planes/{z["path"]}/">Toda la agenda de {esc(z["name"])}</a></p>'
     loc = {'@type': 'Place', 'name': e['lugar'] or (z['name'] if z else ''), 'address': {'@type': 'PostalAddress', 'addressLocality': z['name'] if z else '', 'addressCountry': 'ES'}}
+    if e.get('direccion'):
+        loc['address']['streetAddress'] = e['direccion']
     if e.get('lat'):
         loc['geo'] = {'@type': 'GeoCoordinates', 'latitude': e['lat'], 'longitude': e['lng']}
     ld = {'@context': 'https://schema.org', '@type': 'Event', 'name': e['title'], 'startDate': e['starts_on'], 'endDate': e['ends_on'],

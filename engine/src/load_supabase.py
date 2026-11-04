@@ -52,11 +52,17 @@ for e in evs:
         if k and k not in venues:
             venues[k] = {'city_id': CITY, 'name': e['lugar'], 'name_key': k, 'district': e.get('distrito'),
                          'lat': e.get('lat'), 'lng': e.get('lng')}
+        d = (e.get('direccion') or '').strip()[:200]
+        if k and d and not venues[k].get('address') and norm(d) != k:
+            venues[k]['address'] = d
 vid = {}
-# los recintos sin coordenadas no borran las que ya tenía la base (p. ej. corregidas a mano)
-with_geo = [v for v in venues.values() if v.get('lat') is not None]
-no_geo = [{k: v[k] for k in ('city_id', 'name', 'name_key')} for v in venues.values() if v.get('lat') is None]
-for group in (with_geo, no_geo):
+# los recintos sin coordenadas (o sin dirección) no borran las que ya tenía la base (p. ej. corregidas a mano):
+# se mandan en grupos con las mismas columnas
+grupos = {}
+for v in venues.values():
+    cols = ('city_id', 'name', 'name_key') + (('district', 'lat', 'lng') if v.get('lat') is not None else ()) + (('address',) if v.get('address') else ())
+    grupos.setdefault(cols, []).append({c: v.get(c) for c in cols})
+for group in grupos.values():
     for part in chunks(group, 500):
         for r in api('POST', 'venues?on_conflict=city_id,name_key&select=id,name_key', part,
                      'resolution=merge-duplicates,return=representation'):

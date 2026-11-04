@@ -585,8 +585,9 @@ def main():
         print('geocodificación:', geocode_events(eventos, norm))
     except Exception as ex:
         print('aviso: sin geocodificación:', ex)
-    for e in eventos:
-        e.pop('direccion', None)
+    for e in eventos:  # la dirección se guarda en el lugar (venues.address); si es igual que el nombre, sobra
+        if e.get('direccion') and norm(e['direccion']) == norm(e.get('lugar') or ''):
+            e.pop('direccion')
     os.makedirs(OUT, exist_ok=True)
     meta = {
         'generado': dt.datetime.now().isoformat(timespec='minutes'), 'ventana': [HOY.isoformat(), HASTA.isoformat()],

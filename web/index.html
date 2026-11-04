@@ -553,7 +553,7 @@ table.cov td.n, table.cov th.n { text-align: right }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261103b"></script>
+<script src="data.js?v=20261104a"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -866,7 +866,7 @@ function startApp(DATA, TAX, sync) {
         ${e.descripcion ? `<p>${esc(e.descripcion)}</p>` : detailsHtml(e)}
         ${e.hora && e.hora.length >= 40 ? `<p class="note">${esc(e.hora)}</p>` : ''}
         ${e.precio && e.precio.length >= 40 ? `<p class="note">${esc(e.precio)}</p>` : ''}
-        ${e.distrito ? `<p class="note">Distrito: ${esc(e.distrito)}</p>` : ''}
+        ${e.direccion || e.distrito ? `<p class="note">📍 ${[e.direccion, e.distrito && !(e.direccion || '').includes(e.distrito) ? e.distrito : ''].filter(Boolean).map(esc).join(' · ')}</p>` : ''}
         <div class="links">${e.fuentes.map(f => f.url ? `<a href="${esc(f.url)}" target="_blank" rel="noopener">Ver en ${esc(f.nombre)} ↗</a>` : '').join('')}
         ${e.web_organizador ? `<a href="${esc(e.web_organizador)}" target="_blank" rel="noopener">Web del organizador ↗</a>` : ''}
         ${e.lat ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=transit" target="_blank" rel="noopener">Cómo llegar ↗</a>` : ''}</div>

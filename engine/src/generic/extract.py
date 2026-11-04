@@ -239,7 +239,9 @@ def main(cid):
         e['descripcion'] = (e.get('descripcion') or '')[:420]
         if prov and e.get('municipio') and e.get('muni_ll'):
             mll.setdefault(e['municipio'], [round(x, 4) for x in e['muni_ll']])
-        for k in ('municipio', 'url', 'direccion', 'tipo', 'muni_ll'):
+        if e.get('direccion') and fold(e['direccion']).strip() == fold(e.get('lugar') or '').strip():
+            e.pop('direccion')  # la «dirección» era el propio nombre del lugar
+        for k in ('municipio', 'url', 'tipo', 'muni_ll'):
             e.pop(k, None)
     geo.save()
     if prov:  # el selector y el filtro «municipio» muestran los pueblos con planes

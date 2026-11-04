@@ -13,7 +13,7 @@ cfg = open(os.path.join(WEB, 'config.js'), encoding='utf-8').read()
 SB_URL = re.search(r"supabaseUrl:\s*'([^']+)'", cfg).group(1)
 SB_KEY = re.search(r"supabaseKey:\s*'([^']+)'", cfg).group(1)  # clave pública: lo mismo que ve la app
 COLS = ('id,city_id,title,description,starts_on,ends_on,time_text,district,price_text,is_free,image_url,organizer_url,'
-        'is_unique,is_featured,ai_unique,topics,series,lat,lng,first_seen_at,venues(name),event_sessions(on_date),'
+        'is_unique,is_featured,ai_unique,topics,series,lat,lng,first_seen_at,venues(name,address),event_sessions(on_date),'
         'event_categories(category_id),event_sources(url,sources(name))')
 
 
@@ -70,6 +70,8 @@ def compacto(zona, evs):
             r['a'] = dt.datetime.fromisoformat(e['first_seen_at']).astimezone(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ')
         if e.get('venues') and e['venues'].get('name'):
             r['v'] = e['venues']['name']
+            if e['venues'].get('address'):
+                r['vd'] = e['venues']['address']
         ss = sorted(x['on_date'] for x in e.get('event_sessions') or [])
         if ss and ss != [e['starts_on']]:
             r['ss'] = ss

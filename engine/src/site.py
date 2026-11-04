@@ -394,6 +394,35 @@ for z in tops:
         body += '<div class="chips">' + ''.join(f'<a href="/planes/{k["path"]}/">{esc(k["name"])}</a>' for k in sorted(z['kids'], key=lambda k: slug(k['name'])) if k['evs']) + '</div>'
 page('/planes/', 'Planes por zona · Limón', 'Qué hacer en Madrid, Zaragoza, Gijón, Bilbao, Donostia, Vitoria-Gasteiz y toda Euskadi: agenda de eventos, conciertos, teatro y actividades, actualizada cada día.', body)
 
+# ---------- Colecciones: programas con muchas visitas sueltas (p. ej. Pasea Madrid) reunidos en una página, que es lo que la gente busca
+COLECCIONES = [{'zona': 'madrid', 'path': 'pasea-madrid', 'fuente': 'Pasea Madrid', 'nombre': 'Pasea Madrid',
+                'title': 'Pasea Madrid: visitas guiadas gratuitas por Madrid',
+                'lead': ('Todas las visitas guiadas gratuitas del programa Pasea Madrid del Ayuntamiento: el Madrid barroco, Goya, '
+                         'las quintas históricas, el frontón Beti Jai, el búnker de El Capricho y más. Las plazas se reservan en la central '
+                         'de reservas del Ayuntamiento y se agotan rápido.'),
+                'reservas': 'https://paseamadrid.reservaspatrimonio.es'}]
+EN_COLECCION = {}
+for c in COLECCIONES:
+    z = next((x for x in zonas if x['path'] == c['zona']), None)
+    sel = sorted((e for e in (z['evs'] if z else []) if any(c['fuente'] in ((s.get('sources') or {}).get('name') or '') for s in e.get('event_sources') or [])),
+                 key=lambda e: (e['starts_on'], e['title']))
+    if not sel:
+        continue
+    path = f"/planes/{z['path']}/{c['path']}/"
+    for e in sel:
+        EN_COLECCION[e['id']] = (c['nombre'], path)
+    ini, fin = min(e['starts_on'] for e in sel), max(e['ends_on'] for e in sel)
+    body = (f"<h1>{esc(c['title'])}</h1><p class='lead'>{esc(c['lead'])}</p>"
+            f"<p class='m'>{len(sel)} visitas · del {esc(fecha(d(ini), False))} al {esc(fecha(d(fin), False))} · gratis con inscripción</p>"
+            f"<p><a class='cta' href='{esc(c['reservas'])}' rel='nofollow noopener' target='_blank'>Ir a la central de reservas ↗</a></p>"
+            '<ul class="ev">' + ''.join(li(e, z) for e in sel) + '</ul>'
+            f'<p><a href="/planes/{z["path"]}/">Toda la agenda de {esc(z["name"])}</a></p>')
+    ld = {'@context': 'https://schema.org', '@type': 'ItemList', 'name': c['title'],
+          'itemListElement': [{'@type': 'ListItem', 'position': i + 1, 'url': BASE + e['url'], 'name': e['title']} for i, e in enumerate(sel)]}
+    page(path, f"{c['title']} · Limón", f"{c['lead']} {len(sel)} visitas del {fecha(d(ini), False)} al {fecha(d(fin), False)}.", body,
+         crumbs_of(z) + [(z['name'], f"/planes/{z['path']}/")], ld=[ld], app=zone_app(z))
+    print('colección', path, len(sel))
+
 # eventos
 for e in evs:
     z = zpath.get(e['id'])
@@ -417,6 +446,9 @@ for e in evs:
     body += '<div class="card">' + (f'<p>{esc(txt)}</p>' if txt else '') + \
         (f'<p class="m">Precio: {esc(precio)}</p>' if precio else '') + (f'<p class="m">{esc(gs)}</p>' if gs else '') + links + \
         f'<p><a class="cta" href="{esc(app_link(e))}">Guardar en Limón y ver en el mapa</a></p></div>'
+    if e['id'] in EN_COLECCION:
+        n, u = EN_COLECCION[e['id']]
+        body += f'<p><a href="{u}">Todas las visitas de {esc(n)}</a></p>'
     if z:
         mas = [x for x in z['evs'] if x is not e and not x['largo'] and d(x['starts_on']) >= HOY][:6]
         if mas:

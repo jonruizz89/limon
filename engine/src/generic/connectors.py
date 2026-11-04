@@ -213,6 +213,52 @@ BCN_COLS = ('register_id,name,start_date,end_date,timetable,addresses_road_name,
             'addresses_district_name,addresses_neighborhood_name,geo_epgs_4326_lat,geo_epgs_4326_lon')
 
 
+BCN_EQ = 'f3721b17-bf9e-4bdd-853c-cb6200e1b442'  # equipaments de cultura i lleure: nombre de cada centro por dirección
+_BCN_TIPOS = r'(c|carrer|cl|pl|placa|pg|passeig|pje|passatge|av|avda|avinguda|ctra|carretera|rda|ronda|rbla|rambla|trav|travessera|cami|via|moll|parc)'
+# de más a menos claro como «lugar» de un plan; lo demás (wifi, áreas de juego, restaurantes…) no se usa
+_BCN_PRIO = ['Centres cívics', 'Biblioteques municipals', 'Biblioteques', 'Teatres', 'Auditoris', 'Museus municipals', 'Museus', 'Cinemes',
+             'Casals de barri comunitaris', 'Casals i espais per a joves', 'Ateneus de fabricació', 'Sales de festes', 'Tablaos flamencs',
+             'Bars i pubs musicals', 'Discoteques', 'Universitats', "Casals d'avis", 'Casals infantils', 'Arxius municipals', 'Parcs i jardins']
+_BCN_GEN = set('teatre teatres biblioteca auditori auditoris sala sales de estudi d museu cinema espai'.split())
+# recintos que el listado nombra por una de sus partes y la gente conoce por el conjunto
+_BCN_FIJOS = {'sant adria|20': 'Fabra i Coats - Fàbrica de Creació', 'palau musica|2': 'Palau de la Música Catalana'}
+
+
+def _bcn_clave(via, num):
+    v = re.sub(r'[^a-z0-9 ]', ' ', re.sub(r"[’'`]", ' ', fold(via or ''))).strip()
+    v = re.sub(r'^' + _BCN_TIPOS + r'\b\s*', '', v)
+    v = ' '.join(re.sub(r'\b(de|del|dels|d|la|les|el|els|l)\b', ' ', v).split())
+    n = re.match(r'\d+', (num or '').strip())
+    return f'{v}|{n.group(0)}' if v and n else None
+
+
+def _bcn_equipaments():
+    """Dirección → nombre del centro (Centre Cívic Vil·la Urània, Razzmatazz…), del listado municipal de equipamientos."""
+    por = {}
+    for off in range(0, 6000, 1000):
+        sql = (f'SELECT name, addresses_road_name, addresses_start_street_number, secondary_filters_name FROM "{BCN_EQ}" '
+               f'ORDER BY _id LIMIT 1000 OFFSET {off}')
+        st, _, txt, _ = fetch(f'{BCN}?{urllib.parse.urlencode({"sql": sql})}', accept=JSON, ua=UA_API)
+        recs = (json.loads(txt).get('result') or {}).get('records') or [] if st == 200 else []
+        for r in recs:
+            k, cat, n = _bcn_clave(r.get('addresses_road_name'), r.get('addresses_start_street_number')), r.get('secondary_filters_name'), ' '.join((r.get('name') or '').split())
+            if k and cat in _BCN_PRIO and n and not all(w in _BCN_GEN for w in re.findall(r'[a-z]+', fold(n))):
+                por.setdefault(k, []).append((_BCN_PRIO.index(cat), n))
+        if len(recs) < 1000:
+            break
+    out = {}
+    for k, v in por.items():
+        p = min(x[0] for x in v)
+        cuenta = {}
+        for q, n in v:
+            if q == p:
+                cuenta[n] = cuenta.get(n, 0) + 1
+        out[k] = max(cuenta, key=cuenta.get)
+    out.update(_BCN_FIJOS)
+    print(f'  Barcelona: {len(out)} direcciones con nombre de centro')
+    return out
+
+
 def bcn_match(city):
     return {'method': 'barcelona'} if fold(city.get('name')) == 'barcelona' else None
 
@@ -239,6 +285,11 @@ def _bcn_horario(t):
 def bcn_read(cfg, max_rows=20000):
     hoy = dt.date.today().isoformat()
     out, vistos = [], set()
+    try:
+        centros = _bcn_equipaments()
+    except Exception as ex:  # sin el listado se queda la dirección, como antes
+        print('  Barcelona: sin listado de equipamientos', ex)
+        centros = {}
     for res in BCN_RES:
         off = 0
         while off < max_rows:
@@ -265,10 +316,12 @@ def bcn_read(cfg, max_rows=20000):
                 except (TypeError, ValueError):
                     lat = lng = None
                 calle = ' '.join(x for x in [_clean(e.get('addresses_road_name')), _clean(e.get('addresses_start_street_number'))] if x)
+                centro = centros.get(_bcn_clave(e.get('addresses_road_name'), e.get('addresses_start_street_number')))
                 web = f'https://guia.barcelona.cat/es/detall/{rid}_{rid}.html'
                 out.append({
                     'titulo': name[:300], 'descripcion': '', 'inicio': ini, 'fin': max(ini, fin),
-                    'hora': hora if ini == fin else None, 'lugar': calle or None, 'direccion': calle or None,  # la agenda no trae el nombre del equipamiento: al menos la dirección
+                    'hora': hora if ini == fin else None, 'lugar': centro or calle or None, 'direccion': calle or None,
+                    'lugar_clave': calle or None,  # la clave del plan sigue siendo la dirección: si cambia el nombre del centro no se duplica
                     'lat': lat, 'lng': lng, 'distrito': _clean(e.get('addresses_district_name')) or None,
                     'precio': precio, 'gratis': gratis, 'imagen': None, 'web_organizador': web, 'url': web,
                 })

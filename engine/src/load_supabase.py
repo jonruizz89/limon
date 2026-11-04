@@ -66,7 +66,7 @@ print('recintos', len(vid))
 # 2) eventos
 rows, seen = [], set()
 for e in evs:
-    k = hashlib.md5(f"{PFX}{norm(e['titulo'])}|{norm(e.get('lugar') or '')}|{e['inicio']}".encode()).hexdigest()
+    k = hashlib.md5(f"{PFX}{norm(e['titulo'])}|{norm(e.get('lugar_clave') or e.get('lugar') or '')}|{e['inicio']}".encode()).hexdigest()
     if k in seen:
         continue
     seen.add(k)
@@ -98,8 +98,12 @@ while True:
         break
     off += 1000
 ajenos, ajenos_keys, sin_lugar = {}, [], {}
+import difflib as _dl
 def igual(a, b):
-    return a == b or (min(len(a), len(b)) >= 12 and (a.startswith(b) or b.startswith(a)))
+    if a == b or (min(len(a), len(b)) >= 12 and (a.startswith(b) or b.startswith(a))):
+        return True
+    # el mismo título en catalán y en castellano («Gèneres Fantàstics» / «Géneros Fantásticos»): casi idéntico y largo
+    return min(len(a), len(b)) >= 20 and _dl.SequenceMatcher(None, a, b).ratio() >= 0.88
 for r in rows:
     t = norm(r['title'])
     # los títulos cortos se unen solo si además es el mismo sitio; los genéricos («Club de lectura», «Cuentacuentos») con más exigencia

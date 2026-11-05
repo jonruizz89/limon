@@ -6,7 +6,10 @@ name: Instagram
 on:
   schedule:
     - cron: "7 18 * * 4"    # jueves ~19:07 en Madrid (invierno) · carrusel del finde
-    - cron: "37 18 * * 4"   #   segundo intento (no repite si ya se publicó)
+    - cron: "37 18 * * 4"   #   más intentos: GitHub a veces retrasa o se salta las tareas programadas;
+    - cron: "7 19 * * 4"    #   cada uno comprueba si ya se publicó hoy y, si es así, no hace nada
+    - cron: "37 19 * * 4"
+    - cron: "7 20 * * 4"
   workflow_dispatch:
     inputs:
       cuenta:

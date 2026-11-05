@@ -49,3 +49,7 @@ rls_enabled_no_policy:aemet_zonas
 rls_enabled_no_policy:aemet_peticiones
 rls_enabled_no_policy:app_opens
 rls_enabled_no_policy:web_visits
+
+# Contador anónimo de aperturas de la app: se llama sin cuenta a propósito (solo suma 1 al día y ciudad)
+anon_security_definer_function_executable:contar_apertura
+authenticated_security_definer_function_executable:contar_apertura

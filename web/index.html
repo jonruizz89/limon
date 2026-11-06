@@ -668,7 +668,9 @@ function startApp(DATA, TAX, sync) {
   } catch (e) { }
   const DISTRITOS = (CITY.districts || []).slice().sort((a, b) => a.localeCompare(b, 'es'));
   const nf = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const startHour = e => { const m = String(e.hora || '').match(/(\d{1,2})[:.h](\d{2})/); return m ? +m[1] + m[2] / 60 : null; };
+  // hora de inicio en horas decimales: «20:30», «20.30», «20h30», «20 h»; sin hora → null
+  const startHour = e => { const t = String(e.hora || ''); const m = t.match(/(\d{1,2})(?:[:.h](\d{2})|\s?h\b)/i) || t.match(/\bde\s+(\d{1,2})\s+a\s+\d{1,2}\b/i); return m && +m[1] < 24 ? +m[1] + (+m[2] || 0) / 60 : null; };
+  const horaOrden = e => startHour(e) ?? 99;  // dentro del mismo día, por hora; los que no la dicen, al final
   const minPrice = e => { if (e.gratis) return 0; const m = String(e.precio || '').replace(',', '.').match(/(\d+(?:\.\d+)?)\s*(?:€|euros?)/i) || String(e.precio || '').match(/^\D{0,12}(\d+(?:[.,]\d+)?)/); return m ? parseFloat(m[1]) : null; };
   const km = (a, b) => { const R = 6371, r = Math.PI / 180, dLa = (b[0] - a[0]) * r, dLo = (b[1] - a[1]) * r; const h = Math.sin(dLa / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
   // ---------- municipio elegido: sus planes primero y después los de alrededor, del más cercano al más lejano
@@ -1538,7 +1540,7 @@ function startApp(DATA, TAX, sync) {
         ${evs.join('') || '<p class="note">Lista vacía.</p>'}`;
       return;
     }
-    const up = (p.saved || []).map(id => BYID['e' + id]).filter(Boolean).sort((a, b) => a.inicio.localeCompare(b.inicio)).slice(0, 15);
+    const up = (p.saved || []).map(id => BYID['e' + id]).filter(Boolean).sort((a, b) => a.inicio.localeCompare(b.inicio) || horaOrden(a) - horaOrden(b)).slice(0, 15);
     const head = `<div class="seg" style="justify-content:space-between;align-items:flex-start"><div><h2 style="margin:0">${esc(p.name)}</h2>
         <p class="note" style="margin:2px 0 0">@${esc(p.username)} · ${p.public ? 'perfil público' : 'perfil privado'} · ${p.n_followers} seguidores · sigue a ${p.n_following}</p></div>${close}</div>
       ${p.bio ? `<p style="margin:0">${esc(p.bio)}</p>` : ''}
@@ -2306,7 +2308,7 @@ function startApp(DATA, TAX, sync) {
         const s = (e.unico ? 3 : 0) + (e.destacado ? 2 : 0) + (e.fuentes.length > 1 ? 1 : 0);
         items.push({ e, occ, s });  // en pueblos con pocos destacados, detrás van los demás por fecha
       }
-      items.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, y.s - x.s || x.occ.date - y.occ.date));
+      items.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, y.s - x.s || x.occ.date - y.occ.date || horaOrden(x.e) - horaOrden(y.e)));
       $('pt-h').textContent = 'Lo más destacado ' + ({ semana: 'esta semana', finde: 'este finde', mes: 'en los próximos 30 días' })[state.when];
       $('pt-lead').textContent = 'Todos los planes de ' + CITY.name + ' en un sitio, gratis y sin anuncios. Marca tus intereses y esta lista será solo para ti.';
       logList(items.slice(0, state.ptShown).map(x => x.e.id));
@@ -2325,7 +2327,7 @@ function startApp(DATA, TAX, sync) {
     }
     items.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || (y.sc.s - x.sc.s) || (x.occ.date - y.occ.date));
     const top = items.slice(0, state.ptShown);
-    const dated = top.filter(x => !largo(x.e, x.occ)).sort((x, y) => x.occ.date - y.occ.date || y.sc.s - x.sc.s);
+    const dated = top.filter(x => !largo(x.e, x.occ)).sort((x, y) => x.occ.date - y.occ.date || horaOrden(x.e) - horaOrden(y.e) || y.sc.s - x.sc.s);
     const going = top.filter(x => largo(x.e, x.occ)).sort((x, y) => parse(x.e.fin) - parse(y.e.fin));
     const label = { semana: 'esta semana', finde: 'este finde', mes: 'los próximos 30 días' }[state.when];
     $('pt-h').textContent = items.length ? `${items.length} ${items.length === 1 ? 'plan' : 'planes'} para ti ${label}` : `Nada para ti ${label}`;
@@ -2380,7 +2382,7 @@ function startApp(DATA, TAX, sync) {
   function renderUnicos() {
     const list = EV.filter(e => e.unico && !isDismissed(e) && parse(e.fin) >= today && inZone(e))
       .map(e => ({ e, occ: occurs(e, today, addDays(today, 400)) })).filter(x => x.occ)
-      .sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, x.occ.date - y.occ.date));
+      .sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, x.occ.date - y.occ.date || horaOrden(x.e) - horaOrden(y.e)));
     $('un-list').innerHTML = conSeccion(list, x => card(x.e, { occ: x.occ })) || '<div class="empty">No hay planes únicos en las próximas semanas.</div>';
   }
   function renderExplorar() {
@@ -2400,8 +2402,7 @@ function startApp(DATA, TAX, sync) {
       if (q) { const h = (e.titulo + ' ' + (e.lugar || '') + ' ' + (e.distrito || '') + ' ' + (e.serie || '') + ' ' + (e.temas || []).join(' ') + ' ' + e.cats.map(labelOf).join(' ') + ' ' + (e.descripcion || '')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); if (!h.includes(q)) continue; }
       res.push({ e, occ });
     }
-    const hora = e => { const h = startHour(e); return h == null ? 99 : h; };
-    res.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, (x.occ.date - y.occ.date) || (hora(x.e) - hora(y.e))));
+    res.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, (x.occ.date - y.occ.date) || (horaOrden(x.e) - horaOrden(y.e))));
     const f = state.filter;
     $('ex-active').innerHTML = f ? `<button class="filterchip" id="ex-clear" aria-label="Quitar filtro">${esc(f.kind === 'cat' ? labelOf(f.value) : f.kind === 'id' ? f.label : f.value)} <span aria-hidden="true">✕</span></button>` : '';
     $('ex-count').textContent = res.length + (res.length === 1 ? ' evento' : ' eventos');
@@ -2409,7 +2410,7 @@ function startApp(DATA, TAX, sync) {
     $('ex-more').hidden = res.length <= state.exShown;
   }
   function renderAgenda() {
-    const list = EV.filter(e => saved.includes(e.id)).sort((a, b) => a.inicio.localeCompare(b.inicio));
+    const list = EV.filter(e => saved.includes(e.id)).sort((a, b) => a.inicio.localeCompare(b.inicio) || horaOrden(a) - horaOrden(b));
     $('ag-list').innerHTML = list.map(e => card(e)).join('') || '<div class="empty">Aún no has guardado nada. Toca el marcador de cualquier evento para traerlo aquí.</div>';
     $('n-agenda').textContent = saved.length || '';
     renderDiary(); renderLists();

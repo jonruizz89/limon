@@ -38,3 +38,11 @@ jobs:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
         run: python3 engine/src/visitas_web.py
+      - name: Instagram (métricas diarias de las tres cuentas)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET: ${{ secrets.SUPABASE_SECRET }}
+          IG_MADRID_TOKEN: ${{ secrets.IG_MADRID_TOKEN }}
+          IG_BILBAO_TOKEN: ${{ secrets.IG_BILBAO_TOKEN }}
+          IG_BARCELONA_TOKEN: ${{ secrets.IG_BARCELONA_TOKEN }}
+        run: python3 engine/src/ig_stats.py

@@ -45,9 +45,21 @@ for cuenta, uid in IG_ID.items():
         print(f'{cuenta}: falta el secreto, se salta'); fallos += 1; continue
     ahora = dt.datetime.now(dt.timezone.utc).isoformat()
     try:
-        me = get(tok, uid, fields='followers_count')
-        upsert([{'day': hoy.isoformat(), 'cuenta': cuenta, 'followers': me.get('followers_count'), 'updated_at': ahora}])
-        print(f'{cuenta}: seguidores de hoy guardados')
+        me = get(tok, uid, fields='followers_count,media_count')
+        # me gusta y comentarios acumulados de todas las publicaciones (no necesitan el permiso de estadísticas)
+        lk = cm = 0; url = None
+        d = get(tok, f'{uid}/media', fields='like_count,comments_count', limit=100)
+        while True:
+            for x in d.get('data') or []:
+                lk += x.get('like_count') or 0; cm += x.get('comments_count') or 0
+            url = (d.get('paging') or {}).get('next')
+            if not url:
+                break
+            with urllib.request.urlopen(url, timeout=60) as r:
+                d = json.loads(r.read().decode())
+        upsert([{'day': hoy.isoformat(), 'cuenta': cuenta, 'followers': me.get('followers_count'), 'posts': me.get('media_count'),
+                 'likes_total': lk, 'comments_total': cm, 'updated_at': ahora}])
+        print(f'{cuenta}: foto de hoy guardada (seguidores, publicaciones, me gusta y comentarios acumulados)')
     except Exception as e:
         print(f'{cuenta}: seguidores → {error(e)}'); fallos += 1; continue
     for atras in (1, 2):
@@ -62,7 +74,10 @@ for cuenta, uid in IG_ID.items():
             except Exception as e:
                 fila[col] = None; sin.append(f'{m} ({error(e)})')
         upsert([fila])
-        print(f'{cuenta} {dia}: {len(METRICAS) - len(sin)}/{len(METRICAS)} métricas guardadas' + (' · sin: ' + '; '.join(sin) if sin else ''))
-        if len(sin) == len(METRICAS):
-            fallos += 1
+        if sin and all('(#10)' in x for x in sin) and len(sin) == len(METRICAS):
+            print(f'{cuenta} {dia}: el token no tiene permiso de estadísticas (instagram_manage_insights); solo foto diaria')
+        else:
+            print(f'{cuenta} {dia}: {len(METRICAS) - len(sin)}/{len(METRICAS)} métricas guardadas' + (' · sin: ' + '; '.join(sin) if sin else ''))
+        if len(sin) == len(METRICAS) and not all('(#10)' in x for x in sin):
+            fallos += 1  # sin el permiso instagram_manage_insights (#10) no es un fallo: se queda con la foto diaria
 sys.exit(1 if fallos else 0)

@@ -378,11 +378,66 @@ def esmadrid():
     return evs
 
 
+_VIAS = None
+VIAS_URL = ('https://datos.madrid.es/en/dataset/213605-0-callejero-oficial-madrid/resource/'
+            '213605-3-callejero-oficial-madrid-csv/download/213605-3-callejero-oficial-madrid-csv.csv')
+
+
+def vias():
+    """Callejero oficial de Madrid: «de colon» → «Plaza» (solo si el nombre no se repite con otra clase de vía)."""
+    global _VIAS
+    if _VIAS is not None:
+        return _VIAS
+    _VIAS = {}
+    try:
+        import urllib.request, csv, io
+        cache = os.path.join(RAW, 'callejero_madrid.csv')
+        if os.path.exists(cache):
+            raw = open(cache, 'rb').read()
+        else:
+            raw = urllib.request.urlopen(urllib.request.Request(VIAS_URL, headers={'User-Agent': 'Mozilla/5.0 Limon'}), timeout=60).read()
+            os.makedirs(RAW, exist_ok=True)
+            open(cache, 'wb').write(raw)
+        txt = raw.decode('utf-8-sig') if raw[:3] == b'\xef\xbb\xbf' else raw.decode('utf-8', 'replace') if b'\xc3' in raw[:20000] else raw.decode('latin-1')
+        clases = collections.defaultdict(set)
+        for r in csv.DictReader(io.StringIO(txt), delimiter=';' if txt.count(';') > txt.count(',') else ','):
+            r = {k.strip().upper(): (v or '').strip() for k, v in r.items() if k}
+            nom = r.get('VIA_NOMBRE_ACENTOS') or r.get('VIA_NOMBRE')
+            if nom and r.get('VIA_CLASE'):
+                rg = []
+                for lo, hi in (('IMPAR_MIN', 'IMPAR_MAX'), ('PAR_MIN', 'PAR_MAX')):
+                    try:
+                        rg.append((int(float(r.get(lo) or 0)), int(float(r.get(hi) or 0))))
+                    except ValueError:
+                        pass
+                clases[norm(f"{r.get('VIA_PAR', '')} {nom}")].add((r['VIA_CLASE'].capitalize(), tuple(rg)))
+        _VIAS = dict(clases)
+        print('callejero:', len(_VIAS), 'vías')
+    except Exception as ex:  # noqa: BLE001 — sin callejero, la dirección queda como viene
+        print('aviso: sin callejero:', str(ex)[:120])
+    return _VIAS
+
+
+def con_tipo_via(calle):
+    """esMadrid quita el tipo de vía («del Prado, s/n»): se recupera del callejero si no hay duda."""
+    if not calle or not re.match(r'(?i)(de|del)\s', calle):
+        return calle
+    partes = calle.split(',')
+    opciones = vias().get(norm(partes[0])) or set()
+    tipos = {c for c, _ in opciones}
+    if len(tipos) > 1:  # «de Colón»: plaza y calle; decide el número, si cae en el tramo de una sola
+        m = re.match(r'\s*(\d+)', partes[1]) if len(partes) > 1 else None
+        if m:
+            n = int(m.group(1))
+            tipos = {c for c, rgs in opciones if any(lo <= n <= hi and (lo % 2 == n % 2 or not lo) for lo, hi in rgs if hi)}
+    return f'{next(iter(tipos))} {calle}' if len(tipos) == 1 else calle
+
+
 def direccion(loc):
     a = loc.get('address') if isinstance(loc, dict) else None
     if not isinstance(a, dict):
         return None
-    return ', '.join(x for x in (clean(a.get('streetAddress')), a.get('postalCode')) if x) or None
+    return ', '.join(x for x in (con_tipo_via(clean(a.get('streetAddress'))), a.get('postalCode')) if x) or None
 
 
 def extra():

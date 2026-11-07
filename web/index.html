@@ -217,6 +217,7 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
 .tchip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 6px 0 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); font-weight: 600; font-size: 13px; border: 0; cursor: pointer }
 .meta .dist { font-weight: 600; color: var(--ink) }
 .acts { display: flex; gap: 8px; flex-wrap: wrap }
+.act.ico { display: inline-flex; align-items: center; gap: 6px }
 .act { height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 13px; font-weight: 600; cursor: pointer }
 .act[aria-pressed="true"] { background: var(--chip) }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 20; display: flex; gap: 12px; align-items: center; background: var(--strong); color: var(--strong-ink); border-radius: 12px; padding: 10px 10px 10px 16px; font-size: 14px; box-shadow: 0 6px 24px rgba(0,0,0,.2); max-width: calc(100vw - 32px) }
@@ -582,7 +583,7 @@ table.cov td.n, table.cov th.n { text-align: right }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261107e"></script>
+<script src="data.js?v=20261107f"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -917,6 +918,10 @@ function startApp(DATA, TAX, sync) {
   window.addEventListener('popstate', ev => {
     if (fichaHist && !(ev.state && ev.state.ev)) { state.open[fichaHist] = false; fichaHist = null; renderAll(); }
   });
+  // icono de compartir como el del sistema: en Apple, la caja con la flecha; en el resto, los tres puntos unidos
+  const SHARE_ICO = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)
+    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M8 11H6a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-2"/></svg>'
+    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg>';
   async function shareEv(e) {
     const url = shareEvUrl(e), occ = occurs(e, today, addDays(today, 400));
     const text = `${e.titulo} · ${whenText(e, occ)}${e.lugar ? ' · ' + e.lugar : ''}`;
@@ -949,7 +954,7 @@ function startApp(DATA, TAX, sync) {
         ${e.lat ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=transit" target="_blank" rel="noopener">Cómo llegar ↗</a>` : ''}</div>
         <p class="note">Fuentes: ${e.fuentes.map(f => esc(f.nombre)).join(', ')}</p>
         <div class="acts">
-          <button class="act" data-sharev="${e.id}">📤 Compartir</button>
+          <button class="act ico" data-sharev="${e.id}">${SHARE_ICO}Compartir</button>
           <button class="act" data-dismiss="${e.id}" aria-pressed="${isDismissed(e)}">${isDismissed(e) ? 'Volver a mostrar' : 'No me interesa'}</button>
           ${(occ && (occ.ongoing || +occ.date <= +today)) || went.includes(e.id) ? `<button class="act" data-went="${e.id}" aria-pressed="${went.includes(e.id)}">${went.includes(e.id) ? '✓ Fui' : 'Ya fui'}</button>` : ''}
           ${occ && parse(e.fin) >= today ? `<button class="act" data-invite="${e.id}">Proponer plan</button>` : ''}

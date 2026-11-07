@@ -414,7 +414,7 @@ def pasea_read(cfg):
 # alrededor del centro de la zona; el filtro de zona del motor deja solo lo de la ciudad (o de la provincia sin sus ciudades).
 TM = 'https://app.ticketmaster.com/discovery/v2/events.json'
 TM_NO = re.compile(r'parking|aparcamiento|\bvip\b|paquete|package|upgrade|hospitality|merchandising|fast ?track|early entry|'
-                   r'acceso preferente|meet ?& ?greet|abono de temporada|suite|palco|gift card|tarjeta regalo', re.I)
+                   r'acceso preferente|meet ?& ?greet|abono de temporada|suite|palco|gift card|tarjeta regalo|all access|early bird|\bbus\b|autob[uú]s|shuttle|transfer', re.I)
 TM_SEG = {'Music': 'Música', 'Sports': 'Deporte', 'Arts & Theatre': 'Artes escénicas', 'Film': 'Cine', 'Miscellaneous': 'Otros'}
 
 

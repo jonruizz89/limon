@@ -9,6 +9,8 @@ const SECRET = (() => {
 })() || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const AKEY = Deno.env.get('ANTHROPIC_API_KEY');
 const MODEL = Deno.env.get('LIMON_AI_MODEL') || 'claude-haiku-5-5';
+const MAX_REVIEWS_DAY = 20;  // revisiones por organizador y día
+const MAX_USD_DAY = Number(Deno.env.get('LIMON_AI_MAX_USD_DAY') || '1');  // el mismo tope diario que el resto de la IA
 const admin = createClient(URL, SECRET, { auth: { persistSession: false } });
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -65,6 +67,18 @@ Deno.serve(async (req) => {
     const { data: s } = await admin.from('submitted_events').select('*').eq('id', Number(body.id)).maybeSingle();
     if (!s) return json({ error: 'No existe ese evento.' }, 404);
     if (s.owner !== u.user.id && !(me && me.role === 'admin')) return json({ error: 'No es tuyo.' }, 403);
+    // solo organizadores aprobados (o admin), y con tope diario: cada revisión es una llamada a la IA y dos a los geocodificadores
+    if (!me || (me.role !== 'admin' && me.editor_status !== 'aprobado')) return json({ error: 'Tu cuenta de organizador aún no está aprobada.' }, 403);
+    if (me.role !== 'admin') {
+      const day = new Date().toISOString().slice(0, 10);
+      const [{ data: mine }, { data: all }] = await Promise.all([
+        admin.from('ai_usage').select('calls').eq('day', day).eq('user_id', u.user.id).maybeSingle(),
+        admin.from('ai_usage').select('usd').eq('day', day),
+      ]);
+      if (mine && mine.calls >= MAX_REVIEWS_DAY) return json({ error: 'Has llegado al límite de revisiones de hoy. Mañana más.' }, 429);
+      const total = (all || []).reduce((t: number, r: { usd: number }) => t + Number(r.usd), 0);
+      if (total >= MAX_USD_DAY) return json({ error: 'Las revisiones están en pausa hasta mañana.' }, 429);
+    }
 
     // 1) dónde
     const { data: cityRow } = await admin.from('cities').select('id,name,lat,lng,districts').eq('id', s.city_id || 'madrid').maybeSingle();

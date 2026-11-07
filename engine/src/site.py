@@ -507,7 +507,7 @@ for v in LUGARES.values():
 # eventos
 for e in evs:
     z = zpath.get(e['id'])
-    srcs = [s for s in e.get('event_sources') or [] if s.get('url')]
+    srcs = [s for s in e.get('event_sources') or [] if re.match(r'(?i)https?://', s.get('url') or '')]
     abierta = any(ABIERTAS.search(((s.get('sources') or {}).get('license') or '')) for s in srcs)
     txt = e.get('description') or ''
     if not txt and e.get('details'):  # texto leído de la web del evento: solo un extracto, la ficha completa está en su web
@@ -517,6 +517,8 @@ for e in evs:
     precio = 'Gratis' if e.get('is_free') else (e.get('price_text') or '')
     gs = ' · '.join(groups[g] for g in e['grupos'])
     links = ''.join(f'<p><a href="{esc(s["url"])}" rel="nofollow noopener" target="_blank">Más información en {esc((s.get("sources") or {}).get("name") or "la web del evento")} ↗</a></p>' for s in srcs[:2])
+    if not re.match(r'(?i)https?://', e.get('organizer_url') or ''):
+        e['organizer_url'] = None
     if e.get('organizer_url') and not any(s['url'] == e['organizer_url'] for s in srcs):
         links += f'<p><a href="{esc(e["organizer_url"])}" rel="nofollow noopener" target="_blank">Web del organizador ↗</a></p>'
     body = f"<h1>{esc(e['title'])}</h1><p class='lead'>{esc(cuando(e))}{' · ' + esc(sitio) if sitio else ''}</p>"

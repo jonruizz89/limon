@@ -553,7 +553,7 @@ table.cov td.n, table.cov th.n { text-align: right }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261104a"></script>
+<script src="data.js?v=20261107a"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -810,7 +810,9 @@ function startApp(DATA, TAX, sync) {
   }
 
   // ---------- render de tarjetas
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  // enlaces que vienen de fuentes externas: solo http(s); un «javascript:» o similar se queda en «#»
+  const ext = u => { const t = String(u || '').trim(); return esc(/^https?:\/\//i.test(t) ? t : '#'); };
   function dateBox(e, occ) {
     if (occ && occ.ongoing) {
       const f = parse(e.fin);
@@ -869,8 +871,8 @@ function startApp(DATA, TAX, sync) {
         ${e.hora && e.hora.length >= 40 ? `<p class="note">${esc(e.hora)}</p>` : ''}
         ${e.precio && e.precio.length >= 40 ? `<p class="note">${esc(e.precio)}</p>` : ''}
         ${e.direccion || e.distrito ? `<p class="note">📍 ${[e.direccion, e.distrito && !(e.direccion || '').includes(e.distrito) ? e.distrito : ''].filter(Boolean).map(esc).join(' · ')}</p>` : ''}
-        <div class="links">${e.fuentes.map(f => f.url ? `<a href="${esc(f.url)}" target="_blank" rel="noopener">Ver en ${esc(f.nombre)} ↗</a>` : '').join('')}
-        ${e.web_organizador ? `<a href="${esc(e.web_organizador)}" target="_blank" rel="noopener">Web del organizador ↗</a>` : ''}
+        <div class="links">${e.fuentes.map(f => f.url ? `<a href="${ext(f.url)}" target="_blank" rel="noopener">Ver en ${esc(f.nombre)} ↗</a>` : '').join('')}
+        ${e.web_organizador ? `<a href="${ext(e.web_organizador)}" target="_blank" rel="noopener">Web del organizador ↗</a>` : ''}
         ${e.lat ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=transit" target="_blank" rel="noopener">Cómo llegar ↗</a>` : ''}</div>
         <p class="note">Fuentes: ${e.fuentes.map(f => esc(f.nombre)).join(', ')}</p>
         <div class="acts">
@@ -966,7 +968,7 @@ function startApp(DATA, TAX, sync) {
       ${((c.lines || []).length || (c.stations || []).length) ? `<div class="tags">${c.lines.map(l => `<span class="line ${lineMine(l, c.kind) ? 'hit' : ''}" style="${lineStyle(l, c.kind)}">${esc(l)}</span>`).join('')}${(c.stations || []).map(st => `<span class="street ${isMine(st) ? 'hit' : ''}">${esc(st)}</span>`).join('')}</div>` : ''}
       <div class="tags">${sts.slice(0, 10).map(st => `<span class="street ${isMine(st) ? 'hit' : ''}">${esc(st)}</span>`).join('')}${sts.length > 10 ? `<span class="street">y ${sts.length - 10} más</span>` : ''}</div>
       ${c.geom ? `<button class="maplink" data-cutmap="${i}">Ver en el mapa</button>` : ''}
-      ${c.source_url ? `<div class="links"><a href="${esc(c.source_url)}" target="_blank" rel="noopener">${CITY.id !== 'madrid' && c.source_name ? 'Ver en ' + esc(c.source_name.split('·').pop().trim()) : 'Ver el aviso ' + (TRANS.includes(c.kind) ? 'del Consorcio de Transportes' : 'del Ayuntamiento')} ↗</a></div>` : ''}
+      ${c.source_url ? `<div class="links"><a href="${ext(c.source_url)}" target="_blank" rel="noopener">${CITY.id !== 'madrid' && c.source_name ? 'Ver en ' + esc(c.source_name.split('·').pop().trim()) : 'Ver el aviso ' + (TRANS.includes(c.kind) ? 'del Consorcio de Transportes' : 'del Ayuntamiento')} ↗</a></div>` : ''}
     </article>`;
   }
   function renderCalle() {
@@ -2439,7 +2441,7 @@ function startApp(DATA, TAX, sync) {
     $('fu-lead').textContent = `${m.eventos.toLocaleString('es-ES')} eventos vigentes de ${m.fuentes.length} fuentes. Última actualización: ${m.generado}.`;
     const nm = { 'RJB': 'Real Jardín Botánico' };
     $('fu-table').innerHTML = '<thead><tr><th>Fuente</th><th class="n">Eventos</th><th>Cómo se lee</th><th>Licencia o uso</th></tr></thead><tbody>' +
-      m.fuentes.map(f => `<tr><td>${f.url ? `<a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(nm[f.name] || f.name)}</a>` : esc(nm[f.name] || f.name)}</td><td class="n">${(per[f.name] || 0).toLocaleString('es-ES')}</td><td>${esc(f.method || '')}</td><td>${esc(f.license || '')}</td></tr>`).join('') + '</tbody>';
+      m.fuentes.map(f => `<tr><td>${f.url ? `<a href="${ext(f.url)}" target="_blank" rel="noopener">${esc(nm[f.name] || f.name)}</a>` : esc(nm[f.name] || f.name)}</td><td class="n">${(per[f.name] || 0).toLocaleString('es-ES')}</td><td>${esc(f.method || '')}</td><td>${esc(f.license || '')}</td></tr>`).join('') + '</tbody>';
     $('fu-notes').innerHTML = `<h2 style="margin:0">Cómo se ha montado</h2>
       <p class="note">Las sesiones de un mismo evento se agrupan en una sola tarjeta. Si el mismo evento aparece en varias fuentes se une en uno y se conservan todos los enlaces: ahora hay ${m.multifuente} eventos con más de una fuente.</p>
       <p class="note">Las categorías, temas y ciclos se asignan automáticamente a partir del título y la descripción. ${m.sin_categoria} eventos (${Math.round(100 * m.sin_categoria / Math.max(1, m.eventos))} %) se quedan sin categoría.</p>
@@ -2455,7 +2457,7 @@ function startApp(DATA, TAX, sync) {
         <div class="tablewrap"><table class="cov"><thead><tr><th>Grupo</th><th class="n">Encontrados</th><th class="n">Faltaban</th><th class="n">%</th></tr></thead><tbody>
         ${au.runs.slice().sort((a, b) => b.pct_missing - a.pct_missing).map(r => `<tr><td>${esc(GROUP_NAME[r.group_id] || r.group_id)}</td><td class="n">${r.found}</td><td class="n">${r.missing}</td><td class="n" style="${+r.pct_missing > 10 ? 'color:var(--accent-text);font-weight:700' : ''}">${(+r.pct_missing).toLocaleString('es-ES')}</td></tr>`).join('')}</tbody></table></div>
         ${au.cands.length ? `<h3 style="margin:8px 0 0;font:600 14px var(--f-body)">Fuentes candidatas</h3><p class="note">Webs donde se publicaban planes que no teníamos. Las que se repiten semana a semana son las primeras que conviene añadir.</p>
-        <div class="tablewrap"><table class="cov"><thead><tr><th>Web</th><th class="n">Veces</th><th>Ejemplo</th></tr></thead><tbody>${au.cands.map(c => `<tr><td>${esc(c.domain)}</td><td class="n">${c.hits}</td><td>${c.example_url ? `<a href="${esc(c.example_url)}" target="_blank" rel="noopener">${esc((c.example_title || c.example_url).slice(0, 70))}</a>` : ''}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
+        <div class="tablewrap"><table class="cov"><thead><tr><th>Web</th><th class="n">Veces</th><th>Ejemplo</th></tr></thead><tbody>${au.cands.map(c => `<tr><td>${esc(c.domain)}</td><td class="n">${c.hits}</td><td>${c.example_url ? `<a href="${ext(c.example_url)}" target="_blank" rel="noopener">${esc((c.example_title || c.example_url).slice(0, 70))}</a>` : ''}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
     }
   }
   // Perfil: sin sesión, «Entra o crea tu cuenta» va arriba y abierto; con sesión, «Tu cuenta» (cerrar sesión, datos…) al final

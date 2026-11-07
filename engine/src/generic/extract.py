@@ -130,7 +130,7 @@ def main(cid):
         # las ciudades con zona propia dentro de la provincia (Bilbao, Donostia…) no se repiten en ella; features.aliases = otros nombres
         kids = sb('GET', f'cities?select=name,features&parent=eq.{cid}') or []
         city['_children'] = {fold(n) for c in kids for n in [c['name']] + list((c.get('features') or {}).get('aliases') or [])}
-    srcs = sb('GET', f'sources?select=id,name,url,layer,config&city_id=eq.{cid}&status=eq.activa&order=id')
+    srcs = sb('GET', f'sources?select=id,name,url,layer,config,events_last,notes&city_id=eq.{cid}&status=eq.activa&order=id')
     raw, per = [], {}
     for s in srcs:
         if not (s.get('config') or {}).get('method'):
@@ -154,8 +154,18 @@ def main(cid):
                 continue
             e['fuentes'] = [{'nombre': s['name'], 'url': e.get('url') or s['url']}]
             keep.append(e)
-        per[s['name']] = len(keep)
         raw += keep
+        antes = s.get('events_last') or 0
+        m0 = re.match(r'Solo \d+ eventos el (\d{4}-\d\d-\d\d)', s.get('notes') or '')
+        hace = (HOY - dt.date.fromisoformat(m0.group(1))).days if m0 else 0  # si la caída dura 3 días, es de verdad: se acepta
+        if antes >= 3 and len(keep) < 0.3 * antes and hace < 3:
+            # de golpe casi nada (la IA no respondió, se acabó el presupuesto, la web cambió…): se cargan los que haya,
+            # pero no cuenta como «leída» y no se retiran sus planes de antes; el parte diario lo avisa por la nota
+            if not m0:  # se guarda la fecha de la primera caída
+                sb('PATCH', f'sources?id=eq.{s["id"]}', {'notes': f'Solo {len(keep)} eventos el {HOY.isoformat()} (antes {antes}): no se retiran los anteriores'}, 'return=minimal')
+            print(f'⚠ {s["name"]}: {len(keep)} eventos (antes {antes}); no se retiran los anteriores')
+            continue
+        per[s['name']] = len(keep)
         sb('PATCH', f'sources?id=eq.{s["id"]}', {'events_last': len(keep), 'notes': None}, 'return=minimal')
         print(f'✓ {s["name"]}: {len(keep)} eventos')
 

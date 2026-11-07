@@ -4,6 +4,14 @@ Uso: python3 src/load_supabase.py [ruta a un .env]  (o variables de entorno SUPA
 Se puede ejecutar cada noche: actualiza por ext_key y reemplaza sesiones y categorías.
 """
 import json, sys, hashlib, re, unicodedata, urllib.request, urllib.error
+def http_only(u):
+    """Las URLs de las fuentes se guardan solo si son http(s): un «javascript:» en una web rastreada no debe llegar a la app."""
+    u = (u or '').strip()
+    if re.match(r'(?i)https?://', u):
+        return u
+    # «www.sala.es/agenda» sin esquema (pasa en algunas fuentes): se completa; cualquier otra cosa se descarta
+    return 'https://' + u if re.match(r'(?i)^[a-z0-9-]+(\.[a-z0-9-]+)+(/\S*)?$', u) else None
+
 
 import os
 env = dict(l.strip().split('=', 1) for l in open(sys.argv[1]) if '=' in l) if len(sys.argv) > 1 else os.environ
@@ -82,7 +90,7 @@ for e in evs:
         'starts_on': e['inicio'], 'ends_on': max(e['inicio'], e['fin']), 'time_text': e.get('hora'),
         'venue_id': vid.get(norm(e.get('lugar') or '')[:200]), 'district': e.get('distrito'),
         'lat': e.get('lat'), 'lng': e.get('lng'), 'price_text': e.get('precio'), 'is_free': bool(e.get('gratis')),
-        'image_url': e.get('imagen'), 'organizer_url': e.get('web_organizador'),
+        'image_url': http_only(e.get('imagen')), 'organizer_url': http_only(e.get('web_organizador')),
         'is_unique': bool(e.get('unico')), 'is_featured': bool(e.get('destacado')),
     })
     if PFX:  # en las demás ciudades «único» lo decide unicos.py después de clasificar: no se pisa
@@ -105,6 +113,7 @@ while True:
     off += 1000
 ajenos, ajenos_keys, sin_lugar = {}, [], {}
 import difflib as _dl
+
 def igual(a, b):
     if a == b or (min(len(a), len(b)) >= 12 and (a.startswith(b) or b.startswith(a))):
         return True
@@ -163,14 +172,14 @@ for e in evs:
     if not i:
         continue
     if e['_key'] in ajenos:  # solo se añade la fuente
-        srcs += [{'event_id': i, 'source_id': sources[f['nombre']], 'url': f.get('url')} for f in e['fuentes'] if f['nombre'] in sources]
+        srcs += [{'event_id': i, 'source_id': sources[f['nombre']], 'url': http_only(f.get('url'))} for f in e['fuentes'] if f['nombre'] in sources]
         continue
     sess += [{'event_id': i, 'on_date': d} for d in sorted(set(e['sesiones']))]
     if i not in ai_done:
         cats += [{'event_id': i, 'category_id': c} for c in dict.fromkeys(e['cats']) if c in cats_ok]
     for f in e['fuentes']:
         if f['nombre'] in sources:
-            srcs.append({'event_id': i, 'source_id': sources[f['nombre']], 'url': f.get('url')})
+            srcs.append({'event_id': i, 'source_id': sources[f['nombre']], 'url': http_only(f.get('url'))})
 # sin filas repetidas en un mismo envío (pasa cuando dos fichas nuevas se unen al mismo plan que ya existía)
 def unicas(rws, campos):
     vistos, out = set(), []

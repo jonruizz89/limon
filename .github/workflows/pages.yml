@@ -22,6 +22,8 @@ concurrency:
 
 jobs:
   deploy:
+    # tras una carga fallida no se publica (podría haber dejado datos a medias); la publicación diaria lo recoge después
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

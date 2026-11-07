@@ -207,55 +207,56 @@
   // ---------- cuenta
   let app = null, user = null, timers = {};
 
-  // planes guardados en la cuenta tal como se leyeron por última vez: solo se borra lo que se quitó de esa lista,
-  // nunca «todo lo que no esté aquí» (si un dispositivo llega sin datos, no se lleva por delante los de la cuenta)
-  let savedBase = null;
+  // Sincronización con la cuenta, por diferencias. Para cada lista se recuerda lo que hay en la cuenta según la última
+  // lectura o escritura (BASE). Al subir solo se borra lo que este dispositivo quitó de esa lista, nunca «todo lo que no esté
+  // aquí»: un dispositivo con datos viejos o una lectura fallida no se lleva por delante lo de la cuenta.
+  const BASE = {};  // prefs | saved | dismissed | went | nofui → Set de ids de la base de datos
+  let pulling = false, lastPull = 0;
   async function pushKey(k, v) {
     if (!user) return;
     const uid = user.id;
+    const chk = (r) => { if (r && r.error) throw r.error; return r; };
     if (k === 'prefs') {
-      const ids = Object.keys(v);
-      let del = sb.from('user_interests').delete().eq('user_id', uid);
-      if (ids.length) del = del.not('category_id', 'in', '(' + ids.join(',') + ')');
-      await del;
-      if (ids.length) await sb.from('user_interests').upsert(ids.map((c) => ({ user_id: uid, category_id: c, value: v[c], updated_at: new Date().toISOString() })));
-    } else if (k === 'saved') {
-      const ids = v.map(toDbId).filter(Boolean);
-      const gone = savedBase ? [...savedBase].filter((id) => !ids.includes(id)) : [];
-      if (gone.length) await sb.from('saved_events').delete().eq('user_id', uid).in('event_id', gone);
-      if (ids.length) await sb.from('saved_events').upsert(ids.map((id) => ({ user_id: uid, event_id: id })), { ignoreDuplicates: true });
-      savedBase = new Set(ids);
-    } else if (k === 'dismissed' || k === 'went' || k === 'nofui') {
+      const ids = Object.keys(v || {});
+      const gone = BASE.prefs ? [...BASE.prefs].filter((id) => !ids.includes(id)) : [];
+      if (gone.length) chk(await sb.from('user_interests').delete().eq('user_id', uid).in('category_id', gone));
+      if (ids.length) chk(await sb.from('user_interests').upsert(ids.map((c) => ({ user_id: uid, category_id: c, value: v[c], updated_at: new Date().toISOString() }))));
+      BASE.prefs = new Set(ids);
+    } else if (k === 'saved' || k === 'dismissed' || k === 'went' || k === 'nofui') {
       // attendance guarda «fui» (went = true) y «no pude ir» (went = false, la respuesta a «¿Al final fuiste?»)
-      const table = k === 'dismissed' ? 'dismissed_events' : 'attendance';
-      const ids = v.map(toDbId).filter(Boolean);
-      let del = sb.from(table).delete().eq('user_id', uid);
-      if (k !== 'dismissed') del = del.eq('went', k === 'went');
-      if (ids.length) del = del.not('event_id', 'in', '(' + ids.join(',') + ')');
-      await del;
-      if (ids.length) {
-        if (k === 'dismissed') await sb.from(table).upsert(ids.map((id) => ({ user_id: uid, event_id: id })), { ignoreDuplicates: true });
-        else if (k === 'went') await sb.from(table).upsert(ids.map((id) => ({ user_id: uid, event_id: id, went: true })), { onConflict: 'user_id,event_id' });
-        else await sb.from(table).upsert(ids.map((id) => ({ user_id: uid, event_id: id, went: false })), { onConflict: 'user_id,event_id', ignoreDuplicates: true });
+      const table = k === 'saved' ? 'saved_events' : k === 'dismissed' ? 'dismissed_events' : 'attendance';
+      const ids = (v || []).map(toDbId).filter(Boolean);
+      const gone = BASE[k] ? [...BASE[k]].filter((id) => !ids.includes(id)) : [];
+      if (gone.length) {
+        let del = sb.from(table).delete().eq('user_id', uid).in('event_id', gone);
+        if (table === 'attendance') del = del.eq('went', k === 'went');
+        chk(await del);
       }
+      if (ids.length) {
+        if (k === 'went') chk(await sb.from(table).upsert(ids.map((id) => ({ user_id: uid, event_id: id, went: true })), { onConflict: 'user_id,event_id' }));
+        else if (k === 'nofui') chk(await sb.from(table).upsert(ids.map((id) => ({ user_id: uid, event_id: id, went: false })), { onConflict: 'user_id,event_id', ignoreDuplicates: true }));
+        else chk(await sb.from(table).upsert(ids.map((id) => ({ user_id: uid, event_id: id })), { ignoreDuplicates: true }));
+      }
+      BASE[k] = new Set(ids);
     } else if (k === 'taste') {
-      await sb.from('profiles').update({ taste: v }).eq('id', uid);
+      chk(await sb.from('profiles').update({ taste: v }).eq('id', uid));
     } else if (k === 'learned') {
-      await sb.from('profiles').update({ learned: v }).eq('id', uid);
+      chk(await sb.from('profiles').update({ learned: v }).eq('id', uid));
     } else if (k === 'streets') {
-      await sb.from('profiles').update({ my_streets: v }).eq('id', uid);
+      chk(await sb.from('profiles').update({ my_streets: v }).eq('id', uid));
     } else if (k === 'opts') {
-      await sb.from('profiles').update({ with_kids: !!v.ninos, with_dog: !!v.perro }).eq('id', uid);
+      chk(await sb.from('profiles').update({ with_kids: !!v.ninos, with_dog: !!v.perro }).eq('id', uid));
     }
   }
   function sync(k, v) {
-    if (!user || !['prefs', 'saved', 'opts', 'streets', 'dismissed', 'went', 'nofui', 'learned', 'taste'].includes(k)) return;
+    if (pulling || !user || !['prefs', 'saved', 'opts', 'streets', 'dismissed', 'went', 'nofui', 'learned', 'taste'].includes(k)) return;
     clearTimeout(timers[k]);
     timers[k] = setTimeout(() => pushKey(k, v).catch((e) => console.warn('sync', k, e)), 400);
   }
 
   async function pullAccount() {
     const uid = user.id;
+    lastPull = Date.now();
     const [i, s, p, d, w] = await Promise.all([
       sb.from('user_interests').select('category_id,value').eq('user_id', uid),
       sb.from('saved_events').select('event_id').eq('user_id', uid),
@@ -263,38 +264,54 @@
       sb.from('dismissed_events').select('event_id').eq('user_id', uid),
       sb.from('attendance').select('event_id,went').eq('user_id', uid)
     ]);
-    const remote = {
-      prefs: Object.fromEntries((i.data || []).map((r) => [r.category_id, r.value])),
-      saved: s.error ? app.get().saved : (s.data || []).map((r) => 'e' + r.event_id),  // si falla la lectura, no se pisa lo guardado aquí
-      opts: { ninos: !!(p.data && p.data.with_kids), perro: !!(p.data && p.data.with_dog) },
-      streets: (p.data && p.data.my_streets) || [],
-      dismissed: (d.data || []).map((r) => 'e' + r.event_id),
-      went: (w.data || []).filter((r) => r.went).map((r) => 'e' + r.event_id),
-      nofui: (w.data || []).filter((r) => !r.went).map((r) => 'e' + r.event_id),
-      learned: (p.data && p.data.learned) || {},
-      taste: (p.data && p.data.taste) || null,
-      taste_text: (p.data && p.data.taste_text) || ''
-    };
-    if (!s.error) savedBase = new Set((s.data || []).map((r) => r.event_id));
+    if (!user || user.id !== uid) return;
     // el permiso de estadísticas va con la cuenta; si se dio antes de entrar, se guarda en ella
     const pa = p.data ? p.data.analytics : null;
     if (pa === true || pa === false) { try { localStorage.setItem('bureo.analytics', pa ? '1' : '0'); } catch (e) { } }
-    else if (consent() === '1' || consent() === '0') sb.from('profiles').update({ analytics: consent() === '1' }).eq('id', uid);
+    else if (!p.error && (consent() === '1' || consent() === '0')) sb.from('profiles').update({ analytics: consent() === '1' }).eq('id', uid);
     // en un navegador nuevo, se abre la ciudad que la persona tiene en su cuenta
     const pc = p.data && p.data.city_id;
     let chosen = null; try { chosen = localStorage.getItem('bureo.city'); } catch (e) { }
     if (pc && !chosen && !new URLSearchParams(location.search).get('c') && pc !== C.city && CITIES.some((c) => c.id === pc && c.status === 'publicada')) { window.limonCity.set(pc); return; }
-    if (!pc || (chosen && chosen !== pc)) sb.from('profiles').update({ city_id: C.city }).eq('id', uid);
-    const local = app.get();
-    const remoteEmpty = !Object.keys(remote.prefs).length && !remote.saved.length && !remote.streets.length && !remote.dismissed.length && !Object.keys(remote.learned).length;
-    if (remoteEmpty && (Object.keys(local.prefs).length || local.saved.length)) {
-      // primera vez en este dispositivo con cuenta nueva: subimos lo que ya tenías
-      await pushKey('prefs', local.prefs); await pushKey('saved', local.saved); await pushKey('opts', local.opts); await pushKey('streets', local.streets || []);
-      await pushKey('dismissed', local.dismissed || []); await pushKey('went', local.went || []); await pushKey('nofui', local.nofui || []); await pushKey('learned', local.learned || {});
-    } else {
-      app.set(remote);
+    if (!p.error && (!pc || (chosen && chosen !== pc))) sb.from('profiles').update({ city_id: C.city }).eq('id', uid);
+
+    // Fusión: lo de la cuenta + lo que este dispositivo añadió y aún no estaba en ella. Lo que la cuenta ya no tiene pero
+    // este dispositivo sí conocía (otro dispositivo lo quitó) se va. Una lectura con error no toca esa clave.
+    const local = app.get(), out = {}, subir = [];
+    const lista = (k, rows) => {
+      const remoto = rows.map((r) => 'e' + r.event_id);
+      const base = BASE[k];
+      const nuevos = (local[k] || []).filter((id) => !(base && base.has(toDbId(id))) && !remoto.includes(id));
+      BASE[k] = new Set(rows.map((r) => r.event_id));
+      out[k] = remoto.concat(nuevos);
+      if (nuevos.length) subir.push(k);
+    };
+    if (!s.error) lista('saved', s.data || []);
+    if (!d.error) lista('dismissed', d.data || []);
+    if (!w.error) { lista('went', (w.data || []).filter((r) => r.went)); lista('nofui', (w.data || []).filter((r) => !r.went)); }
+    if (!i.error) {
+      const remoto = Object.fromEntries((i.data || []).map((r) => [r.category_id, r.value]));
+      const base = BASE.prefs, extra = {};
+      Object.keys(local.prefs || {}).forEach((c) => { if (!(c in remoto) && !(base && base.has(c))) extra[c] = local.prefs[c]; });
+      BASE.prefs = new Set(Object.keys(remoto));
+      out.prefs = Object.assign({}, remoto, extra);
+      if (Object.keys(extra).length) subir.push('prefs');
     }
-    if (remote.taste || remote.taste_text) app.set({ taste: remote.taste, taste_text: remote.taste_text });
+    if (!p.error && p.data) {
+      const st = p.data.my_streets || [], ls = local.streets || [];
+      out.streets = st.length ? st : ls;
+      if (!st.length && ls.length) subir.push('streets');
+      const le = p.data.learned || {};
+      out.learned = Object.keys(le).length ? le : (local.learned || {});
+      if (!Object.keys(le).length && Object.keys(local.learned || {}).length) subir.push('learned');
+      const ro = { ninos: !!p.data.with_kids, perro: !!p.data.with_dog };
+      out.opts = (ro.ninos || ro.perro || !(local.opts && (local.opts.ninos || local.opts.perro))) ? ro : local.opts;
+      if (out.opts !== ro) subir.push('opts');
+    }
+    pulling = true;
+    try { app.set(out); } finally { pulling = false; }
+    for (const k of subir) await pushKey(k, out[k]).catch((e) => console.warn('sync', k, e));
+    if (!p.error && p.data && (p.data.taste || p.data.taste_text)) app.set({ taste: p.data.taste, taste_text: p.data.taste_text });
   }
 
   function renderAccount() {
@@ -433,8 +450,18 @@
       alert('Tu cuenta y tus datos se han borrado.');
       location.reload();
     });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && user && Date.now() - lastPull > 60e3) pullAccount().catch((e) => console.warn('pull', e));
+    });
     sb.auth.onAuthStateChange((evt, session) => {
       const was = user && user.id;
+      if (evt === 'SIGNED_OUT' && was) {
+        // lo de la cuenta no se queda en este navegador para la siguiente persona (sigue en la cuenta)
+        try { ['prefs', 'saved', 'dismissed', 'went', 'nofui', 'learned', 'streets', 'taste', 'taste_text', 'opts'].forEach((k) => localStorage.removeItem('bureo.' + k)); } catch (e) { }
+        Object.keys(BASE).forEach((k) => delete BASE[k]);
+        try { caches.keys().then((ks) => ks.filter((n) => /sb|supabase|limon-api/i.test(n)).forEach((n) => caches.delete(n))); } catch (e) { }
+        setTimeout(() => location.reload(), 50);
+      }
       user = session ? session.user : null;
       renderAccount();
 

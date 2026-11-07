@@ -118,7 +118,11 @@ def igual(a, b):
     if a == b or (min(len(a), len(b)) >= 12 and (a.startswith(b) or b.startswith(a))):
         return True
     # el mismo título en catalán y en castellano («Gèneres Fantàstics» / «Géneros Fantásticos»): casi idéntico y largo
-    return min(len(a), len(b)) >= 20 and _dl.SequenceMatcher(None, a, b).ratio() >= 0.88
+    if min(len(a), len(b)) >= 20 and _dl.SequenceMatcher(None, a, b).ratio() >= 0.88:
+        return True
+    # las mismas palabras en otro orden (al menos 3 con contenido)
+    ta, tb = {w for w in a.split() if len(w) >= 4}, {w for w in b.split() if len(w) >= 4}
+    return min(len(ta), len(tb)) >= 3 and (ta <= tb or tb <= ta)
 for r in rows:
     t = norm(r['title'])
     # los títulos cortos se unen solo si además es el mismo sitio; los genéricos («Club de lectura», «Cuentacuentos») con más exigencia

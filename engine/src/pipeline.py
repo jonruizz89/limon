@@ -463,6 +463,10 @@ def parecidos(a, b):
         return True
     if min(len(ka), len(kb)) >= 12 and (ka in kb or kb in ka):
         return True
+    # mismas palabras en otro orden («JAZZMADRID26. Festival Internacional Jazz Madrid» / «Festival internacional JAZZMADRID26»)
+    ta, tb = {w for w in ka.split() if len(w) >= 3}, {w for w in kb.split() if len(w) >= 3}
+    if min(len(ta), len(tb)) >= 3 and (ta <= tb or tb <= ta):
+        return True
     return difflib.SequenceMatcher(None, ka, kb).ratio() >= 0.86
 
 

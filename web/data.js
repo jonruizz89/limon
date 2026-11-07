@@ -8,6 +8,17 @@
   // web de pruebas (pruebas.limonplanes.com): misma base de datos; usa las funciones «-pruebas» si existen y no cuenta estadísticas
   const STAGING = /^pruebas\.|\.pages\.dev$|\.workers\.dev$/.test(location.hostname);
   window.LIMON_STAGING = STAGING;
+  // errores de JavaScript: se cuentan de forma anónima (tipo y mensaje recortado, sin datos de quién) para verlos en el parte diario
+  if (location.hostname === 'limonplanes.com') {
+    let enviados = 0;
+    const contar = (kind, msg) => {
+      if (enviados >= 3 || !msg || /ResizeObserver|Script error|extension:\/\//i.test(msg)) return;
+      enviados++;
+      try { sb.rpc('contar_error', { p_kind: kind, p_msg: String(msg).slice(0, 300) }).then(() => { }, () => { }); } catch (e) { }
+    };
+    window.addEventListener('error', (ev) => contar('error', (ev.message || '') + (ev.filename ? ' @' + ev.filename.split('/').pop() + ':' + ev.lineno : '')));
+    window.addEventListener('unhandledrejection', (ev) => contar('promesa', ev.reason && (ev.reason.message || String(ev.reason))));
+  }
   window.limonFn = async function (name, opts) {
     if (STAGING) {
       const r = await sb.functions.invoke(name + '-pruebas', opts);

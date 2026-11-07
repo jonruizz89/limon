@@ -409,6 +409,104 @@ def pasea_read(cfg):
     return out
 
 
+# ---------- Ticketmaster · Discovery API (grandes conciertos, festivales, espectáculos y deporte con entradas a la venta)
+# Clave en el secreto TICKETMASTER_KEY. 5.000 llamadas/día y 5 por segundo: se pide por meses (máx. 1.000 resultados por consulta)
+# alrededor del centro de la zona; el filtro de zona del motor deja solo lo de la ciudad (o de la provincia sin sus ciudades).
+TM = 'https://app.ticketmaster.com/discovery/v2/events.json'
+TM_NO = re.compile(r'parking|aparcamiento|\bvip\b|paquete|package|upgrade|hospitality|merchandising|fast ?track|early entry|'
+                   r'acceso preferente|meet ?& ?greet|abono de temporada|suite|palco|gift card|tarjeta regalo', re.I)
+TM_SEG = {'Music': 'Música', 'Sports': 'Deporte', 'Arts & Theatre': 'Artes escénicas', 'Film': 'Cine', 'Miscellaneous': 'Otros'}
+
+
+def tm_match(city):
+    return None  # se da de alta a mano por zona (config: latlong, radio, excluir)
+
+
+def _tm_get(params):
+    import os
+    key = os.environ.get('TICKETMASTER_KEY')
+    if not key:
+        print('  Ticketmaster: falta el secreto TICKETMASTER_KEY')
+        return None
+    q = dict(params, apikey=key, countryCode='ES', locale='es-es,*', size=199)
+    for intento in range(3):
+        time.sleep(0.25)
+        st, _, txt, _ = fetch(f'{TM}?{urllib.parse.urlencode(q)}', accept=JSON, ua=UA_API)
+        if st == 200:
+            return json.loads(txt)
+        if st in (401, 403):
+            print('  Ticketmaster: clave rechazada', st)
+            return None
+        time.sleep(3 * (intento + 1))
+    print('  Ticketmaster: sin respuesta', st)
+    return None
+
+
+def tm_read(cfg):
+    hoy = dt.date.today()
+    dias = int(cfg.get('horizonte_dias') or 365)
+    excluir = re.compile(cfg['excluir'], re.I) if cfg.get('excluir') else None
+    out, vistos, fallos = [], set(), 0
+    a = hoy
+    while a < hoy + dt.timedelta(days=dias):
+        b = min(a + dt.timedelta(days=31), hoy + dt.timedelta(days=dias))
+        page = 0
+        while True:
+            d = _tm_get({'latlong': cfg['latlong'], 'radius': cfg.get('radio', 25), 'unit': 'km', 'sort': 'date,asc', 'page': page,
+                         'startDateTime': f'{a.isoformat()}T00:00:00Z', 'endDateTime': f'{b.isoformat()}T00:00:00Z'})
+            if d is None:
+                fallos += 1
+                break
+            for e in (d.get('_embedded') or {}).get('events') or []:
+                st = ((e.get('dates') or {}).get('status') or {}).get('code')
+                if st in ('cancelled', 'postponed') or TM_NO.search(e.get('name') or ''):
+                    continue
+                ini = ((e.get('dates') or {}).get('start') or {})
+                fecha = ini.get('localDate')
+                v = ((e.get('_embedded') or {}).get('venues') or [{}])[0]
+                lugar = (v.get('name') or '').strip()
+                if not fecha or (excluir and excluir.search(lugar)):
+                    continue
+                titulo = _clean(e.get('name'))[:300]
+                clave = (fold(titulo), fecha, fold(lugar))
+                if clave in vistos:
+                    continue
+                vistos.add(clave)
+                pr = (e.get('priceRanges') or [{}])[0]
+                precio = None
+                if pr.get('min'):
+                    precio = f"Desde {pr['min']:.0f} €" if not pr.get('max') or pr['max'] == pr['min'] else f"{pr['min']:.0f}–{pr['max']:.0f} €"
+                cl = (e.get('classifications') or [{}])[0]
+                genero = ' · '.join(x for x in [TM_SEG.get((cl.get('segment') or {}).get('name'), ''),
+                                                 (cl.get('genre') or {}).get('name') if (cl.get('genre') or {}).get('name') not in (None, 'Undefined', 'Otros') else ''] if x)
+                venta = ((e.get('sales') or {}).get('public') or {}).get('startDateTime') or ''
+                aviso = ''
+                if venta[:10] > hoy.isoformat():
+                    aviso = f"Entradas a la venta desde el {dt.date.fromisoformat(venta[:10]).strftime('%d/%m/%Y')}."
+                desc = ' '.join(x for x in [_clean(e.get('info') or '')[:500], f'Género: {genero}.' if genero else '', aviso,
+                                             'Entradas en Ticketmaster.'] if x)
+                loc = v.get('location') or {}
+                try:
+                    lat, lng = float(loc.get('latitude')), float(loc.get('longitude'))
+                except (TypeError, ValueError):
+                    lat = lng = None
+                dirn = ', '.join(x for x in [(v.get('address') or {}).get('line1'), v.get('postalCode')] if x) or None
+                out.append({'titulo': titulo, 'descripcion': desc, 'inicio': fecha, 'fin': fecha,
+                            'hora': (ini.get('localTime') or '')[:5] or None, 'lugar': lugar or None, 'direccion': dirn,
+                            'lat': lat, 'lng': lng, 'distrito': None, 'municipio': (v.get('city') or {}).get('name'),
+                            'precio': precio, 'gratis': False, 'imagen': None,
+                            'web_organizador': e.get('url'), 'url': e.get('url')})
+            pg = d.get('page') or {}
+            page += 1
+            if page >= (pg.get('totalPages') or 0) or page * 199 >= 1000:
+                break
+        a = b
+    if fallos and not out:
+        return None
+    print(f'  Ticketmaster: {len(out)} eventos')
+    return out
+
+
 CONNECTORS = {
     'kulturklik': {'name': 'Kulturklik · Agenda cultural de Euskadi', 'url': 'https://www.kulturklik.euskadi.eus/', 'layer': 'regional',
                    'license': 'Open Data Euskadi (CC BY 4.0)', 'match': kk_match, 'read': kk_read},
@@ -420,6 +518,8 @@ CONNECTORS = {
                   'layer': 'municipal', 'license': 'Open Data BCN (CC BY 4.0)', 'match': bcn_match, 'read': bcn_read},
     'paseamadrid': {'name': 'Pasea Madrid (visitas guiadas del Ayuntamiento)', 'url': PASEA, 'layer': 'municipal',
                     'license': 'Enlace a la ficha original', 'match': pasea_match, 'read': pasea_read},
+    'ticketmaster': {'name': 'Ticketmaster (grandes conciertos y espectáculos)', 'url': 'https://www.ticketmaster.es/', 'layer': 'recinto',
+                     'license': 'Ticketmaster Discovery API (enlace a la compra)', 'match': tm_match, 'read': tm_read},
 }
 
 

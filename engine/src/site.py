@@ -6,7 +6,7 @@ Se generan dentro de la carpeta de la web antes de publicarla (pages.yml); no se
 
 Uso: python3 src/site.py ../web   (lee la URL y la clave pública de web/config.js)
 """
-import datetime as dt, html, json, math, os, re, sys, urllib.parse, urllib.request
+import datetime as dt, hashlib, html, json, math, os, re, sys, urllib.parse, urllib.request
 from collections import defaultdict
 
 WEB = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else '../web')
@@ -71,12 +71,15 @@ REDES_Z = {c['id']: {k: (c.get('features') or {}).get(k) for k in ('instagram', 
 groups = {g['id']: g['name'] for g in get('category_groups?select=id,name&order=position') if g['id'] != 'otros'}
 cats = {c['id']: c for c in get('categories?select=id,group_id,label&order=position')}
 cols = ('id,city_id,title,description,details,starts_on,ends_on,time_text,district,price_text,is_free,image_url,organizer_url,lat,lng,is_unique,ai_unique,'
-        'venues(name,address,instagram,instagram_estado),event_categories(category_id),event_sources(url,sources(name,license))')
+        'series,venues(id,name,address,instagram,instagram_estado),event_categories(category_id),event_sources(url,sources(name,license))')
 ids = ','.join(c['id'] for c in cities)
 evs = get(f'events?select={cols}&city_id=in.({ids})&ends_on=gte.{HOY.isoformat()}&starts_on=lte.{HASTA_FICHA.isoformat()}&order=starts_on,id')
-print(len(evs), 'eventos;', len(cities), 'zonas publicadas')
+# terminados en los últimos 60 días: su página sigue (sin indexar) para que Google y quien la tenga guardada no encuentren un error
+DIAS_PASADOS = 60
+pasados = get(f'events?select={cols}&city_id=in.({ids})&ends_on=lt.{HOY.isoformat()}&ends_on=gte.{(HOY - dt.timedelta(days=DIAS_PASADOS)).isoformat()}&order=ends_on.desc,id')
+print(len(evs), 'eventos;', len(pasados), 'terminados hace poco;', len(cities), 'zonas publicadas')
 byc = {c['id']: c for c in cities}
-for e in evs:
+for e in evs + pasados:
     e['grupos'] = sorted({cats[c['category_id']]['group_id'] for c in e.get('event_categories') or [] if c['category_id'] in cats} & set(groups), key=list(groups).index)
     e['lugar'] = (e.get('venues') or {}).get('name')
     e['direccion'] = (e.get('venues') or {}).get('address')
@@ -85,6 +88,7 @@ for e in evs:
     e['url'] = f"/evento/{e['id']}-{slug(e['title'])}/"
     e['largo'] = (d(e['ends_on']) - d(e['starts_on'])).days > 6
     e['img'] = e['image_url'] if OFICIAL.match(e.get('image_url') or '') else ''
+    e['vid'] = ve.get('id')
 
 # ---------- zonas: ciudades, provincias, municipios de cada provincia y distritos de las ciudades
 zonas = []  # {path, name, titulo, evs, parent, center, kids}
@@ -124,6 +128,19 @@ for z in zonas:
             zpath[e['id']] = z
         else:
             zpath.setdefault(e['id'], z)
+
+# ---------- lugares con página propia: los que tienen al menos 3 planes próximos y un nombre de verdad (no una frase de punto de encuentro)
+porlugar = defaultdict(list)
+for e in evs:
+    if e['vid'] and e['lugar'] and len(e['lugar']) <= 70 and not re.match(r'(?i)(bajo|en los|puerta|frente|junto)\b', e['lugar']):
+        porlugar[e['vid']].append(e)
+LUGARES = {}
+for vid, l in porlugar.items():
+    if len(l) >= 3:
+        ve = l[0]['venues']
+        LUGARES[vid] = {'id': vid, 'name': ve['name'], 'address': ve.get('address'), 'evs': sorted(l, key=lambda e: (e['largo'], e['starts_on'], e.get('time_text') or '', e['id'])),
+                        'url': f"/lugar/{vid}-{slug(ve['name'])}/", 'lat': next((e['lat'] for e in l if e.get('lat')), None), 'lng': next((e['lng'] for e in l if e.get('lat')), None)}
+print(len(LUGARES), 'lugares con página')
 
 # ---------- HTML
 CSS = """:root{--bg:#F6F7F9;--s:#fff;--ink:#12182B;--q:#4B5366;--l:#DDE1E8;--a:#FFD43B;--ai:#231D02;--at:#7A5900}
@@ -165,7 +182,7 @@ CSP = ("default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsaf
        "object-src 'none'; base-uri 'self'; form-action 'none'")
 
 
-def page(path, title, desc, body, crumbs=(), ld=None, app='/'):
+def page(path, title, desc, body, crumbs=(), ld=None, app='/', img=None, noindex=False, mapa=True, clave=None, grupo=None):
     bc = ' › '.join(f'<a href="{esc(u)}">{esc(t)}</a>' for t, u in crumbs)
     raiz = path.strip('/').split('/')[1] if path.startswith('/planes/') and path.count('/') > 2 else None
     rz = REDES_Z.get(raiz) or {}
@@ -175,11 +192,11 @@ def page(path, title, desc, body, crumbs=(), ld=None, app='/'):
     ldj = ''.join(f'<script type="application/ld+json">{json.dumps(x, ensure_ascii=False).replace("</", "<\\/")}</script>' for x in (ld or []))
     doc = f"""<!doctype html><html lang="es"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="{CSP}">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>{esc(title)}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>{esc(title)}</title>{'<meta name="robots" content="noindex,follow">' if noindex else ''}
 <meta name="description" content="{esc(desc[:300])}"><link rel="canonical" href="{BASE}{path}">
 <meta property="og:title" content="{esc(title)}"><meta property="og:description" content="{esc(desc[:300])}"><meta property="og:url" content="{BASE}{path}">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Limón"><meta property="og:locale" content="es_ES">
-<meta property="og:image" content="{BASE}/og.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image">
+{f'<meta property="og:image" content="{esc(img)}">' if img else f'<meta property="og:image" content="{BASE}/og.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">'}<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/limon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/limon-180.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=IBM+Plex+Sans:wght@400;600&display=swap">
 <style>{CSS}</style>{ldj}</head><body>
@@ -192,7 +209,10 @@ Datos de la agenda municipal de Madrid (datos.madrid.es) de Kulturklik (Open Dat
     out = os.path.join(WEB, path.strip('/'), 'index.html')
     os.makedirs(os.path.dirname(out), exist_ok=True)
     open(out, 'w', encoding='utf-8').write(doc)
-    PAGES.append(path)
+    if mapa and not noindex:
+        # la fecha de cambio sale de lo esencial de la página (clave), no de las listas que cambian cada día
+        h = hashlib.sha1((clave if clave is not None else doc).encode()).hexdigest()[:16]
+        PAGES.append((path, h, grupo or ('zonas' if path.startswith('/planes/') or path == '/planes/' else 'otras')))
 
 
 PAGES = []
@@ -347,6 +367,9 @@ for z in zonas:
                     f'<div class="tt">{esc(e["title"])}</div><div class="m">{esc(sitio_corto(e["lugar"]) if e["lugar"] else z["name"])}</div></div></a>')
         body += '<h2>Destacados de esta semana</h2><div class="top">' + ''.join(tc(e) for e in top) + '</div>'
     body += secciones(lista, z)
+    lz = sorted({e['vid'] for e in lista if e['vid'] in LUGARES}, key=lambda v: -sum(1 for e in lista if e['vid'] == v))[:12]
+    if len(lz) >= 3:
+        body += '<h2>Lugares con más planes</h2><div class="chips">' + ''.join(f'<a href="{LUGARES[v]["url"]}">{esc(LUGARES[v]["name"])}</a>' for v in lz) + '</div>'
     vz = vecinos(z)
     if vz:
         body += '<h2>Cerca</h2><div class="chips">' + ''.join(f'<a href="/planes/{k["path"]}/">{esc(k["name"])}</a>' for k in vz if k['evs']) + '</div>'
@@ -400,28 +423,86 @@ COLECCIONES = [{'zona': 'madrid', 'path': 'pasea-madrid', 'fuente': 'Pasea Madri
                 'lead': ('Todas las visitas guiadas gratuitas del programa Pasea Madrid del Ayuntamiento: el Madrid barroco, Goya, '
                          'las quintas históricas, el frontón Beti Jai, el búnker de El Capricho y más. Las plazas se reservan en la central '
                          'de reservas del Ayuntamiento y se agotan rápido.'),
-                'reservas': 'https://paseamadrid.reservaspatrimonio.es'}]
+                'reservas': 'https://paseamadrid.reservaspatrimonio.es', 'unidad': 'visitas', 'extra': 'gratis con inscripción'},
+               {'zona': 'madrid', 'path': 'jazzmadrid', 'texto': r'jazzmadrid|jazz madrid\s?2\d|festival internacional (de )?jazz (de )?madrid', 'nombre': 'JAZZMADRID',
+                'title': 'JAZZMADRID: Festival Internacional de Jazz de Madrid',
+                'lead': ('Todos los conciertos del Festival Internacional de Jazz de Madrid en el Teatro Fernán Gómez, CentroCentro, Conde Duque y otras salas, '
+                         'por orden de fecha.'), 'unidad': 'conciertos'}]
+# ciclos y festivales que ya vienen marcados en la fuente (Kulturklik, Zaragoza…): «Literaktum 2026», «Blues Hotsak 2026»…
+def _serie(t):
+    return re.sub(r'\s+', ' ', re.sub(r'\b(19|20)\d\d(\s?[-/]\s?(19|20)?\d\d)?\b', '', t or '')).strip(' -–·.')
+_ya = {c['path'] for c in COLECCIONES}
+for z in zonas:
+    if z.get('parent'):
+        continue  # una página por ciclo, en la zona principal
+    grupos_s = defaultdict(list)
+    for e in z['evs']:
+        if e.get('series') and len(_serie(e['series'])) >= 4:
+            grupos_s[slug(_serie(e['series']))].append(e)
+    for k, l in grupos_s.items():
+        if len(l) < 4 or k in used or f"{z['path']}/{k}" in used or k in groups or k in ('este-finde',) or k in _ya:
+            continue
+        nombres = defaultdict(int)
+        for e in l:
+            nombres[e['series'].strip()] += 1
+        nombre = max(nombres, key=nombres.get)
+        COLECCIONES.append({'zona': z['path'], 'path': k, 'serie': k, 'nombre': nombre, 'title': f"{nombre}: programa completo en {z['name']}",
+                            'lead': f"Todas las actividades de {nombre} en {z['name']}, por orden de fecha, con horarios, lugares y precios.", 'unidad': 'planes'})
 EN_COLECCION = {}
 for c in COLECCIONES:
     z = next((x for x in zonas if x['path'] == c['zona']), None)
-    sel = sorted((e for e in (z['evs'] if z else []) if any(c['fuente'] in ((s.get('sources') or {}).get('name') or '') for s in e.get('event_sources') or [])),
-                 key=lambda e: (e['starts_on'], e['title']))
-    if not sel:
+    def dentro(e):
+        if c.get('fuente'):
+            return any(c['fuente'] in ((s.get('sources') or {}).get('name') or '') for s in e.get('event_sources') or [])
+        if c.get('serie'):
+            return bool(e.get('series')) and slug(_serie(e['series'])) == c['serie']
+        return bool(re.search(c['texto'], f"{e['title']} {e.get('description') or ''}", re.I))
+    sel = sorted((e for e in (z['evs'] if z else []) if dentro(e)), key=lambda e: (e['largo'], e['starts_on'], e.get('time_text') or '', e['title']))
+    if len(sel) < 3:
         continue
     path = f"/planes/{z['path']}/{c['path']}/"
     for e in sel:
-        EN_COLECCION[e['id']] = (c['nombre'], path)
+        EN_COLECCION.setdefault(e['id'], (c['nombre'], path))
     ini, fin = min(e['starts_on'] for e in sel), max(e['ends_on'] for e in sel)
     body = (f"<h1>{esc(c['title'])}</h1><p class='lead'>{esc(c['lead'])}</p>"
-            f"<p class='m'>{len(sel)} visitas · del {esc(fecha(d(ini), False))} al {esc(fecha(d(fin), False))} · gratis con inscripción</p>"
-            f"<p><a class='cta' href='{esc(c['reservas'])}' rel='nofollow noopener' target='_blank'>Ir a la central de reservas ↗</a></p>"
+            f"<p class='m'>{len(sel)} {c['unidad']} · del {esc(fecha(d(ini), False))} al {esc(fecha(d(fin), False))}{' · ' + c['extra'] if c.get('extra') else ''}</p>"
+            + (f"<p><a class='cta' href='{esc(c['reservas'])}' rel='nofollow noopener' target='_blank'>Ir a la central de reservas ↗</a></p>" if c.get('reservas') else '') +
             '<ul class="ev">' + ''.join(li(e, z) for e in sel) + '</ul>'
             f'<p><a href="/planes/{z["path"]}/">Toda la agenda de {esc(z["name"])}</a></p>')
     ld = {'@context': 'https://schema.org', '@type': 'ItemList', 'name': c['title'],
           'itemListElement': [{'@type': 'ListItem', 'position': i + 1, 'url': BASE + e['url'], 'name': e['title']} for i, e in enumerate(sel)]}
-    page(path, f"{c['title']} · Limón", f"{c['lead']} {len(sel)} visitas del {fecha(d(ini), False)} al {fecha(d(fin), False)}.", body,
-         crumbs_of(z) + [(z['name'], f"/planes/{z['path']}/")], ld=[ld], app=zone_app(z))
-    print('colección', path, len(sel))
+    page(path, f"{c['title']} · Limón", f"{c['lead']} {len(sel)} {c['unidad']} del {fecha(d(ini), False)} al {fecha(d(fin), False)}.", body,
+         crumbs_of(z) + [(z['name'], f"/planes/{z['path']}/")], ld=[ld], app=zone_app(z), clave=json.dumps([c['title'], [e['id'] for e in sel]]))
+print(sum(1 for c in COLECCIONES if any(v[1] == f"/planes/{c['zona']}/{c['path']}/" for v in EN_COLECCION.values())), 'colecciones')
+
+# ---------- lugares: «Programación de …» con sus próximos planes
+def top_de(e):
+    z = zpath.get(e['id'])
+    while z and z.get('parent'):
+        z = z['parent']
+    return z
+for v in LUGARES.values():
+    l = v['evs']
+    z = zpath.get(l[0]['id'])
+    zt = top_de(l[0])
+    cerca = ' · '.join(x for x in (re.sub(r'\s+,', ',', v.get('address') or '').strip() or None, z['name'] if z else None) if x)
+    mapa = f"https://www.google.com/maps/search/?api=1&query={v['lat']},{v['lng']}" if v.get('lat') else ''
+    body = (f"<h1>{esc(v['name'])}</h1><p class='lead'>Programación y próximos planes: {len(l)} en las próximas semanas, actualizados cada día.</p>"
+            + (f"<p class='m'>📍 {esc(cerca)}" + (f' · <a href="{esc(mapa)}" rel="nofollow noopener" target="_blank">Cómo llegar ↗</a>' if mapa else '') + '</p>' if cerca or mapa else '')
+            + '<ul class="ev">' + ''.join(li(e, z) for e in l[:80]) + '</ul>'
+            + (f'<p><a href="/planes/{z["path"]}/">Toda la agenda de {esc(z["name"])}</a></p>' if z else ''))
+    pl = {'@context': 'https://schema.org', '@type': 'Place', 'name': v['name'], 'url': BASE + v['url'],
+          'event': [{'@type': 'Event', 'name': e['title'], 'startDate': e['starts_on'], 'endDate': e['ends_on'], 'url': BASE + e['url'],
+                     'eventAttendanceMode': 'https://schema.org/OfflineEventAttendanceMode', 'location': {'@type': 'Place', 'name': v['name']}} for e in l[:20]]}
+    if v.get('address'):
+        pl['address'] = {'@type': 'PostalAddress', 'streetAddress': v['address'], 'addressLocality': z['name'] if z else '', 'addressCountry': 'ES'}
+    if v.get('lat'):
+        pl['geo'] = {'@type': 'GeoCoordinates', 'latitude': v['lat'], 'longitude': v['lng']}
+    cr = (crumbs_of(z) + [(z['name'], f"/planes/{z['path']}/")]) if z else [('Planes', '/planes/')]
+    page(v['url'], f"{v['name']}: programación y próximos planes{' · ' + z['name'] if z else ''}",
+         f"Programación de {v['name']}{' (' + z['name'] + ')' if z else ''}: {len(l)} planes próximos. " + ', '.join(e['title'] for e in l[:4]) + ' y más.',
+         body, cr, ld=[pl], app=zone_app(z) if z else '/', clave=json.dumps([v['name'], v.get('address'), [e['id'] for e in l]]),
+         grupo='lugares-' + (zt['path'] if zt else 'otras'))
 
 # eventos
 for e in evs:
@@ -448,7 +529,9 @@ for e in evs:
         f'<p><a class="cta" href="{esc(app_link(e))}">Guardar en Limón y ver en el mapa</a></p></div>'
     if e['id'] in EN_COLECCION:
         n, u = EN_COLECCION[e['id']]
-        body += f'<p><a href="{u}">Todas las visitas de {esc(n)}</a></p>'
+        body += f'<p><a href="{u}">Todo el programa de {esc(n)}</a></p>'
+    if e['vid'] in LUGARES:
+        body += f'<p><a href="{LUGARES[e["vid"]]["url"]}">Programación de {esc(LUGARES[e["vid"]]["name"])}</a></p>'
     if z:
         mas = [x for x in z['evs'] if x is not e and not x['largo'] and d(x['starts_on']) >= HOY][:6]
         if mas:
@@ -480,7 +563,39 @@ for e in evs:
             ld['organizer']['url'] = web
     desc = f"{cuando(e)}{' en ' + sitio if sitio else ''}. " + (txt or f"{e['title']}: fecha, horario, lugar y precio.")
     cr = (crumbs_of(z) + [(z['name'], f"/planes/{z['path']}/")]) if z else [('Planes', '/planes/')]
-    page(e['url'], f"{e['title']} · {cuando(e)}{' · ' + z['name'] if z else ''}", desc, body, cr, ld=[ld], app=app_link(e))
+    zt = top_de(e)
+    page(e['url'], f"{e['title']} · {cuando(e)}{' · ' + z['name'] if z else ''}", desc, body, cr, ld=[ld], app=app_link(e), img=e['img'] or None,
+         clave=json.dumps(ld, ensure_ascii=False, sort_keys=True), grupo='eventos-' + (zt['path'] if zt else 'otras'))
+
+# ---------- eventos que ya pasaron: la página sigue (sin indexar ni en el mapa del sitio), con aviso y planes parecidos
+zona_de_ciudad = {}
+for z in zonas:
+    if z['path'] in byc:
+        zona_de_ciudad[z['path']] = z
+for e in pasados:
+    c = byc.get(e['city_id'])
+    z = zona_de_ciudad.get(e['city_id']) or (zona_de_ciudad.get(c['parent']) if c and c.get('parent') else None)
+    sitio = ', '.join(x for x in (e['lugar'], z['name'] if z and z['name'] not in (e['lugar'] or '') else None) if x)
+    hasta = d(e['ends_on'])
+    otros = []
+    if e['vid'] in LUGARES:
+        otros = [x for x in LUGARES[e['vid']]['evs'] if not x['largo']][:6]
+    if len(otros) < 6 and z:
+        mismos = [x for x in z['evs'] if x not in otros and not x['largo'] and set(x['grupos']) & set(e['grupos'])]
+        otros += mismos[:6 - len(otros)]
+    body = (f"<h1>{esc(e['title'])}</h1><div class='card'><p><b>Este plan ya pasó</b>: terminó el {esc(fecha(hasta))}.</p>"
+            f"<p class='m'>{esc(sitio)}</p></div>" if sitio else
+            f"<h1>{esc(e['title'])}</h1><div class='card'><p><b>Este plan ya pasó</b>: terminó el {esc(fecha(hasta))}.</p></div>")
+    if otros:
+        body += '<h2>Planes parecidos que vienen</h2><ul class="ev">' + ''.join(li(x, z) for x in otros) + '</ul>'
+    if e['vid'] in LUGARES:
+        body += f'<p><a href="{LUGARES[e["vid"]]["url"]}">Programación de {esc(LUGARES[e["vid"]]["name"])}</a></p>'
+    if z:
+        body += f'<p><a href="/planes/{z["path"]}/">Toda la agenda de {esc(z["name"])}</a> · <a class="cta" href="{esc(zone_app(z))}">Abrir Limón</a></p>'
+    cr = (crumbs_of(z) + [(z['name'], f"/planes/{z['path']}/")]) if z else [('Planes', '/planes/')]
+    page(e['url'], f"{e['title']} (ya pasó){' · ' + z['name'] if z else ''}", f"Este plan terminó el {fecha(hasta, False)}. Mira los próximos planes{' en ' + z['name'] if z else ''}.",
+         body, cr, app=zone_app(z) if z else '/', noindex=True)
+print(len(pasados), 'páginas de planes ya pasados (sin indexar)')
 
 # ---------- Redes: carrusel semanal «Este finde en …» para Instagram (una cuenta por provincia, con el nombre de su capital)
 # Se escribe cada diapositiva en HTML (1080×1350) y engine/src/redes.mjs las convierte en PNG; la página /redes/<cuenta>/ (sin indexar)
@@ -596,10 +711,34 @@ if REDES:
     json.dump(REDES, open(os.path.join(WEB, 'redes', 'redes.json'), 'w', encoding='utf-8'), ensure_ascii=False)
 print(len(REDES), 'carruseles para redes')
 
-# sitemap
+# ---------- mapa del sitio: un índice (sitemap.xml) y un archivo por grupo (zonas, eventos y lugares de cada zona principal).
+# La fecha de cambio de cada página solo avanza cuando cambia lo esencial (su «clave»); se guarda en lastmod.json, que se publica
+# con la web y se lee al día siguiente (si no se puede leer, todas cuentan como cambiadas hoy).
 hoy = HOY.isoformat()
-sm = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + \
-     f'<url><loc>{BASE}/</loc><lastmod>{hoy}</lastmod><changefreq>daily</changefreq></url>\n' + \
-     ''.join(f'<url><loc>{BASE}{p}</loc><lastmod>{hoy}</lastmod>{"<changefreq>daily</changefreq>" if p.startswith("/planes/") else ""}</url>\n' for p in PAGES) + '</urlset>\n'
-open(os.path.join(WEB, 'sitemap.xml'), 'w', encoding='utf-8').write(sm)
-print(len(PAGES), 'páginas:', sum(p.startswith('/planes/') for p in PAGES), 'de zonas y', sum(p.startswith('/evento/') for p in PAGES), 'de eventos')
+try:
+    with urllib.request.urlopen(BASE + '/lastmod.json', timeout=60) as r:
+        antes = json.loads(r.read().decode())
+except Exception as ex:
+    print('sin lastmod.json anterior:', ex)
+    antes = {}
+ahora = {}
+porgrupo = defaultdict(list)
+for path, h, g in PAGES:
+    prev = antes.get(path)
+    fechac = prev[1] if prev and prev[0] == h else hoy
+    ahora[path] = [h, fechac]
+    porgrupo[g].append((path, fechac))
+json.dump(ahora, open(os.path.join(WEB, 'lastmod.json'), 'w', encoding='utf-8'), separators=(',', ':'))
+idx = '<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+for g in sorted(porgrupo):
+    l = porgrupo[g]
+    if g == 'zonas':
+        l = [('/', hoy)] + l
+    sm = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + \
+         ''.join(f'<url><loc>{BASE}{p}</loc><lastmod>{f}</lastmod></url>\n' for p, f in l) + '</urlset>\n'
+    open(os.path.join(WEB, f'sitemap-{g}.xml'), 'w', encoding='utf-8').write(sm)
+    idx += f'<sitemap><loc>{BASE}/sitemap-{g}.xml</loc><lastmod>{max(f for _, f in l)}</lastmod></sitemap>\n'
+open(os.path.join(WEB, 'sitemap.xml'), 'w', encoding='utf-8').write(idx + '</sitemapindex>\n')
+print(len(PAGES), 'páginas en', len(porgrupo), 'mapas:', sum(p.startswith('/planes/') for p, _, _ in PAGES), 'de zonas,',
+      sum(p.startswith('/evento/') for p, _, _ in PAGES), 'de eventos y', sum(p.startswith('/lugar/') for p, _, _ in PAGES), 'de lugares;',
+      sum(1 for v in ahora.values() if v[1] == hoy), 'cambiadas hoy')

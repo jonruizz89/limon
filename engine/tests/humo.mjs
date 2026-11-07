@@ -40,7 +40,8 @@ try {
       const n1 = (await p.textContent('#n-agenda')).trim();
       ok(n1 === '1', `guardar un plan pone la agenda a 1 (${n1 || 'vacío'})`);
       await p.reload();
-      await p.waitForFunction(() => document.querySelectorAll('article.card').length > 0, null, { timeout: 30000 });  // vuelve a la última pestaña abierta
+      // vuelve a la última pestaña abierta; se espera sondeando (la CSP de la app no deja usar waitForFunction)
+      for (let i = 0; i < 60 && !(await p.locator('article.card').count()); i++) await p.waitForTimeout(500);
       const n2 = (await p.textContent('#n-agenda')).trim();
       ok(n2 === '1', `la agenda sigue tras recargar (${n2 || 'vacío'})`);
       await p.click('[data-bnav="agenda"]');

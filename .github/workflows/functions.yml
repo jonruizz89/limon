@@ -44,5 +44,5 @@ jobs:
             name="$f$SUFFIX"
             if [ -n "$SUFFIX" ]; then cp -r "supabase/functions/$f" "supabase/functions/$name"; fi
             echo "== $name"
-            supabase functions deploy "$name" --project-ref "$PROJECT" --no-verify-jwt --use-api
+            supabase functions deploy "$name" --project-ref "$PROJECT" --no-verify-jwt --use-api --yes
           done

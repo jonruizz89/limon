@@ -70,6 +70,9 @@ button.serie.link { background: none; padding: 0; align-self: flex-start }
 .street.hit { background: var(--accent-soft); color: var(--accent-text); font-weight: 600 }
 .banner { display: flex; flex-direction: column; gap: 4px; background: var(--strong); color: var(--strong-ink); border-radius: 14px; padding: 14px; border: 0; text-align: left; cursor: pointer; font: inherit }
 .banner b { font-family: var(--f-display); font-size: 16px }
+.instala { display: flex; flex-direction: column; gap: 10px; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 14px; padding: 12px 14px }
+.instala > div:first-child { display: flex; flex-direction: column; gap: 2px; font-size: 14px }
+.instala b { font-weight: 700 }
 .filterchip { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 6px 0 12px; border-radius: 999px; background: var(--strong); color: var(--strong-ink); font-size: 13.5px; border: 0; cursor: pointer }
 .serie { font-size: 12.5px; font-weight: 600; color: var(--accent-text) }
 .tag.tema { background: var(--accent-soft); color: var(--accent-text) }
@@ -90,7 +93,27 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
 .lead { margin: 0; color: var(--quiet); font-size: 14px }
 
 .seg { display: flex; gap: 6px; flex-wrap: wrap }
-.pill { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 0 12px; height: 36px; font-size: 13.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px }
+/* filtros en una sola fila que se desliza de lado (no empujan la lista hacia abajo) */
+.frow { display: flex; gap: 6px; align-items: center; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; -webkit-overflow-scrolling: touch }
+.frow::-webkit-scrollbar { display: none }
+.frow .seg { flex-wrap: nowrap; flex: none }
+.frow .pill { flex: none; white-space: nowrap }
+.fsep { flex: none; width: 1px; height: 22px; background: var(--line) }
+.zlist { display: flex; flex-direction: column; gap: 6px; max-height: 52vh; overflow-y: auto }
+.zrow { min-height: 48px; display: flex; align-items: center; gap: 8px; justify-content: space-between; text-align: left; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 12px; padding: 8px 14px; font-size: 15px; cursor: pointer }
+.zrow > span:first-child { flex: 1; min-width: 0 }
+.zrow.cur { border-color: var(--accent); background: var(--accent-soft); font-weight: 600 }
+.zrow.grp { font-weight: 600 }
+.zkids { display: flex; flex-direction: column; gap: 6px; padding-left: 12px; border-left: 3px solid var(--accent-soft) }
+.qgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px }
+.qchip { min-height: 48px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 12px; padding: 8px 12px; font-size: 14.5px; text-align: left; display: flex; align-items: center; gap: 8px; cursor: pointer }
+.qfoot { position: sticky; bottom: -1px; background: var(--surface); padding: 12px 0 4px; margin-top: 6px; justify-content: space-between; align-items: center }
+.qchip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); font-weight: 600 }
+#v-parati h1 { font-size: 22px }
+#new-hint:empty, #pt-lead:empty { display: none }
+.pill { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 0 14px; height: 40px; font-size: 13.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px }
+.pill .k { font-size: 12px; opacity: .7; font-variant-numeric: tabular-nums }
+.pill:disabled { opacity: .45; cursor: default }
 .pill[aria-pressed="true"] { background: var(--strong); color: var(--strong-ink); border-color: var(--strong) }
 
 .card { background: var(--surface); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px; position: relative }
@@ -121,7 +144,10 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
 .more { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 14px }
 .more p { margin: 0 }
 .fpanel { gap: 14px }
-.streetwarn { font-size: 13px; background: #FFF0EE; color: #A4251C; border-radius: 8px; padding: 6px 10px; font-weight: 500 }
+.streetwarn { font-size: 13px; background: #FFF0EE; color: #A4251C; border-radius: 8px; padding: 5px 10px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100% }
+.streetwarn .swall, .card.abierta .streetwarn .sw1 { display: none }
+.card.abierta .streetwarn { white-space: normal }
+.card.abierta .streetwarn .swall { display: inline }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .streetwarn { background: #3B1A17; color: #FFB4A8 } }
 .pwdlg { border: 0; border-radius: 18px; padding: 0; width: min(420px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px rgba(0,0,0,.25) }
 .sheet { width: min(560px, calc(100vw - 24px)); max-height: 86vh }
@@ -363,16 +389,19 @@ table.cov td.n, table.cov th.n { text-align: right }
     <p class="lead" id="pt-lead"></p>
     <div id="new-hint"></div>
     <div id="zone-hint" hidden></div>
-    <div class="seg" role="group" aria-label="Cuándo">
-      <button class="pill" data-when="semana">Esta semana</button>
-      <button class="pill" data-when="finde">Este finde</button>
-      <button class="pill" data-when="mes">Próximos 30 días</button>
-    </div>
-    <div class="seg" role="group" aria-label="Filtros rápidos">
-      <button class="pill" id="pt-free" aria-pressed="false">Solo gratis</button>
-      <button class="pill" data-nuevos aria-pressed="false" hidden>✨ Nuevos<span class="n-nuevos"></span></button>
-      <button class="pill" data-fventaja aria-pressed="false" hidden>🎟️ Con ventajas para mí</button>
-      <button class="pill" data-ftoggle="pt" aria-expanded="false">Filtros<span class="fcount"></span></button>
+    <div class="frow">
+      <div class="seg" role="group" aria-label="Cuándo">
+        <button class="pill" data-when="semana">Esta semana</button>
+        <button class="pill" data-when="finde">Este finde</button>
+        <button class="pill" data-when="mes">30 días</button>
+      </div>
+      <span class="fsep" aria-hidden="true"></span>
+      <div class="seg" role="group" aria-label="Filtros rápidos">
+        <button class="pill" data-ftoggle="pt" aria-expanded="false">⚙︎ Filtros<span class="fcount"></span></button>
+        <button class="pill" id="pt-free" aria-pressed="false">Gratis</button>
+        <button class="pill" data-nuevos aria-pressed="false" hidden>✨ Nuevos<span class="n-nuevos"></span></button>
+        <button class="pill" data-fventaja aria-pressed="false" hidden>🎟️ Con ventajas</button>
+      </div>
     </div>
     <div class="panel fpanel" id="pt-fpanel" hidden></div>
     <div id="pt-list" class="view"></div>
@@ -553,7 +582,7 @@ table.cov td.n, table.cov th.n { text-align: right }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261107d"></script>
+<script src="data.js?v=20261107e"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -572,6 +601,9 @@ function startApp(DATA, TAX, sync) {
   const SAMPLE = { pintura: 1, expo_hist: 1, arqueo_cat: 1, fotografia: 1, museos: 1, visitas: 1, historia: 1, cine_clasico: 1,
     preestrenos: 1, documental: 1, teatro: 1, conf: 1, libros: 1, divulgacion: 1, astronomia: 1, catas: 1, tradiciones: 1,
     padel: 1, carreras_perro: 1, jardines: 1, reggaeton: 2, electronica: 2, infantil: 2, cuentacuentos: 2, titeres: 2 };
+  // número de veces que se ha abierto la app en este navegador (una por sesión): para no repetir presentaciones
+  let VISITAS = store.get('visitas', 0);
+  try { if (!sessionStorage.getItem('limon.ses')) { sessionStorage.setItem('limon.ses', '1'); VISITAS += 1; store.set('visitas', VISITAS); } } catch (e) { }
   let prefs = store.get('prefs', null) || {};
   let opts = store.get('opts', { ninos: false, perro: false });
   let saved = store.get('saved', []);
@@ -735,7 +767,14 @@ function startApp(DATA, TAX, sync) {
     return true;
   }
   function filtersHtml() {
-    const pill = (k, v, t) => `<button class="pill" data-fset="${k}" data-fval="${v}" aria-pressed="${String(F[k]) === String(v)}">${t}</button>`;
+    // cuántos planes quedarían con cada opción (en las fechas que estás viendo), para no elegir a ciegas
+    const [ra, rb] = range(state.tab === 'parati' ? state.when : $('ex-when').value);
+    const base = EV.map(e => ({ e, occ: occurs(e, ra, rb) })).filter(x => x.occ && !isDismissed(x.e));
+    const cnt = (k, v) => { const old = F[k]; F[k] = v; let n = 0; for (const x of base) if (passF(x.e, x.occ)) n++; F[k] = old; return n; };
+    const pill = (k, v, t) => {
+      const n = k === 'near' ? null : cnt(k, v);
+      return `<button class="pill" data-fset="${k}" data-fval="${v}" aria-pressed="${String(F[k]) === String(v)}"${n === 0 && String(F[k]) !== String(v) ? ' disabled' : ''}>${t}${n != null ? `<span class="k">${n}</span>` : ''}</button>`;
+    };
     return `<div><h3>Zona</h3><div class="row" style="margin-top:6px">
         <select class="search" data-fsel="dist" style="max-width:240px" aria-label="${CITY.kind === 'provincia' ? 'Municipio' : 'Distrito'}"><option value="">${CITY.kind === 'provincia' ? 'Toda la provincia' : CITY.muni ? 'Todo ' + esc(CITY.name) : 'Toda la ciudad'}</option>${DISTRITOS.map(d => `<option ${F.dist === d ? 'selected' : ''}>${d}</option>`).join('')}</select>
         ${pill('near', 1, 'A 1 km')}${pill('near', 3, 'A 3 km')}${pill('near', 8, 'A 8 km')}${CITY.kind === 'provincia' || CITY.muni ? pill('near', 20, 'A 20 km') + pill('near', 40, 'A 40 km') : ''}</div>
@@ -854,6 +893,38 @@ function startApp(DATA, TAX, sync) {
     const g = e.cats.map(groupOf).find(x => EMO[x]);
     return g ? `<div class="ico" aria-hidden="true">${EMO[g]}</div>` : '';
   }
+  // ---------- enlace propio de cada plan: abrir la ficha cambia la dirección (?ev=) y «atrás» la cierra
+  const SLUG_MAP = { á: 'a', à: 'a', ä: 'a', â: 'a', é: 'e', è: 'e', ë: 'e', ê: 'e', í: 'i', ì: 'i', ï: 'i', î: 'i', ó: 'o', ò: 'o', ö: 'o', ô: 'o', ú: 'u', ù: 'u', ü: 'u', û: 'u', ñ: 'n', ç: 'c' };
+  const slugEv = t => (String(t || '').toLowerCase().replace(/[áàäâéèëêíìïîóòöôúùüûñç]/g, c => SLUG_MAP[c]).replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '').slice(0, 70)) || 'x';
+  const appEvUrl = e => location.origin + '/?c=' + encodeURIComponent(window.limonCity.zone().split('|')[0]) + '&ev=' + e.id;
+  // para compartir: la página del plan (con su foto en WhatsApp y en buscadores) si ya existe; si es de hoy, la app
+  function shareEvUrl(e) {
+    const dias = (parse(e.inicio) - today) / 864e5, alta = e.alta ? Date.now() - Date.parse(e.alta) : 0;
+    const publicada = CITY.status === 'publicada';
+    return publicada && location.hostname === 'limonplanes.com' && alta > 30 * 36e5 && dias <= 175
+      ? 'https://limonplanes.com/evento/' + e.id.replace(/^e/, '') + '-' + slugEv(e.titulo) + '/' : appEvUrl(e);
+  }
+  let fichaHist = null;  // id de la ficha abierta que añadió una entrada al historial
+  function fichaHistoria(id, abierta) {
+    try {
+      if (abierta) {
+        const u = '?c=' + encodeURIComponent(window.limonCity.zone().split('|')[0]) + '&ev=' + id;
+        if (fichaHist) history.replaceState({ ev: id }, '', u); else history.pushState({ ev: id }, '', u);
+        fichaHist = id;
+      } else if (fichaHist === id) { fichaHist = null; history.back(); }
+    } catch (x) { }
+  }
+  window.addEventListener('popstate', ev => {
+    if (fichaHist && !(ev.state && ev.state.ev)) { state.open[fichaHist] = false; fichaHist = null; renderAll(); }
+  });
+  async function shareEv(e) {
+    const url = shareEvUrl(e), occ = occurs(e, today, addDays(today, 400));
+    const text = `${e.titulo} · ${whenText(e, occ)}${e.lugar ? ' · ' + e.lugar : ''}`;
+    track('compartir', e.id);
+    if (navigator.share) { try { await navigator.share({ title: e.titulo, text, url }); return; } catch (x) { if (x && x.name === 'AbortError') return; } }
+    try { await navigator.clipboard.writeText(text + ' ' + url); toast('Enlace copiado: pégalo en WhatsApp o donde quieras.'); }
+    catch (x) { prompt('Copia este enlace:', url); }
+  }
   function card(e, opt) {
     opt = opt || {};
     const occ = opt.occ || occurs(e, today, addDays(today, 400));
@@ -878,6 +949,7 @@ function startApp(DATA, TAX, sync) {
         ${e.lat ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=transit" target="_blank" rel="noopener">Cómo llegar ↗</a>` : ''}</div>
         <p class="note">Fuentes: ${e.fuentes.map(f => esc(f.nombre)).join(', ')}</p>
         <div class="acts">
+          <button class="act" data-sharev="${e.id}">📤 Compartir</button>
           <button class="act" data-dismiss="${e.id}" aria-pressed="${isDismissed(e)}">${isDismissed(e) ? 'Volver a mostrar' : 'No me interesa'}</button>
           ${(occ && (occ.ongoing || +occ.date <= +today)) || went.includes(e.id) ? `<button class="act" data-went="${e.id}" aria-pressed="${went.includes(e.id)}">${went.includes(e.id) ? '✓ Fui' : 'Ya fui'}</button>` : ''}
           ${occ && parse(e.fin) >= today ? `<button class="act" data-invite="${e.id}">Proponer plan</button>` : ''}
@@ -890,7 +962,7 @@ function startApp(DATA, TAX, sync) {
         ${state.inviting === e.id ? inviteForm(e) : ''}
         ${state.route && state.route[e.id] ? `<div class="routewarn">${state.route[e.id]}</div>` : ''}
       </div>` : '';
-    return `<article class="card${NEW.has(e.id) ? ' nuevo' : ''}" data-eid="${e.id}">
+    return `<article class="card${NEW.has(e.id) ? ' nuevo' : ''}${open ? ' abierta' : ''}" data-eid="${e.id}">
       <div class="row1"><div class="lcol">${dateBox(e, occ)}${thumb(e)}</div>
         <div class="body">
           <h3 class="title"><button data-open="${e.id}" aria-expanded="${open}" aria-controls="m-${e.id}">${esc(e.titulo)}</button></h3>
@@ -1180,7 +1252,9 @@ function startApp(DATA, TAX, sync) {
       out.sort((a, b) => a.m - b.m);
       const seenW = new Set();
       out = out.filter(x => { const key = x.t.replace(/ \(a .*$|, \d.*$/, ''); if (seenW.has(key)) return false; seenW.add(key); return true; });
-      warnCache[k] = out.length ? `<div class="streetwarn">⚠ ${+d === +today ? 'Hoy' : 'Ese día'}: ${esc(out.slice(0, 2).map(x => x.t).join(' · '))}${out.length > 2 ? ` y ${out.length - 2} más` : ''}</div>` : '';
+      // una sola línea (el resto, al tocarla o en el texto completo del aviso)
+      const dia = +d === +today ? 'Hoy' : 'Ese día';
+      warnCache[k] = out.length ? `<div class="streetwarn"><span class="sw1">⚠ ${dia}${out.length > 1 ? ` (${out.length} avisos)` : ''}: ${esc(out[0].t)}</span><span class="swall">⚠ ${dia}: ${esc(out.map(x => x.t).join(' · '))}</span></div>` : '';
     }
     return warnCache[k];
   }
@@ -1847,21 +1921,35 @@ function startApp(DATA, TAX, sync) {
   }
   function openZone() {
     const groups = zoneGroups(), zone = window.limonCity.zone();
-    const cur = groups.find(g => g.options.some(o => o.v === zone)) || groups[0];
     const isAdm = me && me.role === 'admin';
+    // todas las opciones en una lista para buscar: «Getxo · Bizkaia», «Toda Bizkaia», «Madrid»…
+    const flat = groups.flatMap(g => g.options.map(o => ({ v: o.v, t: o.t, p: g.options.length > 1 && !o.t.startsWith('Toda ') ? g.name : '' })));
+    const n = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const fila = o => `<button class="zrow${o.v === zone ? ' cur' : ''}" data-zone-v="${esc(o.v)}"><span>${esc(o.t)}</span>${o.p ? `<span class="note">${esc(o.p)}</span>` : ''}${o.v === zone ? '<span class="note">· ahora</span>' : ''}</button>`;
     openSheet(`<div class="seg" style="justify-content:space-between;align-items:center"><h2 style="margin:0">¿Dónde buscas planes?</h2><button class="btn ghost" data-sheet-close>Cerrar</button></div>
-      <label class="note" style="display:flex;flex-direction:column;gap:4px">Provincia
-        <select class="search" id="zone-p">${groups.map(g => `<option value="${esc(g.id)}" ${g === cur ? 'selected' : ''}>${esc(g.name)}${g.draft ? ' (borrador)' : ''}</option>`).join('')}</select></label>
-      <label class="note" id="zone-m-wrap" style="display:flex;flex-direction:column;gap:4px">Municipio
-        <select class="search" id="zone-m"></select></label>
-      <div class="seg"><button class="btn" data-zone-go>Ver planes</button><button class="btn ghost" data-zone-locate>📍 Donde estoy</button></div>
+      <input class="search" id="zone-q" type="search" placeholder="Escribe tu ciudad o pueblo" aria-label="Buscar ciudad o pueblo" autocomplete="off">
+      <button class="btn ghost" data-zone-locate style="align-self:flex-start">📍 Donde estoy</button>
+      <div id="zone-list" class="zlist"></div>
       <p class="note" style="margin:0">Tus intereses, tu agenda y tus amigos son los mismos en todas las zonas.${isAdm && (DATA.cities || []).some(c => c.status !== 'publicada') ? ' Zonas en borrador (solo con enlace): ' + (DATA.cities || []).filter(c => c.status !== 'publicada').map(c => `<a href="?c=${esc(c.id)}">${esc(c.name)}</a>`).join(', ') + '.' : ''} De momento: Madrid, Barcelona, Euskadi (Bizkaia, Gipuzkoa y Araba), Zaragoza y Gijón; iremos añadiendo más.</p>`);
-    const fill = () => {
-      const g = groups.find(x => x.id === $('zone-p').value) || groups[0];
-      $('zone-m').innerHTML = g.options.map(o => `<option value="${esc(o.v)}" ${o.v === zone ? 'selected' : ''}>${esc(o.t)}</option>`).join('');
-      $('zone-m-wrap').hidden = g.options.length < 2;
+    let abierta = (groups.find(g => g.options.length > 1 && g.options.some(o => o.v === zone)) || {}).id || null;
+    const pinta = () => {
+      const q = n($('zone-q').value.trim());
+      if (q) {
+        const hits = flat.filter(o => n(o.t).includes(q) || n(o.p).includes(q)).sort((a, b) => (n(a.t).startsWith(q) ? 0 : 1) - (n(b.t).startsWith(q) ? 0 : 1)).slice(0, 40);
+        $('zone-list').innerHTML = hits.map(fila).join('') || '<p class="note">Aún no tenemos esa zona. ¡Iremos añadiendo más!</p>';
+        return;
+      }
+      // sin buscar: las zonas; las provincias se despliegan con sus municipios
+      $('zone-list').innerHTML = groups.map(g => g.options.length === 1 ? fila({ v: g.options[0].v, t: g.name, p: '' })
+        : `<button class="zrow grp" data-zone-grp="${esc(g.id)}" aria-expanded="${abierta === g.id}"><span>${esc(g.name)}</span><span class="note">${g.options.length - 1} municipios ${abierta === g.id ? '▴' : '▾'}</span></button>` +
+          (abierta === g.id ? `<div class="zkids">${g.options.map(o => fila({ v: o.v, t: o.t, p: '' })).join('')}</div>` : '')).join('');
     };
-    fill(); $('zone-p').addEventListener('change', fill);
+    pinta();
+    $('zone-q').addEventListener('input', pinta);
+    $('zone-list').addEventListener('click', ev => {
+      const gr = ev.target.closest('[data-zone-grp]'); if (gr) { abierta = abierta === gr.dataset.zoneGrp ? null : gr.dataset.zoneGrp; pinta(); return; }
+      const z = ev.target.closest('[data-zone-v]'); if (z) { if (z.dataset.zoneV === zone) closeSheets(); else zonaSet(z.dataset.zoneV); }
+    });
   }
   // ---------- avisos push en este dispositivo (PWA). En iPhone solo funcionan con Limón añadido a la pantalla de inicio.
   const PUSH_KINDS = [['quedadas', 'Quedadas: alguien responde a un plan que propusiste'], ['amigos', 'Amigos: te quieren seguir o aceptan tu solicitud'],
@@ -1870,6 +1958,16 @@ function startApp(DATA, TAX, sync) {
   const pushOk = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // ---------- proponer instalar la app: a partir de la 3.ª visita, en el móvil, y nunca más si se descarta
+  const esSafariIOS = isIOS && /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
+  function instalarCard() {
+    if (VISITAS < 3 || standalone() || store.get('instalar_no', false) || !matchMedia('(max-width: 900px)').matches) return '';
+    if (window.__limonInstall) return `<div class="instala"><div><b>📲 Ten Limón en tu pantalla de inicio</b><span>Se abre al momento, como una app, y sin ocupar espacio.</span></div><div class="seg"><button class="btn" data-instalar>Instalar</button><button class="btn ghost" data-instalar-no>Ahora no</button></div></div>`;
+    if (esSafariIOS) return `<div class="instala"><div><b>📲 Ten Limón en tu pantalla de inicio</b><span>Toca <b>Compartir</b> (el cuadrado con la flecha, abajo en Safari) y después <b>«Añadir a pantalla de inicio»</b>.</span></div><div class="seg"><button class="btn ghost" data-instalar-no>Entendido</button></div></div>`;
+    return '';
+  }
+  window.addEventListener('limon-install', () => { if (state.tab === 'parati') renderAll(); });
+  window.addEventListener('appinstalled', () => { store.set('instalar_no', true); renderAll(); });
   let pushSub = null, pushBusy = false;
   const b64u8 = b => { const p = '='.repeat((4 - b.length % 4) % 4), r = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); };
   const deviceName = () => (isIOS ? 'iPhone/iPad' : /Android/.test(navigator.userAgent) ? 'Android' : /Mac/.test(navigator.platform) ? 'Mac' : /Win/.test(navigator.platform) ? 'Windows' : 'Navegador') + (standalone() ? ' (app)' : '');
@@ -2333,11 +2431,13 @@ function startApp(DATA, TAX, sync) {
         items.push({ e, occ, s });  // en pueblos con pocos destacados, detrás van los demás por fecha
       }
       items.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, y.s - x.s || x.occ.date - y.occ.date || horaOrden(x.e) - horaOrden(y.e)));
-      $('pt-h').textContent = 'Lo más destacado ' + ({ semana: 'esta semana', finde: 'este finde', mes: 'en los próximos 30 días' })[state.when];
-      $('pt-lead').textContent = 'Todos los planes de ' + CITY.name + ' en un sitio, gratis y sin anuncios. Marca tus intereses y esta lista será solo para ti.';
+      $('pt-h').textContent = 'Destacado ' + ({ semana: 'esta semana', finde: 'este finde', mes: 'este mes' })[state.when];
+      // la presentación, solo las primeras veces; después, la lista empieza arriba
+      $('pt-lead').textContent = VISITAS <= 2 ? 'Todos los planes de ' + CITY.name + ' en un sitio, gratis y sin anuncios. Marca tus intereses y esta lista será solo para ti.' : '';
+      $('pt-lead').hidden = VISITAS > 2;
       logList(items.slice(0, state.ptShown).map(x => x.e.id));
-      $('pt-list').innerHTML = avisoHoy() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) +
-        tras3(conSeccion(items.slice(0, state.ptShown), x => card(x.e, { occ: x.occ })), `<button class="btn" data-goto="intereses" data-fold="in-panel" style="margin:4px 0 14px">✨ Elegir mis intereses</button>`);
+      $('pt-list').innerHTML = instalarCard() + avisoHoy() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) +
+        tras3(conSeccion(items.slice(0, state.ptShown), x => card(x.e, { occ: x.occ })), `<button class="btn" data-intereses-rapido style="margin:4px 0 14px">✨ Elegir mis intereses</button>`);
       $('pt-more').hidden = items.length <= state.ptShown;
       document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));
       return;
@@ -2355,11 +2455,12 @@ function startApp(DATA, TAX, sync) {
     const going = top.filter(x => largo(x.e, x.occ)).sort((x, y) => parse(x.e.fin) - parse(y.e.fin));
     const label = { semana: 'esta semana', finde: 'este finde', mes: 'los próximos 30 días' }[state.when];
     $('pt-h').textContent = items.length ? `${items.length} ${items.length === 1 ? 'plan' : 'planes'} para ti ${label}` : `Nada para ti ${label}`;
-    $('pt-lead').textContent = items.length ? (top.length === 1 ? 'El que mejor encaja' : `Los ${top.length} que mejor encajan`) + ' con tus intereses. Toca el título para ver más.' : 'Prueba con un rango más amplio o marca más intereses.';
+    $('pt-lead').textContent = items.length ? '' : 'Prueba con un rango más amplio o marca más intereses.';
+    $('pt-lead').hidden = !!items.length;
     const html = (dated.length ? `<h2>Con fecha</h2>` + dated.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '') +
       (going.length ? SEC_LARGOS + going.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '');
     logList(top.map(x => x.e.id));
-    $('pt-list').innerHTML = shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) + aiBlock() + (html ? '<h2>Todo lo que encaja</h2>' + html.replace('<h2>Con fecha</h2>', '') : '<div class="empty">No hay eventos que encajen con tus intereses en estas fechas.</div>');
+    $('pt-list').innerHTML = instalarCard() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) + aiBlock() + (html ? '<h2>Todo lo que encaja</h2>' + html.replace('<h2>Con fecha</h2>', '') : '<div class="empty">No hay eventos que encajen con tus intereses en estas fechas.</div>');
     $('pt-more').hidden = items.length <= state.ptShown;
     document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));
   }
@@ -2441,6 +2542,15 @@ function startApp(DATA, TAX, sync) {
   }
   const counts = {};
   EV.forEach(e => { if (parse(e.fin) >= today) e.cats.forEach(c => { counts[c] = (counts[c] || 0) + 1; }); });
+  // ---------- intereses en un toque, sin cuenta: grandes temas; el detalle, en Perfil
+  function interesesRapido() {
+    const grupos = TAX.filter(g => EMO[g.id] && g.items.length);
+    const on = g => g.items.every(it => prefs[it.id] === 1);
+    openSheet(`<div class="seg" style="justify-content:space-between;align-items:center"><h2 style="margin:0">¿Qué te gusta?</h2><button class="btn ghost" data-sheet-close>Cerrar</button></div>
+      <p class="note" style="margin:4px 0 10px">Toca todo lo que te interese. Se guarda en este móvil; no hace falta cuenta.</p>
+      <div class="qgrid">${grupos.map(g => `<button class="qchip" data-qgrp="${g.id}" aria-pressed="${on(g)}"><span aria-hidden="true">${EMO[g.id]}</span> ${esc(g.name)}</button>`).join('')}</div>
+      <div class="seg qfoot"><button class="btnlink" data-qmas>Afinar más (subcategorías)</button><button class="btn" data-qver>Ver mis planes</button></div>`);
+  }
   function renderIntereses() {
     const q = $('in-q').value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     const n = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -2676,11 +2786,27 @@ function startApp(DATA, TAX, sync) {
     if (ev.target.closest('[data-sheet-close]')) { closeSheets(); return; }
     if (ev.target.closest('#city-btn') || ev.target.closest('[data-zone-pick]')) { openZone(); return; }
     if (ev.target.closest('[data-nuevos-ver]')) { F.nuevos = true; go('explorar'); return; }
+    if (ev.target.closest('[data-intereses-rapido]')) { interesesRapido(); return; }
+    if (ev.target.closest('[data-instalar-no]')) { store.set('instalar_no', true); renderAll(); return; }
+    if (ev.target.closest('[data-instalar]') && window.__limonInstall) {
+      const p = window.__limonInstall; window.__limonInstall = null;
+      p.prompt(); p.userChoice.then(r => { if (r && r.outcome === 'accepted') store.set('instalar_no', true); renderAll(); }).catch(() => { });
+      return;
+    }
+    const qg = ev.target.closest('[data-qgrp]');
+    if (qg) {
+      const g = TAX.find(x => x.id === qg.dataset.qgrp); if (!g) return;
+      const all = g.items.every(it => prefs[it.id] === 1);
+      g.items.forEach(it => { if (all) delete prefs[it.id]; else prefs[it.id] = 1; });
+      store.set('prefs', prefs); qg.setAttribute('aria-pressed', String(!all)); return;
+    }
+    if (ev.target.closest('[data-qver]')) { closeSheets(); state.ptShown = 20; go('parati'); window.scrollTo(0, 0); renderAll(); return; }
+    if (ev.target.closest('[data-qmas]')) { closeSheets(); go('intereses'); if (!logged) openFold('account', false); openFold('in-panel', true); setTimeout(() => { const p = $('in-panel'); if (p) p.scrollIntoView({ block: 'start' }); }, 50); return; }
+    const shv = ev.target.closest('[data-sharev]'); if (shv && BYID[shv.dataset.sharev]) { shareEv(BYID[shv.dataset.sharev]); return; }
     if (ev.target.closest('[data-share-finde]')) { shareFinde(ev.target.closest('[data-share-finde]').dataset.shareFinde); return; }
     if (ev.target.closest('[data-zone-wider]')) { ZONE.r = +ev.target.closest('[data-zone-wider]').dataset.zoneWider; renderAll(); return; }
     if (ev.target.closest('[data-zone-locate]')) { locateZone(ev.target.closest('[data-zone-locate]')); return; }
     if (ev.target.closest('[data-zone-hint-x]')) { store.set('zoneAsked', 1); $('zone-hint').hidden = true; return; }
-    if (ev.target.closest('[data-zone-go]')) { const v = $('zone-m').value; if (v !== window.limonCity.zone()) zonaSet(v); else closeSheets(); return; }
     const cb2 = ev.target.closest('[data-city]'); if (cb2) { if (cb2.dataset.city !== CITY.id) zonaSet(cb2.dataset.city); else closeSheets(); return; }
     if (ev.target.closest('[data-vote],[data-idea-tab],[data-idea-del]')) { ideasClick(ev.target); return; }
     const pf = ev.target.closest('[data-prof]'); if (pf) { openProfile(pf.dataset.prof); return; }
@@ -2743,7 +2869,7 @@ function startApp(DATA, TAX, sync) {
       const c = ev.target.closest('.card');
       if (c && !ev.target.closest('a, button, .more')) o = c.querySelector('[data-open]');
     }
-    if (o) { const id = o.dataset.open; state.open[id] = !state.open[id]; if (state.open[id]) { store.set('abiertos', store.get('abiertos', 0) + 1); const all = [...document.querySelectorAll('#v-' + state.tab + ' [data-open]')].map(x => x.dataset.open); track('abrir', id, { pos: all.indexOf(id) + 1 || null }); } renderAll(); const el = document.querySelector(`[data-open="${id}"]`); if (el) el.focus(); return; }
+    if (o) { const id = o.dataset.open; state.open[id] = !state.open[id]; fichaHistoria(id, state.open[id]); if (state.open[id]) { store.set('abiertos', store.get('abiertos', 0) + 1); const all = [...document.querySelectorAll('#v-' + state.tab + ' [data-open]')].map(x => x.dataset.open); track('abrir', id, { pos: all.indexOf(id) + 1 || null }); } renderAll(); const el = document.querySelector(`[data-open="${id}"]`); if (el) el.focus(); return; }
     const g = ev.target.closest('[data-grp]');
     if (g) { state.groupsOpen[g.dataset.grp] = !state.groupsOpen[g.dataset.grp]; renderIntereses(); return; }
     const c = ev.target.closest('[data-cat]');
@@ -2754,7 +2880,7 @@ function startApp(DATA, TAX, sync) {
   // al abrir la app (tras cerrarla) se empieza en Para ti; al recargar sin cerrarla (cambio de zona, versión nueva) se sigue donde estabas
   let tabSes = null; try { tabSes = sessionStorage.getItem('bureo.tab'); } catch (e) { }
   const t0 = QS.get('tab') || tabSes || 'parati';
-  const ev0 = QS.get('ev') && BYID[QS.get('ev')];
+  const ev0 = QS.get('ev') && (BYID[QS.get('ev')] || BYID['e' + QS.get('ev')]);
   if (ev0) { state.filter = { kind: 'id', value: ev0.id, label: ev0.titulo }; state.open[ev0.id] = true; $('ex-when').value = 'todo'; go('explorar'); }
   else go(tabs.includes(t0) ? t0 : 'parati');
   renderAccountExtras();

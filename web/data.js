@@ -1,5 +1,7 @@
 // Limón (antes Bureo) · carga de datos desde Supabase y sincronización de la cuenta
 (function () {
+  // instalar la app: el navegador avisa una vez y muy pronto; se guarda para ofrecerlo desde la app cuando toque
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); window.__limonInstall = e; window.dispatchEvent(new Event('limon-install')); });
   const C = window.BUREO_CONFIG;
   const sb = window.supabase.createClient(C.supabaseUrl, C.supabaseKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }

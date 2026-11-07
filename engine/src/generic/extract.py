@@ -144,7 +144,9 @@ def main(cid):
             print(f'✗ {s["name"]}: no se ha podido leer'); continue
         keep = []
         for e in evs:
-            if not e.get('inicio') or (e.get('fin') or e['inicio']) < HOY.isoformat() or e['inicio'] > HASTA.isoformat():
+            # horizonte por fuente (config.horizonte_dias): los grandes recintos venden entradas con un año de antelación
+            hasta = (HOY + dt.timedelta(days=int((s.get('config') or {}).get('horizonte_dias') or 120))).isoformat()
+            if not e.get('inicio') or (e.get('fin') or e['inicio']) < HOY.isoformat() or e['inicio'] > hasta:
                 continue
             if e['inicio'] < (HOY - dt.timedelta(days=730)).isoformat():
                 continue  # «eventos» que empezaron hace años (programas permanentes, secciones de la web): no son planes

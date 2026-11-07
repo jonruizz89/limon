@@ -18,6 +18,8 @@ RAW = os.environ.get('BUREO_RAW', 'raw')
 OUT = os.environ.get('BUREO_OUT', 'out')
 HOY = dt.datetime.now(dt.timezone(dt.timedelta(hours=1))).date()  # hora peninsular aproximada
 HASTA = HOY + dt.timedelta(days=120)
+HASTA_GRANDES = HOY + dt.timedelta(days=365)
+GRANDES = {'Movistar Arena', 'IFEMA', 'Teatro Real', 'La Riviera'}
 TAX = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'taxonomy.json')))
 ITEM_GROUP = {it['id']: g['id'] for g in TAX for it in g['items']}
 
@@ -626,7 +628,9 @@ def main():
     fuentes.update(extra())
     todos = [e for v in fuentes.values() for e in v]
     leidos = {k: len(v) for k, v in fuentes.items()}
-    vivos = [e for e in todos if e['inicio'] and e['fin'] and e['fin'] >= HOY and e['inicio'] <= HASTA]
+    # los grandes recintos anuncian (y venden) con muchos meses: de ellos se carga un año; del resto, 120 días
+    vivos = [e for e in todos if e['inicio'] and e['fin'] and e['fin'] >= HOY
+             and e['inicio'] <= (HASTA_GRANDES if e.get('fuente') in GRANDES else HASTA)]
     eventos, unidos = unir(vivos)
     for i, e in enumerate(sorted(eventos, key=lambda x: (x['inicio'], x['titulo']))):
         e['id'] = 'e%04d' % i

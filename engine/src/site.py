@@ -18,7 +18,7 @@ SB_URL = re.search(r"supabaseUrl:\s*'([^']+)'", cfg).group(1)
 SB_KEY = re.search(r"supabaseKey:\s*'([^']+)'", cfg).group(1)
 HOY = dt.date.today()
 HASTA_LISTA = HOY + dt.timedelta(days=45)    # lo que sale en las páginas de zona
-HASTA_FICHA = HOY + dt.timedelta(days=180)   # eventos con página propia
+HASTA_FICHA = HOY + dt.timedelta(days=370)   # eventos con página propia (los grandes conciertos se anuncian con un año)
 DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
 MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 ABIERTAS = re.compile(r'CC BY|Open Data|datos abiertos|dominio público', re.I)  # fuentes cuya descripción se puede reproducir entera
@@ -436,6 +436,33 @@ COLECCIONES = [{'zona': 'madrid', 'path': 'pasea-madrid', 'fuente': 'Pasea Madri
                 'title': 'JAZZMADRID: Festival Internacional de Jazz de Madrid',
                 'lead': ('Todos los conciertos del Festival Internacional de Jazz de Madrid en el Teatro Fernán Gómez, CentroCentro, Conde Duque y otras salas, '
                          'por orden de fecha.'), 'unidad': 'conciertos'}]
+# temporadas (mismas reglas que TEMPORADAS en web/index.html): una página por zona en su época, desde 2 semanas antes
+TEMPORADAS = [
+    ('navidad', 'Navidad', ('11-01', '01-06'), r'navidad|navide[ñn]|nadal|eguberri|christmas|xmas|\bbelenes\b|\bbel[eé]n (de|del|monumental|napolitano|viviente|municipal)|pesebre|reyes magos|cabalgata|nochevieja|nochebuena|campanadas|pap[aá] noel|olentzero|mari domingi|ti[oó] de nadal|villancic|turr[oó]n|fin de a[nñ]o|san silvestre|luces de navidad|mercad(o|illo)s? navide',
+     'Mercadillos navideños, luces, belenes, conciertos, cabalgatas y planes de Nochevieja'),
+    ('halloween', 'Halloween', ('10-01', '11-01'), r'hallow|samhain|d[ií]a de (los )?muertos|calabaza|zombi|terror|miedo|tenorio|todos los santos|gaztain|castañada|castanyada',
+     'Fiestas, pasajes del terror, cine de miedo, Tenorio y actividades para la noche de Halloween y Todos los Santos'),
+    ('carnaval', 'Carnaval', ('01-25', '03-08'), r'carnaval|inauteri|ihauteri|carnestolt|disfraz|disfrac|entierro de la sardina',
+     'Desfiles, concursos de disfraces, chirigotas y fiestas de Carnaval'),
+    ('san-valentin', 'San Valentín', ('02-01', '02-14'), r'valent[ií]n|valentine|enamorad|rom[aá]ntic', 'Planes en pareja y para San Valentín'),
+    ('semana-santa', 'Semana Santa', ('03-01', '04-25'), r'semana santa|aste santu|setmana santa|procesi[oó]n|cofrad|torrija|pasos de',
+     'Procesiones, conciertos de música sacra y planes para Semana Santa'),
+    ('orgullo', 'Orgullo', ('06-01', '07-10'), r'orgullo|\bpride\b|lgtb|lgbt|harrotasun|diversidad sexual', 'Manifestación, conciertos y fiestas del Orgullo'),
+]
+def _en_ventana(v, d):
+    return v[0] <= d <= v[1] if v[0] <= v[1] else (d >= v[0] or d <= v[1])
+_md = (HOY + dt.timedelta(days=14)).strftime('%m-%d')
+for tid, tnom, tv, tre, tdesc in TEMPORADAS:
+    if not (_en_ventana(tv, _md) or _en_ventana(tv, HOY.strftime('%m-%d'))):
+        continue
+    for z in zonas:
+        if z.get('parent'):
+            continue
+        anyo = HOY.year + (1 if tid != 'navidad' and HOY.month > 10 else 0)
+        COLECCIONES.append({'zona': z['path'], 'path': tid, 'titulo': tre, 'nombre': f"{tnom} en {z['name']}",
+                            'title': f"{tnom} en {z['name']} {anyo}: todos los planes",
+                            'lead': f"{tdesc} en {z['name']}, por orden de fecha, con horarios, lugares y precios. Se actualiza cada día.",
+                            'unidad': 'planes'})
 # ciclos y festivales que ya vienen marcados en la fuente (Kulturklik, Zaragoza…): «Literaktum 2026», «Blues Hotsak 2026»…
 def _serie(t):
     return re.sub(r'\s+', ' ', re.sub(r'\b(19|20)\d\d(\s?[-/]\s?(19|20)?\d\d)?\b', '', t or '')).strip(' -–·.')
@@ -464,6 +491,8 @@ for c in COLECCIONES:
             return any(c['fuente'] in ((s.get('sources') or {}).get('name') or '') for s in e.get('event_sources') or [])
         if c.get('serie'):
             return bool(e.get('series')) and slug(_serie(e['series'])) == c['serie']
+        if c.get('titulo'):  # temporadas: por el título y el ciclo, no por la descripción
+            return bool(re.search(c['titulo'], f"{e['title']} · {e.get('series') or ''}", re.I))
         return bool(re.search(c['texto'], f"{e['title']} {e.get('description') or ''}", re.I))
     sel = sorted((e for e in (z['evs'] if z else []) if dentro(e)), key=lambda e: (e['largo'], e['starts_on'], e.get('time_text') or '', e['title']))
     if len(sel) < 3:

@@ -366,7 +366,7 @@ def esmadrid():
                 'fuente': 'esMadrid', 'fuente_id': 'esm:' + r['url'].rsplit('/', 1)[-1],
                 'titulo': clean(e.get('name')), 'descripcion': desc,
                 'inicio': d(e.get('startDate')), 'fin': d(e.get('endDate')) or d(e.get('startDate')),
-                'hora': hora[:90] if hora else None,
+                'hora': (hora if len(hora) <= 200 else hora[:200].rsplit(' ', 1)[0] + '…') if hora else None,
                 'lugar': clean(loc.get('name')) if isinstance(loc, dict) else None, 'distrito': None,
                 'direccion': direccion(loc),
                 'lat': None, 'lng': None, 'precio': precio, 'gratis': gratis,

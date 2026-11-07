@@ -540,7 +540,8 @@
     const [sid, smuni] = (saved || '').split('|');
     const pick = (id) => CITIES.find((c) => c.id === id);
     let base = null, muni = null;
-    if (qp.get('c') && pick(qp.get('c'))) { base = pick(qp.get('c')); muni = qp.get('m'); }
+    const qc = (qp.get('c') || '').toLowerCase();
+    if (qc && pick(qc)) { base = pick(qc); muni = qp.get('m'); }
     else if (sid && pick(sid) && pick(sid).status === 'publicada') { base = pick(sid); muni = smuni || null; }
     else if (await geoGranted()) {
       // primera visita con permiso de ubicación ya concedido: se abre directamente la zona donde estás
@@ -580,7 +581,10 @@
       const [base, muni] = String(id).split('|'), c = CITIES.find((x) => x.id === base);
       // una zona en borrador solo se ve en vista previa (?c=), sin guardarla como propia
       if (c && c.status !== 'publicada') { location.href = location.pathname + '?c=' + encodeURIComponent(base) + (muni ? '&m=' + encodeURIComponent(muni) : ''); return; }
-      try { localStorage.setItem('bureo.city', id); } catch (e) { }
+      // antes de cambiar, comprobar que los planes de la nueva zona se pueden descargar (sin conexión, se queda en la actual)
+      try { await Promise.race([pedirEventos(base), new Promise((_, no) => setTimeout(() => no(new Error('tiempo')), 10000))]); }
+      catch (e) { delete PEDIDOS[base]; throw new Error('sin conexión'); }
+      try { const prev = localStorage.getItem('bureo.city'); if (prev && prev !== id) localStorage.setItem('bureo.city.prev', prev); localStorage.setItem('bureo.city', id); } catch (e) { }
       if (user) await sb.from('profiles').update({ city_id: base }).eq('id', user.id);
       location.href = location.pathname;
     },
@@ -621,6 +625,15 @@
       console.error(e);
       $('pt-h').textContent = 'No se han podido cargar los planes';
       $('pt-lead').textContent = 'Revisa tu conexión y recarga la página.';
+      // si se acaba de cambiar de zona, deja volver a la anterior (que puede estar guardada para usarla sin conexión)
+      try {
+        const prev = localStorage.getItem('bureo.city.prev'), cur = localStorage.getItem('bureo.city');
+        if (prev && prev !== cur) {
+          const b = document.createElement('button'); b.className = 'btn'; b.style.marginTop = '12px'; b.textContent = 'Volver a la zona anterior';
+          b.onclick = () => { try { localStorage.setItem('bureo.city', prev); localStorage.removeItem('bureo.city.prev'); } catch (x) { } location.href = location.pathname; };
+          $('pt-lead').after(b);
+        }
+      } catch (x) { }
       if (window.limonSplash) window.limonSplash(1);
     }
   };

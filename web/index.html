@@ -527,7 +527,7 @@ table.cov td.n, table.cov th.n { text-align: right }
     </div>
       <div id="ig-perfil" hidden style="display:flex;gap:8px"></div>
       <button class="btn ghost" data-goto="fuentes" style="align-self:flex-start">Fuentes y cobertura ›</button>
-      <p class="note" id="ver" style="opacity:.6">Versión __VER__</p>
+      <p class="note" id="ver">Versión __VER__</p>
       <p class="note"><a href="/planes/">Agenda por zonas</a> · <a href="?ideas">Ideas y sugerencias</a> · <a href="privacidad.html">Privacidad</a> · <a href="condiciones.html">Condiciones de uso</a> · <a href="mailto:hola@limonplanes.com">hola@limonplanes.com</a></p>
   </section>
 
@@ -553,7 +553,7 @@ table.cov td.n, table.cov th.n { text-align: right }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261107b"></script>
+<script src="data.js?v=20261107c"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -827,7 +827,9 @@ function startApp(DATA, TAX, sync) {
     let t = DIA[d.getDay()] + ' ' + d.getDate() + ' ' + MES[d.getMonth()];
     if (+ini !== +fin && e.sesiones.length <= 1) t = (occ && occ.ongoing ? 'En curso' : 'Desde ' + t) + ', hasta el ' + fin.getDate() + ' ' + MES[fin.getMonth()];
     else if (e.sesiones.length > 1) t += ' · ' + e.sesiones.length + ' sesiones';
-    const h = e.hora && e.hora.length < 40 && !/consult/i.test(e.hora) ? e.hora : null;
+    // horario corto tal cual; si es largo, la primera hora que diga (el horario completo va en la ficha); «--» no se enseña
+    const sh = startHour(e), hh = sh == null ? '' : Math.floor(sh) + ':' + String(Math.round((sh % 1) * 60)).padStart(2, '0');
+    const h = !e.hora || !/\w/.test(e.hora) || /consult/i.test(e.hora) ? null : e.hora.length < 40 ? e.hora : hh ? 'desde las ' + hh : null;
     return t + (h ? ' · ' + h : '');
   }
   // si la fuente no trae descripción, se muestra lo leído de la ficha original (se pide al abrir la ficha)
@@ -952,7 +954,7 @@ function startApp(DATA, TAX, sync) {
   function lineStyle(l, kind) {
     const k = lineKey(l) || '';
     const bg = METRO[k] || (k.startsWith('C') ? '#E5211B' : k.startsWith('ML') ? '#3A86C8' : '#1E5BA8');
-    const light = ['#FFE114', '#96BF0D', '#FA9F35', '#FFFFFF', '#F373B7'].includes(bg);
+    const light = ['#FFE114', '#96BF0D', '#FA9F35', '#FFFFFF', '#F373B7', '#9A9999', '#999933', '#30A3DC'].includes(bg);
     return `background:${bg};color:${light ? '#12182B' : '#FFFFFF'}`;
   }
   function cutCard(x, i) {
@@ -1118,11 +1120,23 @@ function startApp(DATA, TAX, sync) {
   }
 
   // ---------- avisos de calle en cada evento: cortes y cierres cerca del lugar ese día
-  const GEOCUTS = CLOSURES.filter(c => c.geom).map(c => ({ c, segs: (c.geom.segs || []).map(s => s.l), pts: c.geom.pts || [] }));
+  // cada tramo lleva su nombre; un tramo a más de 2,5 km del resto del corte es una calle mal situada (homónima de otro barrio) y se ignora
+  const GEOCUTS = CLOSURES.filter(c => c.geom).map(c => {
+    let segs = (c.geom.segs || []).filter(s => s.l && s.l.length).map(s => ({ l: s.l, n: s.n }));
+    if (segs.length >= 3) {
+      const cen = segs.map(s => [s.l.reduce((a, p) => a + p[0], 0) / s.l.length, s.l.reduce((a, p) => a + p[1], 0) / s.l.length]);
+      const med = i => cen.map(x => x[i]).sort((a, b) => a - b)[cen.length >> 1], mc = [med(0), med(1)];
+      const ok = segs.filter((s, i) => km(cen[i], mc) <= 2.5);
+      if (ok.length) segs = ok;
+    }
+    return { c, segs, pts: c.geom.pts || [] };
+  });
+  const aHoras = t => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); return m ? +m[1] + +m[2] / 60 : null; };
   const mxy = (p, o) => [(p[1] - o[1]) * 84800, (p[0] - o[0]) * 111320];
   function cutDistance(o, g) {
-    let best = 1e9;
-    for (const l of g.segs) {
+    let best = 1e9, nom = null;
+    for (const sg of g.segs) {
+      const l = sg.l, b0 = best;
       for (let i = 0; i < l.length; i++) {
         const a = mxy(l[i], o);
         if (i === 0) best = Math.min(best, Math.hypot(a[0], a[1]));
@@ -1132,9 +1146,10 @@ function startApp(DATA, TAX, sync) {
           best = Math.min(best, Math.hypot(a[0] + t * dx, a[1] + t * dy));
         }
       }
+      if (best < b0) nom = sg.n;
     }
     for (const p of g.pts) { const a = mxy(p.p, o); best = Math.min(best, Math.hypot(a[0], a[1])); }
-    return best;
+    return { m: best, nom };
   }
   const warnCache = {};
   function streetWarn(e, occ) {
@@ -1147,9 +1162,12 @@ function startApp(DATA, TAX, sync) {
       for (const g of GEOCUTS) {
         const r = activeOn(g.c, d); if (!r) continue;
         const trans = TRANS.includes(g.c.kind) && g.c.kind !== 'autobus';
-        const m = cutDistance(o, g);
+        const { m, nom } = cutDistance(o, g);
         if (m > (trans ? 700 : 350)) continue;
-        const where = trans ? g.c.title : (g.segs.length ? 'corte en ' + ((g.c.geom.segs[0] || {}).n || g.c.title) : g.c.title);
+        // un corte que acaba antes de que empiece el plan no le afecta
+        const hi = startHour(e), hf = aHoras(r.end);
+        if (hi != null && hf != null && hf <= hi && hf > (aHoras(r.start) ?? -1)) continue;
+        const where = trans ? g.c.title : (g.segs.length ? 'corte en ' + (nom || g.c.title) : g.c.title);
         out.push({ m, t: where + (m > 60 ? ` (a ${Math.round(m / 50) * 50} m)` : '') + (r.start ? `, ${r.start}${r.end ? '–' + r.end : ''}` : '') });
       }
       // estadios: avisos sin calles concretas (desvíos EMT) y partidos o conciertos aún sin aviso oficial
@@ -1244,7 +1262,7 @@ function startApp(DATA, TAX, sync) {
         if (TRANS.includes(g.c.kind) || !g.segs.length) continue;
         const r = activeOn(g.c, d); if (!r) continue;
         const gs = { segs: g.segs, pts: [] };
-        if (line.some(p => cutDistance(p, gs) < 25)) hits.push(`${(g.c.geom.segs[0] || {}).n || g.c.title}${r.start ? ` (${r.start}${r.end ? '–' + r.end : ''})` : ''}`);
+        if (line.some(p => cutDistance(p, gs).m < 25)) hits.push(`${(g.c.geom.segs[0] || {}).n || g.c.title}${r.start ? ` (${r.start}${r.end ? '–' + r.end : ''})` : ''}`);
       }
       const day = +d === +today ? 'hoy' : 'ese día';
       put(`🚗 En coche: ${fmtDist(rt.distance / 1000)}, unos ${Math.max(1, Math.round(rt.duration / 60))} min. ` +
@@ -1813,7 +1831,11 @@ function startApp(DATA, TAX, sync) {
     keepDist(); askPos(true);
     if (!z) { $('zone-hint').hidden = true; toast('Aún no estamos en tu zona: de momento, Madrid, Barcelona, Euskadi, Zaragoza y Gijón. ¡Iremos añadiendo más!'); return; }
     if (z === window.limonCity.zone()) { $('zone-hint').hidden = true; closeSheets(); toast('Ya estás viendo los planes de ' + CITY.name + '.'); return; }
-    window.limonCity.set(z);
+    zonaSet(z);
+  }
+  // cambiar de zona; sin conexión (o si sus planes no bajan) se queda en la actual y lo dice
+  function zonaSet(z) {
+    window.limonCity.set(z).catch(() => toast('No se han podido descargar los planes de esa zona. Revisa tu conexión: sigues en ' + CITY.name + '.'));
   }
   function renderZoneHint() {
     const box = $('zone-hint'); if (!box) return;
@@ -2301,7 +2323,7 @@ function startApp(DATA, TAX, sync) {
   function renderParaTi() {
     $('new-hint').innerHTML = newBanner();
     const [a, b] = range(state.when);
-    if (!Object.values(prefs).some(v => v === 1) && !Object.values(learned).some(v => v >= 1) && !(taste && ((taste.categorias || []).length || (taste.temas || []).length)) && !Object.keys(FRIENDS).length && !TOPICS.length) {
+    if (!Object.values(prefs).some(v => v === 1) && !Object.values(learned).some(v => v >= 2) && !(taste && ((taste.categorias || []).length || (taste.temas || []).length)) && !Object.keys(FRIENDS).length && !TOPICS.length) {
       const items = [];
       for (const e of EV) {
         if (isDismissed(e)) continue;
@@ -2401,14 +2423,14 @@ function startApp(DATA, TAX, sync) {
       if (f && f.kind === 'id' && e.id !== f.value) continue;
       const occ = f && f.kind === 'id' ? (occurs(e, a, b) || { date: parse(e.inicio), ongoing: false }) : occurs(e, a, b);
       if (!occ || (!(f && f.kind === 'id') && !passF(e, occ))) continue;
-      if (q) { const h = (e.titulo + ' ' + (e.lugar || '') + ' ' + (e.distrito || '') + ' ' + (e.serie || '') + ' ' + (e.temas || []).join(' ') + ' ' + e.cats.map(labelOf).join(' ') + ' ' + (e.descripcion || '')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); if (!h.includes(q)) continue; }
+      if (q) { const h = (e.titulo + ' ' + (e.lugar || '') + ' ' + (e.distrito || '') + ' ' + (e.serie || '') + ' ' + (e.temas || []).join(' ') + ' ' + e.cats.map(labelOf).join(' ') + ' ' + (e.descripcion || '')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); if (!h.includes(q) && !q.split(/\s+/).every(w => h.includes(w) || (/^gratu?i?s|^gratuit/.test(w) && e.gratis))) continue; }
       res.push({ e, occ });
     }
     res.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, (x.occ.date - y.occ.date) || (horaOrden(x.e) - horaOrden(y.e))));
     const f = state.filter;
     $('ex-active').innerHTML = f ? `<button class="filterchip" id="ex-clear" aria-label="Quitar filtro">${esc(f.kind === 'cat' ? labelOf(f.value) : f.kind === 'id' ? f.label : f.value)} <span aria-hidden="true">✕</span></button>` : '';
     $('ex-count').textContent = res.length + (res.length === 1 ? ' evento' : ' eventos');
-    $('ex-list').innerHTML = (res.length ? zoneNote() : '') + (conSeccion(res.slice(0, state.exShown), x => card(x.e, { occ: x.occ })) || '<div class="empty">Ningún evento con esos filtros.</div>');
+    $('ex-list').innerHTML = (res.length ? zoneNote() : '') + (conSeccion(res.slice(0, state.exShown), x => card(x.e, { occ: x.occ })) || (q ? `<div class="empty">Ningún plan coincide con «${esc($('ex-q').value.trim())}» en estas fechas.</div>` : '<div class="empty">Ningún evento con esos filtros.</div>'));
     $('ex-more').hidden = res.length <= state.exShown;
   }
   function renderAgenda() {
@@ -2544,7 +2566,10 @@ function startApp(DATA, TAX, sync) {
   $('q-global').addEventListener('input', () => {
     clearTimeout(qTimer); qTimer = setTimeout(() => { const q = $('q-global').value.trim(); if (q.length >= 3) track('buscar', null, { q: q.slice(0, 80) }); }, 1500);
     $('ex-q').value = $('q-global').value;
-    if ($('q-global').value.trim()) $('ex-when').value = 'todo';
+    // al buscar se mira todo lo disponible; al vaciar la búsqueda vuelve el rango que había
+    const qv = $('q-global').value.trim();
+    if (qv && state.whenAntesBuscar == null) { state.whenAntesBuscar = $('ex-when').value; $('ex-when').value = 'todo'; }
+    else if (!qv && state.whenAntesBuscar != null) { $('ex-when').value = state.whenAntesBuscar; state.whenAntesBuscar = null; }
     state.exShown = 20;
     if (state.tab !== 'explorar') go('explorar'); else renderExplorar();
     $('q-global').focus();
@@ -2627,7 +2652,9 @@ function startApp(DATA, TAX, sync) {
         const a2 = otra && otra.closest('article');
         if (a2) window.scrollBy(0, a2.getBoundingClientRect().top - y0);
       }
+      const deshacer = () => { saved = on ? saved.filter(x => x !== id) : saved.concat(id); store.set('saved', saved); if (BYID[id]) learn(BYID[id], on ? 'unsave' : 'save'); renderAll(); };
       if (on && !logged && (saved.length === 1 || saved.length === 3)) toast('Guardado. Con una cuenta gratis te avisamos antes de que empiece.', () => go('intereses'), 'Crear cuenta');
+      else toast(on ? 'Guardado en tu agenda.' : 'Quitado de tu agenda.', deshacer);
       return;
     }
     const dm = ev.target.closest('[data-dismiss]');
@@ -2653,8 +2680,8 @@ function startApp(DATA, TAX, sync) {
     if (ev.target.closest('[data-zone-wider]')) { ZONE.r = +ev.target.closest('[data-zone-wider]').dataset.zoneWider; renderAll(); return; }
     if (ev.target.closest('[data-zone-locate]')) { locateZone(ev.target.closest('[data-zone-locate]')); return; }
     if (ev.target.closest('[data-zone-hint-x]')) { store.set('zoneAsked', 1); $('zone-hint').hidden = true; return; }
-    if (ev.target.closest('[data-zone-go]')) { const v = $('zone-m').value; if (v !== window.limonCity.zone()) window.limonCity.set(v); else closeSheets(); return; }
-    const cb2 = ev.target.closest('[data-city]'); if (cb2) { if (cb2.dataset.city !== CITY.id) window.limonCity.set(cb2.dataset.city); else closeSheets(); return; }
+    if (ev.target.closest('[data-zone-go]')) { const v = $('zone-m').value; if (v !== window.limonCity.zone()) zonaSet(v); else closeSheets(); return; }
+    const cb2 = ev.target.closest('[data-city]'); if (cb2) { if (cb2.dataset.city !== CITY.id) zonaSet(cb2.dataset.city); else closeSheets(); return; }
     if (ev.target.closest('[data-vote],[data-idea-tab],[data-idea-del]')) { ideasClick(ev.target); return; }
     const pf = ev.target.closest('[data-prof]'); if (pf) { openProfile(pf.dataset.prof); return; }
     const ol = ev.target.closest('[data-list]'); if (ol) { openList(ol.dataset.list); return; }

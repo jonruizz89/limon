@@ -7,6 +7,11 @@ import json, sys, hashlib, re, unicodedata, urllib.request, urllib.error
 def http_only(u):
     """Las URLs de las fuentes se guardan solo si son http(s): un «javascript:» en una web rastreada no debe llegar a la app."""
     u = (u or '').strip()
+    # la IA a veces devuelve el enlace entre ‹ › (como se lo damos) pegado a la web base: se queda solo el de dentro
+    m = re.search(r'(?:‹|%E2%80%B9)(.+?)(?:›|%E2%80%BA)', u, re.I)
+    if m:
+        u = m.group(1).strip()
+    u = re.sub(r'(?i)^(https?):/(?!/)', r'\1://', u)
     if re.match(r'(?i)https?://', u):
         return u
     # «www.sala.es/agenda» sin esquema (pasa en algunas fuentes): se completa; cualquier otra cosa se descarta
@@ -87,7 +92,7 @@ for e in evs:
     e['_key'] = k
     rows.append({
         'ext_key': k, 'city_id': CITY, 'title': e['titulo'][:500], 'description': e.get('descripcion') or None,
-        'starts_on': e['inicio'], 'ends_on': max(e['inicio'], e['fin']), 'time_text': e.get('hora'),
+        'starts_on': e['inicio'], 'ends_on': max(e['inicio'], e['fin']), 'time_text': e.get('hora') if re.search(r'\w', e.get('hora') or '') else None,
         'venue_id': vid.get(norm(e.get('lugar') or '')[:200]), 'district': e.get('distrito'),
         'lat': e.get('lat'), 'lng': e.get('lng'), 'price_text': e.get('precio'), 'is_free': bool(e.get('gratis')),
         'image_url': http_only(e.get('imagen')), 'organizer_url': http_only(e.get('web_organizador')),

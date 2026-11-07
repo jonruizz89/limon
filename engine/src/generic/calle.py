@@ -347,9 +347,11 @@ def save(cid, rows, city):
         for r in rows[:15]:
             print(' ·', r['kind'], r['ranges'][0]['from'], '→', r['ranges'][0]['to'], '|', r['title'][:90], '|', r['streets'])
         return
-    sb('DELETE', f'closures?city_id=eq.{cid}', None, 'return=minimal')
-    for k in range(0, len(rows), 200):
-        sb('POST', 'closures', rows[k:k + 200], 'return=minimal')
+    if not rows:  # una lectura vacía (web caída, formato cambiado) no borra los cortes que ya había
+        print('sin cortes: se mantienen los anteriores')
+        return
+    # borrar y cargar en una sola transacción: si falla, se quedan los de antes
+    print('cargados', sb('POST', 'rpc/replace_closures', {'p_city': cid, 'p_rows': rows, 'p_cols': sorted({k for r in rows for k in r})}))
 
 
 if __name__ == '__main__':

@@ -11,6 +11,7 @@ Fuentes:
 En producción, la categorización por reglas se sustituye por un modelo pequeño (Haiku)
 que lee título + descripción; aquí se usan reglas para poder ejecutarlo sin clave de API.
 """
+from urllib.parse import urlparse
 import json, re, os, unicodedata, html, difflib, datetime as dt, collections
 
 RAW = os.environ.get('BUREO_RAW', 'raw')
@@ -493,13 +494,17 @@ def unir(evs):
     for e in base:
         dup = None
         for o in out:
-            if o['fuente'] != e['fuente'] and e['fuente'] not in [f['nombre'] for f in o['fuentes']] \
-                    and solapan(o, e) and parecidos(o, e):
+            # misma ficha de origen (misma URL concreta) y mismo lugar: es el mismo plan aunque la fuente lo titule distinto
+            misma_ficha = bool(e.get('url')) and urlparse(e['url']).path.strip('/').count('/') >= 1 \
+                and e['url'] in [f['url'] for f in o['fuentes']] and mismo_lugar(o, e)
+            if solapan(o, e) and (misma_ficha or (o['fuente'] != e['fuente'] and e['fuente'] not in [f['nombre'] for f in o['fuentes']]
+                                                  and parecidos(o, e))):
                 dup = o
                 break
         if dup:
             unidos += 1
-            dup['fuentes'].append({'nombre': e['fuente'], 'url': e['url']})
+            if {'nombre': e['fuente'], 'url': e['url']} not in dup['fuentes']:
+                dup['fuentes'].append({'nombre': e['fuente'], 'url': e['url']})
             dup['cats'] = list(dict.fromkeys(dup['cats'] + e['cats']))
             for k in ('imagen', 'web_organizador', 'lat', 'lng', 'distrito', 'precio', 'hora', 'direccion'):
                 if not dup.get(k) and e.get(k):

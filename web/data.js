@@ -223,6 +223,30 @@
   // aquí»: un dispositivo con datos viejos o una lectura fallida no se lleva por delante lo de la cuenta.
   const BASE = {};  // prefs | saved | dismissed | went | nofui → Set de ids de la base de datos
   let pulling = false, lastPull = 0;
+  // La BASE y los envíos pendientes se guardan en el dispositivo: un cambio hecho sin conexión (o cuyo envío falló)
+  // se reintenta al volver la red o al abrir la app, y la siguiente lectura no lo pisa.
+  const LS = (k, v) => { try { if (v === undefined) return JSON.parse(localStorage.getItem('bureo.' + k) || 'null'); localStorage.setItem('bureo.' + k, JSON.stringify(v)); } catch (e) { return null; } };
+  function guardaBase() { if (user) LS('syncbase', { uid: user.id, k: Object.fromEntries(Object.entries(BASE).map(([k, v]) => [k, [...v]])) }); }
+  function cargaBase() {
+    const b = LS('syncbase');
+    if (b && user && b.uid === user.id) Object.entries(b.k || {}).forEach(([k, v]) => { if (!BASE[k]) BASE[k] = new Set(v); });
+  }
+  const pend = () => { const p = LS('pend'); return p && user && p.uid === user.id ? p.k : []; };
+  function marcaPend(k, on) {
+    if (!user) return;
+    const ks = new Set(pend()); if (on) ks.add(k); else ks.delete(k);
+    LS('pend', { uid: user.id, k: [...ks] });
+  }
+  async function empuja(k, v) {
+    try { await pushKey(k, v); marcaPend(k, false); guardaBase(); }
+    catch (e) { marcaPend(k, true); console.warn('sync', k, e); }
+  }
+  async function reintenta() {
+    if (!user || !app) return;
+    const local = app.get();
+    for (const k of pend()) if (k in local) await empuja(k, local[k]);
+  }
+  window.addEventListener('online', () => { reintenta(); });
   async function pushKey(k, v) {
     if (!user) return;
     const uid = user.id;
@@ -262,7 +286,8 @@
   function sync(k, v) {
     if (pulling || !user || !['prefs', 'saved', 'opts', 'streets', 'dismissed', 'went', 'nofui', 'learned', 'taste'].includes(k)) return;
     clearTimeout(timers[k]);
-    timers[k] = setTimeout(() => pushKey(k, v).catch((e) => console.warn('sync', k, e)), 400);
+    marcaPend(k, true);
+    timers[k] = setTimeout(() => empuja(k, v), 400);
   }
 
   async function pullAccount() {
@@ -288,25 +313,29 @@
 
     // Fusión: lo de la cuenta + lo que este dispositivo añadió y aún no estaba en ella. Lo que la cuenta ya no tiene pero
     // este dispositivo sí conocía (otro dispositivo lo quitó) se va. Una lectura con error no toca esa clave.
-    const local = app.get(), out = {}, subir = [];
+    cargaBase();
+    const local = app.get(), out = {}, subir = [], pendientes = pend();
     const lista = (k, rows) => {
-      const remoto = rows.map((r) => 'e' + r.event_id);
-      const base = BASE[k];
+      const base = BASE[k], mias = (local[k] || []).map(toDbId);
+      // lo que este dispositivo quitó y aún no llegó a la cuenta (envío pendiente) no vuelve a aparecer
+      const quitados = base && pendientes.includes(k) ? new Set([...base].filter((id) => !mias.includes(id))) : new Set();
+      const remoto = rows.filter((r) => !quitados.has(r.event_id)).map((r) => 'e' + r.event_id);
       const nuevos = (local[k] || []).filter((id) => !(base && base.has(toDbId(id))) && !remoto.includes(id));
       BASE[k] = new Set(rows.map((r) => r.event_id));
       out[k] = remoto.concat(nuevos);
-      if (nuevos.length) subir.push(k);
+      if (nuevos.length || quitados.size) subir.push(k);
     };
     if (!s.error) lista('saved', s.data || []);
     if (!d.error) lista('dismissed', d.data || []);
     if (!w.error) { lista('went', (w.data || []).filter((r) => r.went)); lista('nofui', (w.data || []).filter((r) => !r.went)); }
     if (!i.error) {
-      const remoto = Object.fromEntries((i.data || []).map((r) => [r.category_id, r.value]));
-      const base = BASE.prefs, extra = {};
+      const base = BASE.prefs, extra = {}, lp = local.prefs || {};
+      const quitadas = base && pendientes.includes('prefs') ? [...base].filter((c) => !(c in lp)) : [];
+      const remoto = Object.fromEntries((i.data || []).filter((r) => !quitadas.includes(r.category_id)).map((r) => [r.category_id, r.value]));
       Object.keys(local.prefs || {}).forEach((c) => { if (!(c in remoto) && !(base && base.has(c))) extra[c] = local.prefs[c]; });
-      BASE.prefs = new Set(Object.keys(remoto));
-      out.prefs = Object.assign({}, remoto, extra);
-      if (Object.keys(extra).length) subir.push('prefs');
+      BASE.prefs = new Set((i.data || []).map((r) => r.category_id));
+      out.prefs = Object.assign({}, remoto, extra, pendientes.includes('prefs') ? lp : {});
+      if (Object.keys(extra).length || quitadas.length) subir.push('prefs');
     }
     if (!p.error && p.data) {
       const st = p.data.my_streets || [], ls = local.streets || [];
@@ -321,7 +350,9 @@
     }
     pulling = true;
     try { app.set(out); } finally { pulling = false; }
-    for (const k of subir) await pushKey(k, out[k]).catch((e) => console.warn('sync', k, e));
+    guardaBase();
+    for (const k of subir) await empuja(k, out[k]);
+    await reintenta();
     if (!p.error && p.data && (p.data.taste || p.data.taste_text)) app.set({ taste: p.data.taste, taste_text: p.data.taste_text });
   }
 
@@ -468,7 +499,7 @@
       const was = user && user.id;
       if (evt === 'SIGNED_OUT' && was) {
         // lo de la cuenta no se queda en este navegador para la siguiente persona (sigue en la cuenta)
-        try { ['prefs', 'saved', 'dismissed', 'went', 'nofui', 'learned', 'streets', 'taste', 'taste_text', 'opts'].forEach((k) => localStorage.removeItem('bureo.' + k)); } catch (e) { }
+        try { ['prefs', 'saved', 'dismissed', 'went', 'nofui', 'learned', 'streets', 'taste', 'taste_text', 'opts', 'syncbase', 'pend'].forEach((k) => localStorage.removeItem('bureo.' + k)); } catch (e) { }
         Object.keys(BASE).forEach((k) => delete BASE[k]);
         try { caches.keys().then((ks) => ks.filter((n) => /sb|supabase|limon-api/i.test(n)).forEach((n) => caches.delete(n))); } catch (e) { }
         setTimeout(() => location.reload(), 50);

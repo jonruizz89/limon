@@ -253,8 +253,6 @@ for r in rows:
     r.pop('tramos', None)
 geo.save_osm()
 print(f'{pintados}/{len(rows)} cortes con geometría')
-if rows or index:
-    sb('DELETE', 'closures?city_id=eq.madrid')
-    if rows:
-        sb('POST', 'closures', rows, 'return=minimal')
+if rows:  # en una sola transacción; una lectura vacía no borra los cortes que ya había
+    sb('POST', 'rpc/replace_closures', {'p_city': 'madrid', 'p_rows': rows, 'p_cols': sorted({k for r in rows for k in r})})
 print(f'{len(rows)} cortes vigentes cargados. Coste IA aproximado: {(SPENT["in"] * 0.10 + SPENT["out"] * 0.50) / 1e6:.3f} USD')

@@ -9,7 +9,7 @@ const SECRET = (() => {
 const admin = createClient(URL, SECRET, { auth: { persistSession: false } });
 const WEB = 'https://limonplanes.com/';
 
-const esc = (t: string) => String(t || '').replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const esc = (t: string) => String(t || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 const fold = (line: string) => {  // líneas de 75 octetos como pide el estándar
   const out: string[] = []; let cur = '';
   for (const ch of line) {
@@ -36,7 +36,12 @@ Deno.serve(async (req) => {
   if (!p) return new Response('Enlace no válido', { status: 404 });
   const today = new Date().toISOString().slice(0, 10);
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Limón//Planes//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-    'X-WR-CALNAME:Limón · mis planes', 'X-WR-TIMEZONE:Europe/Madrid', 'REFRESH-INTERVAL;VALUE=DURATION:PT6H', 'X-PUBLISHED-TTL:PT6H'];
+    'X-WR-CALNAME:Limón · mis planes', 'X-WR-TIMEZONE:Europe/Madrid', 'REFRESH-INTERVAL;VALUE=DURATION:PT6H', 'X-PUBLISHED-TTL:PT6H',
+    // zona horaria de las horas (TZID=Europe/Madrid): algunas apps de calendario la necesitan definida en el propio archivo
+    'BEGIN:VTIMEZONE', 'TZID:Europe/Madrid',
+    'BEGIN:DAYLIGHT', 'TZOFFSETFROM:+0100', 'TZOFFSETTO:+0200', 'TZNAME:CEST', 'DTSTART:19700329T020000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', 'END:DAYLIGHT',
+    'BEGIN:STANDARD', 'TZOFFSETFROM:+0200', 'TZOFFSETTO:+0100', 'TZNAME:CET', 'DTSTART:19701025T030000', 'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', 'END:STANDARD',
+    'END:VTIMEZONE'];
   const stamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
 
   // planes guardados

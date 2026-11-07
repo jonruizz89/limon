@@ -169,12 +169,6 @@ ai_done = set()
 for part in chunks(ids, 300):
     flt = 'id=in.(' + ','.join(map(str, part)) + ')'
     ai_done |= {r['id'] for r in api('GET', 'events?select=id&ai_hash=not.is.null&' + flt)}
-for part in chunks(ids, 300):
-    flt = 'event_id=in.(' + ','.join(map(str, part)) + ')'
-    api('DELETE', 'event_sessions?' + flt)
-    rule = [i for i in part if i not in ai_done]
-    if rule:
-        api('DELETE', 'event_categories?event_id=in.(' + ','.join(map(str, rule)) + ')')
 sess, cats, srcs = [], [], []
 for e in evs:
     i = eid.get(e.get('_key'))
@@ -199,15 +193,49 @@ def unicas(rws, campos):
             out.append(r)
     return out
 sess, cats, srcs = unicas(sess, ('event_id', 'on_date')), unicas(cats, ('event_id', 'category_id')), unicas(srcs, ('event_id', 'source_id'))
-for tbl, rws, conflict in (('event_sessions', sess, 'event_id,on_date'), ('event_categories', cats, 'event_id,category_id'),
-                           ('event_sources', srcs, 'event_id,source_id')):
-    for part in chunks(rws, 1000):
-        api('POST', f'{tbl}?on_conflict={conflict}', part, 'resolution=merge-duplicates,return=minimal')
-    print(tbl, len(rws))
+# sesiones y categorías: borrar y poner las nuevas en una sola transacción por bloque (si falla, se queda lo que había)
+por_ev_s, por_ev_c = {}, {}
+for r in sess:
+    por_ev_s.setdefault(r['event_id'], []).append(r)
+for r in cats:
+    por_ev_c.setdefault(r['event_id'], []).append(r)
+for part in chunks(ids, 300):
+    api('POST', 'rpc/replace_event_children', {
+        'p_ids': part, 'p_rule': [i for i in part if i not in ai_done],
+        'p_sess': [r for i in part for r in por_ev_s.get(i, [])], 'p_cats': [r for i in part for r in por_ev_c.get(i, [])]})
+print('event_sessions', len(sess))
+print('event_categories', len(cats))
+for part in chunks(srcs, 1000):
+    api('POST', 'event_sources?on_conflict=event_id,source_id', part, 'resolution=merge-duplicates,return=minimal')
+print('event_sources', len(srcs))
 # 4) ciudades del motor genérico: retirar lo que ya no publica ninguna de sus fuentes (si todas se leyeron bien)
 leidas = [sources[n] for n in (data.get('meta') or {}).get('por_fuente', {}) if n in sources]
 if PFX and leidas:
     print('retirados', api('POST', 'rpc/retire_stale_events', {'p_city': CITY, 'p_keep': [r['ext_key'] for r in rows] + ajenos_keys, 'p_sources': leidas}))
+elif not PFX and (data.get('meta') or {}).get('ventana'):
+    # Madrid: también se retiran los planes aplazados o cancelados, pero solo dentro de la ventana leída, solo de las fuentes
+    # que hoy han traído un número normal de planes, y nunca más de un 10 % de golpe (eso sería un fallo de lectura)
+    hasta = data['meta']['ventana'][1]
+    cuenta = {}
+    for e in evs:
+        for f in e['fuentes']:
+            cuenta[f['nombre']] = cuenta.get(f['nombre'], 0) + 1
+    ok_ids = []
+    for s_ in api('GET', 'sources?select=id,name,events_last&city_id=eq.madrid&id=in.(' + ','.join(str(sources[n]) for n in cuenta if n in sources) + ')') if any(n in sources for n in cuenta) else []:
+        n, antes = cuenta.get(s_['name'], 0), s_.get('events_last') or 0
+        if antes >= 3 and n < 0.7 * antes:
+            print(f"  {s_['name']}: solo {n} planes (antes {antes}): no se retira nada suyo hoy")
+            continue
+        ok_ids.append(s_['id'])
+        api('PATCH', f"sources?id=eq.{s_['id']}", {'events_last': n}, 'return=minimal')
+    if ok_ids:
+        args = {'p_city': CITY, 'p_keep': [r['ext_key'] for r in rows] + ajenos_keys, 'p_sources': ok_ids, 'p_until': hasta}
+        n = api('POST', 'rpc/retire_stale_events_window', dict(args, p_dry=True))
+        total = len(eid) + sum(len(v) for v in prev.values())
+        if n > max(30, 0.1 * total):
+            print(f'retirar {n} de {total} parece un fallo de lectura: no se retira nada')
+        else:
+            print('retirados', api('POST', 'rpc/retire_stale_events_window', dict(args, p_dry=False)))
 import datetime as _dt
 api('PATCH', f'sources?city_id=eq.{CITY}&status=eq.activa', {'last_run_at': _dt.datetime.now(_dt.timezone.utc).isoformat()}, 'return=minimal')
 print('ok')

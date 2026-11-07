@@ -1,7 +1,7 @@
 // Limón · service worker: abre al instante y sin conexión, y recibe los avisos push.
 // Estrategia: la página y los datos, primero la red y si falla la copia; los ficheros propios, la copia y se renueva en segundo plano;
 // las librerías externas (con versión fija), la copia. Los mapas, el tiempo y las funciones del servidor no se guardan.
-const VERSION = 'limon-v4';  // v4: la página y el código se comprueban siempre con el servidor (sin la caché HTTP del navegador)
+const VERSION = 'limon-v5';  // v5: de Supabase solo se guardan tablas públicas (nada de tu agenda ni tu perfil); borra las copias anteriores
 const SHELL = ['./', 'index.html', 'data.js', 'config.js', 'limon.svg', 'limon-180.png', 'limon-192.png', 'manifest.webmanifest'];
 const CDN = /^https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)\//;
 
@@ -59,8 +59,9 @@ self.addEventListener('fetch', (e) => {
     // código (html, js): siempre la última versión si hay red, para que la página y su código no se desfasen
     e.respondWith(/\.(js|html|webmanifest)$|\/$/.test(u.pathname) ? networkFirst(req, null, true) : staleWhileRevalidate(req)); return;
   }
-  // datos de Supabase (eventos, tu agenda…): para poder abrir la app sin cobertura con lo último que se cargó
-  if (/\.supabase\.co$/.test(u.hostname) && u.pathname.startsWith('/rest/v1/')) { e.respondWith(networkFirst(req)); return; }
+  // datos públicos de Supabase (zonas, categorías, fuentes, cortes): para abrir sin cobertura. Lo de la cuenta (agenda,
+  // perfil, listas…) no se guarda en el dispositivo; los planes sin conexión salen de datos/eventos-<zona>.json
+  if (/\.supabase\.co$/.test(u.hostname) && /^\/rest\/v1\/(cities|categories|category_groups|sources|closures)$/.test(u.pathname)) { e.respondWith(networkFirst(req)); return; }
   if (CDN.test(req.url)) { e.respondWith(cacheFirst(req)); return; }
 });
 

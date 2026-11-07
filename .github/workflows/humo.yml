@@ -1,0 +1,41 @@
+name: Prueba de la app
+
+# Abre la app en un móvil simulado con los datos de producción y comprueba que carga, busca, abre fichas y guarda en la agenda.
+# Si falla, el parte diario lo avisa; también se puede lanzar a mano.
+on:
+  push:
+    branches: [main, pruebas]
+    paths: ["web/**", "engine/tests/**", ".github/workflows/humo.yml"]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 8 * * *"   # cada mañana, después de la carga nocturna
+
+permissions:
+  contents: read
+
+jobs:
+  humo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Datos de producción
+        run: |
+          mkdir -p web/datos
+          for f in ciudades taxonomia; do curl -sf -o web/datos/$f.json https://limonplanes.com/datos/$f.json; done
+          for z in madrid barcelona bizkaia bilbao; do
+            for t in eventos fuentes cortes; do curl -sf -o web/datos/$t-$z.json https://limonplanes.com/datos/$t-$z.json || true; done
+          done
+          ls -la web/datos
+      - name: Playwright
+        run: |
+          cd engine/tests && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Prueba
+        run: |
+          (cd web && python3 -m http.server 8080 >/dev/null 2>&1 &)
+          sleep 1
+          cd engine/tests && node humo.mjs http://localhost:8080

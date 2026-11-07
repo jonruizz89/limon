@@ -540,7 +540,7 @@ table.cov td.n, table.cov th.n { text-align: right }
     <div class="panel" id="fu-notes"></div>
   </section>
 </main>
-<div class="toast" id="toast" role="status" hidden><span id="toast-t"></span><button id="toast-undo">Deshacer</button></div>
+<div class="toast" id="toast" role="status" hidden><span id="toast-t"></span><button id="toast-undo">Deshacer</button><button id="toast-x" aria-label="Cerrar aviso" style="background:none;border:0;color:inherit;font-size:18px;padding:4px 8px;cursor:pointer">✕</button></div>
 
 <nav class="bottomnav" aria-label="Secciones">
     <button data-goto="parati" data-bnav="parati"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L3.3 9.2l6.1-.6z"/></svg><span>Para ti</span></button>
@@ -644,7 +644,7 @@ function startApp(DATA, TAX, sync) {
   let toastTimer = null, toastUndo = null;
   function toast(msg, undo, label) {
     $('toast-t').textContent = msg; $('toast-undo').hidden = !undo; $('toast-undo').textContent = label || 'Deshacer'; toastUndo = undo || null;
-    $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, label ? 9000 : 5000);
+    $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, label ? 6000 : 5000);
   }
 
   // ---------- filtros: zona, hora del día, días y precio (compartidos por Para ti y Explorar)
@@ -2513,7 +2513,7 @@ function startApp(DATA, TAX, sync) {
     if (f.calle_ejemplo) $('ca-street').placeholder = f.calle_ejemplo; }
   if (!HAS_CALLE) { ['t-calle'].forEach(id => { const el = $(id); if (el) el.hidden = true; }); document.querySelectorAll('[data-bnav="calle"]').forEach(b => { b.hidden = true; b.style.display = 'none'; }); }
   function go(t) {
-    if (state.tab !== t) track('pestana', null, { a: t });
+    if (state.tab !== t) { track('pestana', null, { a: t }); if (!toastUndo || $('toast-undo').textContent !== 'Deshacer') $('toast').hidden = true; }
     state.tab = t;
     const nav = (t === 'unicos') ? 'parati' : (t === 'fuentes') ? 'intereses' : t;
     tabs.forEach(x => { $('v-' + x).hidden = x !== t; $('t-' + x).setAttribute('aria-selected', x === nav); });
@@ -2579,6 +2579,7 @@ function startApp(DATA, TAX, sync) {
   });
   $('near-close').addEventListener('click', () => { $('near').hidden = true; $('near-go').hidden = false; });
   $('toast-undo').addEventListener('click', () => { $('toast').hidden = true; if (toastUndo) toastUndo(); toastUndo = null; });
+  $('toast-x').addEventListener('click', () => { $('toast').hidden = true; toastUndo = null; clearTimeout(toastTimer); });
   document.addEventListener('click', ev => {
     if (ev.target.closest('#org, #adm, #ag-cal, #mail') && ev.target.closest('button, a[data-copy]')) { onAccountClick(ev).then(done => { if (done) ev.preventDefault(); }); if (ev.target.closest('[data-org-new],[data-org-edit],[data-org-cancel],[data-org-retire],[data-adm-ed],[data-adm-pub],[data-adm-idea],[data-copy],[data-mail-test]')) return; }
     const ck = ev.target.closest('[data-cakind]');
@@ -2618,7 +2619,14 @@ function startApp(DATA, TAX, sync) {
       const id = s.dataset.save, on = !saved.includes(id);
       saved = on ? saved.concat(id) : saved.filter(x => x !== id); store.set('saved', saved);
       if (BYID[id]) learn(BYID[id], on ? 'save' : 'unsave');
+      // al repintar, la lista puede reordenarse (aprende de lo guardado): la tarjeta tocada se queda donde estaba en pantalla
+      const art = s.closest('article'), y0 = art ? art.getBoundingClientRect().top : null, vista = art && art.closest('section, .view, [id^="v-"]');
       renderAll();
+      if (y0 != null && vista) {
+        const otra = [...vista.querySelectorAll('[data-save]')].find(b => b.dataset.save === id);
+        const a2 = otra && otra.closest('article');
+        if (a2) window.scrollBy(0, a2.getBoundingClientRect().top - y0);
+      }
       if (on && !logged && (saved.length === 1 || saved.length === 3)) toast('Guardado. Con una cuenta gratis te avisamos antes de que empiece.', () => go('intereses'), 'Crear cuenta');
       return;
     }

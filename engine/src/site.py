@@ -487,7 +487,22 @@ for v in LUGARES.values():
     zt = top_de(l[0])
     cerca = ' · '.join(x for x in (re.sub(r'\s+,', ',', v.get('address') or '').strip() or None, z['name'] if z else None) if x)
     mapa = f"https://www.google.com/maps/search/?api=1&query={v['lat']},{v['lng']}" if v.get('lat') else ''
+    # resumen propio de cada lugar, con sus datos: qué tipo de planes tiene, cuántos gratis y cuándo es el próximo
+    cuenta_g = defaultdict(int)
+    for e in l:
+        for g in e['grupos'][:1]:
+            cuenta_g[g] += 1
+    tipos = [groups[g].lower() for g, _ in sorted(cuenta_g.items(), key=lambda x: -x[1])[:3]]
+    gratis = sum(1 for e in l if e.get('is_free'))
+    prox = next((e for e in l if not e['largo'] and d(e['starts_on']) >= HOY), None)
+    res = ''
+    if tipos:
+        res += f"En {v['name']} hay sobre todo planes de {', '.join(tipos[:-1]) + ' y ' + tipos[-1] if len(tipos) > 1 else tipos[0]}"
+        res += (' (uno de ellos, gratis).' if gratis == 1 else f' ({gratis} de ellos, gratis).') if gratis else '.'
+    if prox:
+        res += f" El próximo es «{prox['title']}», el {fecha(d(prox['starts_on']))}{', a las ' + prox['time_text'] if prox.get('time_text') and len(prox['time_text']) <= 8 else ''}."
     body = (f"<h1>{esc(v['name'])}</h1><p class='lead'>Programación y próximos planes: {len(l)} en las próximas semanas, actualizados cada día.</p>"
+            + (f"<p>{esc(res.strip())}</p>" if res else '')
             + (f"<p class='m'>📍 {esc(cerca)}" + (f' · <a href="{esc(mapa)}" rel="nofollow noopener" target="_blank">Cómo llegar ↗</a>' if mapa else '') + '</p>' if cerca or mapa else '')
             + '<ul class="ev">' + ''.join(li(e, z) for e in l[:80]) + '</ul>'
             + (f'<p><a href="/planes/{z["path"]}/">Toda la agenda de {esc(z["name"])}</a></p>' if z else ''))

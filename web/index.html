@@ -105,6 +105,18 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
 .zrow.cur { border-color: var(--accent); background: var(--accent-soft); font-weight: 600 }
 .zrow.grp { font-weight: 600 }
 .zkids { display: flex; flex-direction: column; gap: 6px; padding-left: 12px; border-left: 3px solid var(--accent-soft) }
+.pill.cuando { font-weight: 600 }
+.calq { margin: 8px -20px 2px; padding: 0 20px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none }
+.calq .pill { flex: none }
+.calhead { display: flex; align-items: center; justify-content: space-between; margin-top: 6px }
+.calhead b { font-size: 16px }
+.calgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center }
+.calgrid i { font-style: normal; font-size: 12px; color: var(--quiet); padding: 4px 0 }
+.cd { height: 38px; border: 0; border-radius: 10px; background: none; color: var(--ink); font-size: 15px; cursor: pointer }
+.cd:disabled { color: var(--quiet); opacity: .4; cursor: default }
+.cd.hoy { box-shadow: inset 0 0 0 1px var(--line); font-weight: 700 }
+.cd.en { background: var(--accent-soft) }
+.cd.bd { background: var(--accent); color: var(--accent-ink); font-weight: 700 }
 .qgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px }
 .qchip { min-height: 48px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 12px; padding: 8px 12px; font-size: 14.5px; text-align: left; display: flex; align-items: center; gap: 8px; cursor: pointer }
 .qfoot { position: sticky; bottom: -1px; background: var(--surface); padding: 12px 0 4px; margin-top: 6px; justify-content: space-between; align-items: center }
@@ -384,22 +396,17 @@ table.cov td.n, table.cov th.n { text-align: right }
   <section class="view" id="v-parati">
     <div class="segtabs" role="tablist" aria-label="Recomendaciones">
       <a role="tab" href="?tab=parati" data-goto="parati" aria-selected="true">Para ti</a>
-      <a role="tab" href="?tab=unicos" data-goto="unicos" aria-selected="false">Únicos en <span class="cityname">Madrid</span><span class="n n-unicos"></span></a>
+      <a role="tab" href="?tab=unicos" data-goto="unicos" aria-selected="false">Únicos en&nbsp;<span class="cityname">Madrid</span><span class="n n-unicos"></span></a>
     </div>
     <h1 id="pt-h"></h1>
     <p class="lead" id="pt-lead"></p>
     <div id="new-hint"></div>
     <div id="zone-hint" hidden></div>
     <div class="frow">
-      <div class="seg" role="group" aria-label="Cuándo">
-        <button class="pill" data-when="semana">Esta semana</button>
-        <button class="pill" data-when="finde">Este finde</button>
-        <button class="pill" data-when="mes">30 días</button>
-      </div>
-      <span class="fsep" aria-hidden="true"></span>
-      <div class="seg" role="group" aria-label="Filtros rápidos">
-        <button class="pill" data-ftoggle="pt" aria-expanded="false">⚙︎ Filtros<span class="fcount"></span></button>
+      <div class="seg" role="group" aria-label="Cuándo y filtros">
+        <button class="pill cuando" data-cuando="pt" aria-haspopup="dialog">📅 <span>Esta semana</span> ▾</button>
         <button class="pill" data-ftemp aria-pressed="false" hidden></button>
+        <button class="pill" data-ftoggle="pt" aria-expanded="false">⚙︎ Filtros<span class="fcount"></span></button>
         <button class="pill" id="pt-free" aria-pressed="false">Gratis</button>
         <button class="pill" data-nuevos aria-pressed="false" hidden>✨ Nuevos<span class="n-nuevos"></span></button>
         <button class="pill" data-fventaja aria-pressed="false" hidden>🎟️ Con ventajas</button>
@@ -447,7 +454,7 @@ table.cov td.n, table.cov th.n { text-align: right }
   <section class="view" id="v-unicos" hidden>
     <div class="segtabs" role="tablist" aria-label="Recomendaciones">
       <a role="tab" href="?tab=parati" data-goto="parati" aria-selected="false">Para ti</a>
-      <a role="tab" href="?tab=unicos" data-goto="unicos" aria-selected="true">Únicos en <span class="cityname">Madrid</span><span class="n n-unicos"></span></a>
+      <a role="tab" href="?tab=unicos" data-goto="unicos" aria-selected="true">Únicos en&nbsp;<span class="cityname">Madrid</span><span class="n n-unicos"></span></a>
     </div>
     <h1>Únicos en <span class="cityname">Madrid</span></h1>
     <p class="lead">Citas de ciudad que pasan una vez al año. Salen aunque no encajen con tus intereses.</p>
@@ -468,7 +475,11 @@ table.cov td.n, table.cov th.n { text-align: right }
     <input class="search" id="ex-q" type="search" placeholder="Ej.: Hitchcock, Matadero, Usera" hidden>
     <div class="filters">
       <select class="search" id="ex-grp" aria-label="Grupo de categorías"></select>
-      <select class="search" id="ex-when" aria-label="Fechas">
+      <button class="pill cuando" data-cuando="ex" aria-haspopup="dialog">📅 <span>Próximos 30 días</span> ▾</button>
+      <select class="search" id="ex-when" aria-label="Fechas" hidden>
+        <option value="hoy">Hoy</option>
+        <option value="manana">Mañana</option>
+        <option value="rango">Fechas elegidas</option>
         <option value="semana">Esta semana</option>
         <option value="finde">Este finde</option>
         <option value="mes" selected>Próximos 30 días</option>
@@ -584,7 +595,7 @@ table.cov td.n, table.cov th.n { text-align: right }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261107h"></script>
+<script src="data.js?v=20261107i"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -639,7 +650,65 @@ function startApp(DATA, TAX, sync) {
     if (when === 'semana') { const dow = (s.getDay() + 6) % 7; return [s, addDays(s, 6 - dow)]; }
     if (when === 'finde') { const dow = (s.getDay() + 6) % 7; const sat = dow >= 5 ? (dow === 6 ? addDays(s, -1) : s) : addDays(s, 5 - dow); return [dow >= 5 ? s : sat, addDays(sat, 1)]; }
     if (when === 'mes') return [s, addDays(s, 30)];
+    if (when === 'hoy') return [s, s];
+    if (when === 'manana') return [addDays(s, 1), addDays(s, 1)];
+    if (when === 'rango' && state.rango) return state.rango;
     return [s, addDays(s, 400)];
+  }
+  // cómo se llama el rango elegido: en el botón («Esta semana», «25 nov») y en frases («esta semana», «el 25 de noviembre»)
+  const MES_LARGO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  function cuandoTxt(w) {
+    const fijo = { semana: ['Esta semana', 'esta semana'], finde: ['Este finde', 'este finde'], mes: ['Próximos 30 días', 'en los próximos 30 días'],
+      todo: ['Todo lo disponible', 'en todo lo disponible'], hoy: ['Hoy', 'hoy'], manana: ['Mañana', 'mañana'] }[w];
+    if (fijo) return { boton: fijo[0], frase: fijo[1] };
+    const [a, b] = range(w);
+    if (+a === +b) return { boton: a.getDate() + ' ' + MES[a.getMonth()], frase: 'el ' + a.getDate() + ' de ' + MES_LARGO[a.getMonth()] };
+    const mismo = a.getMonth() === b.getMonth();
+    return { boton: mismo ? `${a.getDate()}–${b.getDate()} ${MES[b.getMonth()]}` : `${a.getDate()} ${MES[a.getMonth()]} – ${b.getDate()} ${MES[b.getMonth()]}`,
+      frase: mismo ? `del ${a.getDate()} al ${b.getDate()} de ${MES_LARGO[b.getMonth()]}` : `del ${a.getDate()} de ${MES_LARGO[a.getMonth()]} al ${b.getDate()} de ${MES_LARGO[b.getMonth()]}` };
+  }
+  function pintaCuando() {
+    document.querySelectorAll('[data-cuando]').forEach(b => {
+      const w = b.dataset.cuando === 'pt' ? state.when : $('ex-when').value;
+      b.querySelector('span').textContent = cuandoTxt(w).boton;
+    });
+  }
+  // ---------- calendario: elegir un día o unos días (tocar el primero y el último)
+  let CAL = null;
+  function abrirCalendario(ctx) {
+    const w = ctx === 'pt' ? state.when : $('ex-when').value;
+    const [a, b] = range(w);
+    CAL = { ctx, mes: new Date(a.getFullYear(), a.getMonth(), 1), sel: w === 'rango' || w === 'hoy' || w === 'manana' ? [a, b] : null };
+    openSheet('<div id="cal"></div>');
+    pintaCal();
+  }
+  function pintaCal() {
+    const c = CAL, el = $('cal'); if (!c || !el) return;
+    const rapidas = [['hoy', 'Hoy'], ['manana', 'Mañana'], ['finde', 'Este finde'], ['semana', 'Esta semana'], ['mes', 'Próximos 30 días']].concat(c.ctx === 'ex' ? [['todo', 'Todo']] : []);
+    const y = c.mes.getFullYear(), m = c.mes.getMonth(), primero = (new Date(y, m, 1).getDay() + 6) % 7, nd = new Date(y, m + 1, 0).getDate();
+    const max = addDays(today, 365), [sa, sb] = c.sel || [null, null];
+    let celdas = '';
+    for (let i = 0; i < primero; i++) celdas += '<span></span>';
+    for (let d = 1; d <= nd; d++) {
+      const f = new Date(y, m, d), off = f < today || f > max;
+      const enSel = sa && f >= sa && f <= (sb || sa), borde = sa && (+f === +sa || (sb && +f === +sb));
+      celdas += `<button class="cd${enSel ? ' en' : ''}${borde ? ' bd' : ''}${+f === +today ? ' hoy' : ''}" data-cald="${f.getTime()}"${off ? ' disabled' : ''}>${d}</button>`;
+    }
+    let n = 0;
+    if (sa) { const fb = sb || sa; for (const e of EV) if (!isDismissed(e) && occurs(e, sa, fb)) n++; }
+    const prevOk = new Date(y, m, 1) > today, nextOk = new Date(y, m + 1, 1) <= max;
+    el.innerHTML = `<div class="seg" style="justify-content:space-between;align-items:center"><h2 style="margin:0">¿Cuándo?</h2><button class="btn ghost" data-sheet-close>Cerrar</button></div>
+      <div class="seg calq">${rapidas.map(([v, t]) => `<button class="pill" data-calq="${v}">${t}</button>`).join('')}</div>
+      <div class="calhead"><button class="btn ghost" data-calm="-1"${prevOk ? '' : ' disabled'} aria-label="Mes anterior">‹</button><b>${MES_LARGO[m][0].toUpperCase() + MES_LARGO[m].slice(1)} ${y}</b><button class="btn ghost" data-calm="1"${nextOk ? '' : ' disabled'} aria-label="Mes siguiente">›</button></div>
+      <div class="calgrid"><i>L</i><i>M</i><i>X</i><i>J</i><i>V</i><i>S</i><i>D</i>${celdas}</div>
+      <p class="note" style="margin:0">${sa ? (sb ? 'Del ' + sa.getDate() + ' ' + MES[sa.getMonth()] + ' al ' + sb.getDate() + ' ' + MES[sb.getMonth()] : 'Toca otro día si quieres elegir varios.') : 'Toca un día, o el primero y el último de tu viaje.'}</p>
+      <div class="qfoot seg"><span></span><button class="btn" data-calok${sa ? '' : ' disabled'}>${sa ? `Ver ${n} ${n === 1 ? 'plan' : 'planes'}` : 'Elige un día'}</button></div>`;
+  }
+  function aplicaCuando(ctx, w) {
+    if (ctx === 'pt') { state.when = w; state.ptShown = 12; }
+    else { $('ex-when').value = w; state.exShown = 20; state.whenAntesBuscar = null; }
+    closeSheets(); track('filtro', null, { k: 'cuando', v: w });
+    renderAll(); window.scrollTo(0, 0);
   }
   // cuándo cae el evento dentro de [a,b]: próxima sesión o tramo en curso
   function occurs(e, a, b) {
@@ -2466,7 +2535,7 @@ function startApp(DATA, TAX, sync) {
         items.push({ e, occ, s });  // en pueblos con pocos destacados, detrás van los demás por fecha
       }
       items.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, y.s - x.s || x.occ.date - y.occ.date || horaOrden(x.e) - horaOrden(y.e)));
-      $('pt-h').textContent = 'Destacado ' + ({ semana: 'esta semana', finde: 'este finde', mes: 'este mes' })[state.when];
+      $('pt-h').textContent = 'Destacado ' + cuandoTxt(state.when).frase.replace(/^en los próximos/, 'en los próximos');
       // la presentación, solo las primeras veces; después, la lista empieza arriba
       $('pt-lead').textContent = VISITAS <= 2 ? 'Todos los planes de ' + CITY.name + ' en un sitio, gratis y sin anuncios. Marca tus intereses y esta lista será solo para ti.' : '';
       $('pt-lead').hidden = VISITAS > 2;
@@ -2488,7 +2557,7 @@ function startApp(DATA, TAX, sync) {
     const top = items.slice(0, state.ptShown);
     const dated = top.filter(x => !largo(x.e, x.occ)).sort((x, y) => x.occ.date - y.occ.date || horaOrden(x.e) - horaOrden(y.e) || y.sc.s - x.sc.s);
     const going = top.filter(x => largo(x.e, x.occ)).sort((x, y) => parse(x.e.fin) - parse(y.e.fin));
-    const label = { semana: 'esta semana', finde: 'este finde', mes: 'los próximos 30 días' }[state.when];
+    const label = cuandoTxt(state.when).frase.replace(/^en /, '');
     $('pt-h').textContent = items.length ? `${items.length} ${items.length === 1 ? 'plan' : 'planes'} para ti ${label}` : `Nada para ti ${label}`;
     $('pt-lead').textContent = items.length ? '' : 'Prueba con un rango más amplio o marca más intereses.';
     $('pt-lead').hidden = !!items.length;
@@ -2503,6 +2572,7 @@ function startApp(DATA, TAX, sync) {
   function aiBlock() {
     const w = state.when;
     if (!logged) return `<div class="ai"><h2>Elegidos para ti</h2><p class="note" style="margin:0">Con una cuenta gratis, cada semana te elegimos los mejores planes con el porqué de cada uno, y te avisamos antes de los que guardes.</p><button class="btn" data-goto="intereses" style="align-self:flex-start">Crear cuenta gratis</button></div>`;
+    if (!['semana', 'finde', 'mes'].includes(w)) return '';  // la selección de la IA es por semana, finde o mes
     const r = aiReco[w];
     if (!r) { loadAI(w, false); return `<div class="ai"><h2>Eligiendo tus planes…</h2></div>`; }
     if (r.loading) return `<div class="ai"><h2>Eligiendo tus planes…</h2></div>`;
@@ -2546,6 +2616,7 @@ function startApp(DATA, TAX, sync) {
     $('un-list').innerHTML = conSeccion(list, x => card(x.e, { occ: x.occ })) || '<div class="empty">No hay planes únicos en las próximas semanas.</div>';
   }
   function renderExplorar() {
+    pintaCuando();
     const q = $('ex-q').value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     const g = $('ex-grp').value, [a, b] = range($('ex-when').value);
     const res = [];
@@ -2642,6 +2713,7 @@ function startApp(DATA, TAX, sync) {
   }
   function renderAll() {
     placeAccount();
+    pintaCuando();
     $('stamp').innerHTML = `<button class="citybtn" id="city-btn" aria-haspopup="dialog" aria-label="Cambiar de ciudad (ahora ${esc(CITY.name)})">${esc(CITY.name)} <span aria-hidden="true">▾</span></button> · ${(ZONE ? EV.filter(inZone).length : META.eventos).toLocaleString('es-ES')} eventos`;
     document.querySelectorAll('.n-unicos').forEach(n => { n.textContent = EV.filter(e => e.unico && parse(e.fin) >= today && inZone(e)).length || ''; });
     $('n-unicos').textContent = EV.filter(e => e.unico && parse(e.fin) >= today && inZone(e)).length || '';
@@ -2826,6 +2898,18 @@ function startApp(DATA, TAX, sync) {
     if (ev.target.closest('#city-btn') || ev.target.closest('[data-zone-pick]')) { openZone(); return; }
     if (ev.target.closest('[data-nuevos-ver]')) { F.nuevos = true; go('explorar'); return; }
     if (ev.target.closest('[data-intereses-rapido]')) { interesesRapido(); return; }
+    const cu = ev.target.closest('[data-cuando]'); if (cu) { abrirCalendario(cu.dataset.cuando); return; }
+    const cq = ev.target.closest('[data-calq]'); if (cq && CAL) { aplicaCuando(CAL.ctx, cq.dataset.calq); return; }
+    const cmes = ev.target.closest('[data-calm]'); if (cmes && CAL) { CAL.mes = new Date(CAL.mes.getFullYear(), CAL.mes.getMonth() + +cmes.dataset.calm, 1); pintaCal(); return; }
+    const cdia = ev.target.closest('[data-cald]');
+    if (cdia && CAL) {
+      const f = new Date(+cdia.dataset.cald);
+      if (!CAL.sel || CAL.sel[1] || f < CAL.sel[0]) CAL.sel = [f, null];  // primer día (o se empieza de nuevo)
+      else CAL.sel = +f === +CAL.sel[0] ? [f, null] : [CAL.sel[0], f];
+      if (CAL.sel[1] && (CAL.sel[1] - CAL.sel[0]) / 864e5 > 30) CAL.sel = [f, null];  // como mucho un mes
+      pintaCal(); return;
+    }
+    if (ev.target.closest('[data-calok]') && CAL && CAL.sel) { state.rango = [CAL.sel[0], CAL.sel[1] || CAL.sel[0]]; aplicaCuando(CAL.ctx, 'rango'); return; }
     if (ev.target.closest('[data-instalar-no]')) { store.set('instalar_no', true); renderAll(); return; }
     if (ev.target.closest('[data-instalar]') && window.__limonInstall) {
       const p = window.__limonInstall; window.__limonInstall = null;

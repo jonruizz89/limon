@@ -23,6 +23,10 @@ const key = (t: string) => (t || '').toLowerCase().normalize('NFD').replace(/[\u
   .replace(/\s+/g, ' ').trim().replace(/^(calle|c|avenida|av|avda|paseo|plaza|pza|glorieta|ronda|carretera|camino|travesia|costanilla|cuesta)( de(l| la| los| las)?)? /, '').replace(/^(de|del|la|el) /, '');
 const lineKey = (t: string) => { const m = String(t || '').toUpperCase().replace(/L[IÍ]NEA/g, 'L').replace(/\s+/g, '').match(/^(L|ML|C|R|N)?(\d{0,3}[A-Z]?)$/); return m ? (m[1] || '') + m[2] : ''; };
 
+const base = (t: string) => key(String(t || '').split(/[(,]| entre | desde | hasta | a la altura | n[ºo°]\.? /i)[0]).replace(/(\s+\d+\w?)+$/, '');
+const VIA: Record<string, string> = { 'c/': 'calle', c: 'calle', calle: 'calle', av: 'avenida', avda: 'avenida', avenida: 'avenida', paseo: 'paseo', plaza: 'plaza', pza: 'plaza', glorieta: 'glorieta', ronda: 'ronda', carretera: 'carretera', camino: 'camino', travesia: 'travesia', costanilla: 'costanilla', cuesta: 'cuesta' };
+const via = (t: string) => VIA[(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().split(/\s+/)[0].replace(/\.$/, '')] || '';
+
 function timed(t: string | null) {
   const m = String(t || '').match(/(\d{1,2})[:.h](\d{2})/);
   return m ? `${m[1].padStart(2, '0')}${m[2]}00` : null;
@@ -78,7 +82,8 @@ Deno.serve(async (req) => {
     const sk = mine.map(key).filter((k) => k.length >= 3), lk = mine.map(lineKey).filter(Boolean);
     const end = new Date(Date.now() + 21 * 864e5).toISOString().slice(0, 10);
     for (const c of cs || []) {
-      const hit = (c.streets || []).some((s: string) => { const k = key(s); return k.length >= 3 && sk.some((q) => k.includes(q) || q.includes(k)); })
+      // calle completa, no trozos: «Bravo Murillo» no casa con «Plaza de Murillo» (igual que en la app)
+      const hit = (c.streets || []).some((s: string) => { const k = base(s); return k.length >= 3 && mine.some((m) => base(m) === k && !(via(s) && via(m) && via(s) !== via(m))); })
         || (c.stations || []).some((s: string) => sk.includes(key(s)))
         || (c.lines || []).some((l: string) => { const k = lineKey(l); return k && (lk.includes(k) || lk.map((x) => 'L' + x).includes(k)); });
       if (!hit) continue;

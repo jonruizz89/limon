@@ -6,7 +6,7 @@ Se generan dentro de la carpeta de la web antes de publicarla (pages.yml); no se
 
 Uso: python3 src/site.py ../web   (lee la URL y la clave pública de web/config.js)
 """
-import datetime as dt, hashlib, html, json, math, os, re, sys, urllib.parse, urllib.request
+import datetime as dt, hashlib, html, json, math, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 from collections import defaultdict
 
 WEB = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else '../web')
@@ -28,8 +28,16 @@ def get(path):
     out, off = [], 0
     while True:
         req = urllib.request.Request(f'{SB_URL}/rest/v1/{path}&offset={off}&limit=1000', headers={'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY})
-        with urllib.request.urlopen(req, timeout=120) as r:
-            part = json.loads(r.read().decode())
+        for intento in range(4):  # un 500 o un corte pasajero de Supabase no debe tumbar la publicación
+            try:
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    part = json.loads(r.read().decode())
+                break
+            except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as e:
+                if intento == 3 or (isinstance(e, urllib.error.HTTPError) and e.code < 500):
+                    raise
+                print('  reintento', intento + 1, 'tras', e)
+                time.sleep(5 * (intento + 1))
         out += part
         if len(part) < 1000:
             return out

@@ -117,7 +117,7 @@ function windowOf(when: string): [string, string] {
   const dow = (now.getDay() + 6) % 7;
   if (when === 'finde') { const sat = dow >= 5 ? (dow === 6 ? add(now, -1) : now) : add(now, 5 - dow); return [ymd(dow >= 5 ? now : sat), ymd(add(sat, 1))]; }
   if (when === 'mes') return [ymd(now), ymd(add(now, 30))];
-  return [ymd(now), ymd(add(now, 6 - dow))];
+  return [ymd(now), ymd(add(now, 6 - dow + (dow >= 5 ? 7 : 0)))];  // sábado y domingo: hasta el domingo siguiente (igual que la app)
 }
 
 const RECO_TOOL = {

@@ -630,7 +630,7 @@ try { var _t = JSON.parse(localStorage.getItem('bureo.tema') || 'null'); if (_t 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261108f"></script>
+<script src="data.js?v=20261108g"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -682,7 +682,8 @@ function startApp(DATA, TAX, sync) {
   const DIA = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
   function range(when) {
     const s = today;
-    if (when === 'semana') { const dow = (s.getDay() + 6) % 7; return [s, addDays(s, 6 - dow)]; }
+    // esta semana = hasta el domingo; el sábado y el domingo, hasta el domingo siguiente (si no, el domingo sería solo «hoy»)
+    if (when === 'semana') { const dow = (s.getDay() + 6) % 7; return [s, addDays(s, 6 - dow + (dow >= 5 ? 7 : 0))]; }
     if (when === 'finde') { const dow = (s.getDay() + 6) % 7; const sat = dow >= 5 ? (dow === 6 ? addDays(s, -1) : s) : addDays(s, 5 - dow); return [dow >= 5 ? s : sat, addDays(sat, 1)]; }
     if (when === 'mes') return [s, addDays(s, 30)];
     if (when === 'hoy') return [s, s];

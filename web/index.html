@@ -234,6 +234,24 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
 .act[aria-pressed="true"] { background: var(--chip) }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 20; display: flex; gap: 12px; align-items: center; background: var(--strong); color: var(--strong-ink); border-radius: 12px; padding: 10px 10px 10px 16px; font-size: 14px; box-shadow: 0 6px 24px rgba(0,0,0,.2); max-width: calc(100vw - 32px) }
 .toast button { border: 0; background: var(--accent); color: var(--accent-ink); border-radius: 8px; padding: 8px 12px; font-weight: 600; cursor: pointer }
+/* ---------- ordenador: más ancho, cabecera en una fila y planes en dos columnas (una ficha abierta ocupa el ancho entero) */
+@media (min-width: 1024px) {
+  .wrap { max-width: 1180px }
+  .top .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 560px); column-gap: 32px; align-items: center }
+  .top .brand { grid-column: 1; grid-row: 1 }
+  .top #q-global { grid-column: 2; grid-row: 1 }
+  .top nav.tabs { grid-column: 1 / -1 }
+  #pt-list, #ex-list, #un-list, #ag-list, #ca-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start }
+  #pt-list > *, #ex-list > *, #un-list > *, #ag-list > *, #ca-list > * { grid-column: 1 / -1 }
+  #pt-list > article.card, #ex-list > article.card, #un-list > article.card, #ag-list > article.card, #ca-list > article.cut { grid-column: auto }
+  #pt-list > article.card.abierta, #ex-list > article.card.abierta, #un-list > article.card.abierta, #ag-list > article.card.abierta { grid-column: 1 / -1 }
+  #v-intereses > *, #v-fuentes > * { max-width: 760px }
+  .card.abierta .more > p, .card.abierta .more .desc { max-width: 80ch }
+  #pt-list > .btn, #un-list > .btn { justify-self: center; min-width: 380px }
+  .filters { grid-template-columns: minmax(0, 360px) auto; justify-content: start }
+  .filters .cuando { justify-self: start }
+  .segtabs { max-width: 560px }
+}
 @media (max-width: 760px) { .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)) } }
 .links { display: flex; gap: 8px; flex-wrap: wrap }
 .links a { font-size: 13px; font-weight: 600; color: var(--accent-text); text-decoration: none; padding: 6px 10px; border-radius: 8px; background: var(--accent-soft) }
@@ -595,7 +613,7 @@ table.cov td.n, table.cov th.n { text-align: right }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261107i"></script>
+<script src="data.js?v=20261108a"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -1239,6 +1257,7 @@ function startApp(DATA, TAX, sync) {
           return b;
         } });
         new Gps({ position: 'topleft' }).addTo(MAP);
+        try { new ResizeObserver(() => MAP.invalidateSize()).observe(MAP.getContainer()); } catch (e) { }  // al cambiar el ancho de la ventana
         // si ya diste permiso de ubicación y estás en esta ciudad, el mapa empieza centrado en ti
         (async () => {
           try { if (!navigator.permissions || (await navigator.permissions.query({ name: 'geolocation' })).state !== 'granted') return; } catch (e) { return; }

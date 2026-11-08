@@ -630,7 +630,7 @@ try { var _t = JSON.parse(localStorage.getItem('bureo.tema') || 'null'); if (_t 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261108e"></script>
+<script src="data.js?v=20261108f"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -2566,7 +2566,8 @@ function startApp(DATA, TAX, sync) {
       <div><b>✨ ${n} ${n === 1 ? 'plan nuevo' : 'planes nuevos'}</b> desde tu última visita.</div><button class="btn" data-nuevos-ver>Verlos</button></div>`;
   }
   // mete algo después de la 3.ª tarjeta (o al final si hay menos)
-  function tras3(html, extra) { let n = 0, at = -1; html.replace(/<\/article>/g, (m, k) => { if (++n === 3) at = k + m.length; return m; }); return at < 0 ? html + extra : html.slice(0, at) + extra + html.slice(at); }
+  // el botón de intereses, tras los primeros planes: 3 en el móvil, 4 en el ordenador (dos filas completas de la cuadrícula)
+  function tras3(html, extra) { const tope = matchMedia('(min-width: 1024px)').matches ? 4 : 3; let n = 0, at = -1; html.replace(/<\/article>/g, (m, k) => { if (++n === tope) at = k + m.length; return m; }); return at < 0 ? html + extra : html.slice(0, at) + extra + html.slice(at); }
   function renderParaTi() {
     $('new-hint').innerHTML = newBanner();
     const [a, b] = range(state.when);

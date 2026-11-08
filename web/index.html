@@ -254,6 +254,11 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
   .filters { grid-template-columns: minmax(0, 360px) auto; justify-content: start }
   .filters .cuando { justify-self: start }
   .segtabs { max-width: 560px; width: 100%; margin-inline: auto }
+  /* «Elegidos para ti» también en dos columnas (sus títulos, notas y botones, a todo el ancho) */
+  .ai { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start }
+  .ai > * { grid-column: 1 / -1 }
+  .ai > article.card:not(.abierta) { grid-column: auto }
+  .ai > .btn { justify-self: start }
 }
 @media (max-width: 760px) { .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)) } }
 .links { display: flex; gap: 8px; flex-wrap: wrap }
@@ -625,7 +630,7 @@ try { var _t = JSON.parse(localStorage.getItem('bureo.tema') || 'null'); if (_t 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261108c"></script>
+<script src="data.js?v=20261108d"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;

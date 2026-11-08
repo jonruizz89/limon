@@ -630,7 +630,7 @@ try { var _t = JSON.parse(localStorage.getItem('bureo.tema') || 'null'); if (_t 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261108h"></script>
+<script src="data.js?v=20261108i"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -758,18 +758,35 @@ function startApp(DATA, TAX, sync) {
     renderAll(); window.scrollTo(0, 0);
   }
   // cuándo cae el evento dentro de [a,b]: próxima sesión o tramo en curso
-  // ¿ya ha terminado hoy? Por la hora de fin si la dice («de 10 a 14», «20:30 - 23:30»); si solo dice la de inicio,
-  // se da por acabado 3 h después (5 h si es «desde las…»). Sin hora, «todo el día» o pasada la medianoche: no se oculta
+  // ¿ya no merece la pena ir hoy? Hay dos tipos de plan:
+  // - de entrar cuando quieras (exposiciones, mercados, ferias, fiestas, museos…, o un horario de 3 h o más): sale hasta que
+  //   acaba (hora de fin si la dice; si no, 3 h después del inicio, o 5 h si es «desde las…»);
+  // - con hora de empezar (conciertos, partidos, funciones, cine, cursos, visitas guiadas…): deja de salir 10 min después de
+  //   empezar la última sesión del día, porque ya no se puede entrar.
+  // Sin hora, «todo el día» o de madrugada: no se oculta
+  const LIBRE = new Set(['pintura', 'fotografia', 'escultura', 'contemporaneo', 'urbano', 'ilustracion', 'diseno', 'expo_hist', 'expo_ciencia', 'galerias',
+    'ferias_arte', 'artesania', 'ferias_consumo', 'comic', 'videojuegos', 'coleccionismo', 'moda', 'hogar', 'salones_motor', 'profesionales', 'salones_mascota',
+    'adopcion', 'petfriendly', 'fiestas', 'tradiciones', 'ferias', 'mercadillos', 'desfiles', 'noche', 'discotecas', 'mercados_gastro', 'tapas', 'jornadas_gastro',
+    'festivales_gastro', 'popups', 'foodtrucks', 'museos', 'monumentos', 'jardines', 'ferias_libro', 'festivales_musica', 'huertos']);
   function yaPaso(e) {
     const t = String(e.hora || '');
     if (!t || /todo el d[ií]a|consult|24 ?h/i.test(t)) return false;
     const rango = t.match(/(?:de|desde)\s+(?:las\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*h?\s*(?:a|hasta)\s+(?:las\s+)?(\d{1,2})(?:[:.](\d{2}))?/i) || t.match(/(\d{1,2})[:.](\d{2})\s*h?\s*[-–]\s*(\d{1,2})[:.](\d{2})/);
     const horas = [...t.matchAll(/(\d{1,2})[:.](\d{2})|\b(\d{1,2})\s?h\b/gi)].map(m => +(m[1] || m[3]) + (+m[2] || 0) / 60).filter(h => h < 24);
+    const ini = rango ? +rango[1] + (+rango[2] || 0) / 60 : null, fin = rango ? +rango[3] + (+rango[4] || 0) / 60 : null;
+    const cats = e.cats || [], conHora = cats.some(c => ['musica', 'escena', 'cine', 'deporte'].includes(groupOf(c)));  // un teatro de 20:30 a 23:30 sigue siendo «con hora»
+    const libre = cats.some(c => LIBRE.has(c)) || /desde/i.test(t) || (rango && fin - ini >= 3 && !conHora);
     let finH;
-    if (rango) finH = +rango[3] + (+rango[4] || 0) / 60;
-    else if (horas.length) finH = Math.max(...horas) + (/desde/i.test(t) ? 5 : 3);
-    else return false;
-    if (finH <= 6 || finH >= 24) return false;  // acaba de madrugada: hoy no se oculta
+    if (libre) {
+      if (rango) finH = fin;
+      else if (horas.length) finH = Math.max(...horas) + (/desde/i.test(t) ? 5 : 3);
+      else return false;
+      if (finH <= 6 || finH >= 24) return false;  // acaba de madrugada: hoy no se oculta
+    } else {
+      const ultima = horas.length ? Math.max(...horas.filter(h => !rango || h !== fin)) : ini;  // la última sesión que empieza hoy
+      if (ultima == null || !isFinite(ultima)) return false;
+      finH = ultima + 10 / 60;
+    }
     const n = new Date();
     return n.getHours() + n.getMinutes() / 60 > finH;
   }

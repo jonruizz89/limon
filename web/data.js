@@ -616,7 +616,11 @@
       if (c && c.status !== 'publicada') { location.href = location.pathname + '?c=' + encodeURIComponent(base) + (muni ? '&m=' + encodeURIComponent(muni) : ''); return; }
       // antes de cambiar, comprobar que los planes de la nueva zona se pueden descargar (sin conexión, se queda en la actual)
       try { await Promise.race([pedirEventos(base), new Promise((_, no) => setTimeout(() => no(new Error('tiempo')), 10000))]); }
-      catch (e) { delete PEDIDOS[base]; throw new Error('sin conexión'); }
+      catch (e) {
+        delete PEDIDOS[base];
+        // sin archivo (p. ej. en pruebas, que no los genera) la app lee de la base de datos: se cambia igual; sin red, no
+        if (!/^sin archivo/.test(e && e.message || '') || navigator.onLine === false) throw new Error('sin conexión');
+      }
       try { const prev = localStorage.getItem('bureo.city'); if (prev && prev !== id) localStorage.setItem('bureo.city.prev', prev); localStorage.setItem('bureo.city', id); } catch (e) { }
       if (user) await sb.from('profiles').update({ city_id: base }).eq('id', user.id);
       location.href = location.pathname;

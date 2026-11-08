@@ -630,7 +630,7 @@ try { var _t = JSON.parse(localStorage.getItem('bureo.tema') || 'null'); if (_t 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261108g"></script>
+<script src="data.js?v=20261108h"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -758,14 +758,31 @@ function startApp(DATA, TAX, sync) {
     renderAll(); window.scrollTo(0, 0);
   }
   // cuándo cae el evento dentro de [a,b]: próxima sesión o tramo en curso
+  // ¿ya ha terminado hoy? Por la hora de fin si la dice («de 10 a 14», «20:30 - 23:30»); si solo dice la de inicio,
+  // se da por acabado 3 h después (5 h si es «desde las…»). Sin hora, «todo el día» o pasada la medianoche: no se oculta
+  function yaPaso(e) {
+    const t = String(e.hora || '');
+    if (!t || /todo el d[ií]a|consult|24 ?h/i.test(t)) return false;
+    const rango = t.match(/(?:de|desde)\s+(?:las\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*h?\s*(?:a|hasta)\s+(?:las\s+)?(\d{1,2})(?:[:.](\d{2}))?/i) || t.match(/(\d{1,2})[:.](\d{2})\s*h?\s*[-–]\s*(\d{1,2})[:.](\d{2})/);
+    const horas = [...t.matchAll(/(\d{1,2})[:.](\d{2})|\b(\d{1,2})\s?h\b/gi)].map(m => +(m[1] || m[3]) + (+m[2] || 0) / 60).filter(h => h < 24);
+    let finH;
+    if (rango) finH = +rango[3] + (+rango[4] || 0) / 60;
+    else if (horas.length) finH = Math.max(...horas) + (/desde/i.test(t) ? 5 : 3);
+    else return false;
+    if (finH <= 6 || finH >= 24) return false;  // acaba de madrugada: hoy no se oculta
+    const n = new Date();
+    return n.getHours() + n.getMinutes() / 60 > finH;
+  }
+  const HOY0 = +parse(ymd(new Date()));
+  const pasadoHoy = (e, d) => +d === HOY0 && yaPaso(e);
   function occurs(e, a, b) {
     const ini = parse(e.inicio), fin = parse(e.fin);
     if (fin < a || ini > b) return null;
     if (e.sesiones.length > 1) {
-      const s = e.sesiones.map(parse).find(x => x >= a && x <= b);
+      const s = e.sesiones.map(parse).find(x => x >= a && x <= b && !pasadoHoy(e, x));
       return s ? { date: s, ongoing: false } : null;
     }
-    if (+ini === +fin) return { date: ini, ongoing: false };
+    if (+ini === +fin) return pasadoHoy(e, ini) ? null : { date: ini, ongoing: false };
     return { date: ini < a ? a : ini, ongoing: ini < a, ini, fin };
   }
   // plan «largo»: exposición, curso o ciclo de más de una semana (o ya empezado). En las listas van detrás de los planes con fecha

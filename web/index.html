@@ -161,6 +161,7 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
 .card.abierta .streetwarn { white-space: normal }
 .card.abierta .streetwarn .swall { display: inline }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .streetwarn { background: #3B1A17; color: #FFB4A8 } }
+:root[data-theme="dark"] .streetwarn { background: #3B1A17; color: #FFB4A8 }
 .pwdlg { border: 0; border-radius: 18px; padding: 0; width: min(420px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px rgba(0,0,0,.25) }
 .sheet { width: min(560px, calc(100vw - 24px)); max-height: 86vh }
 .sheetbody { display: flex; flex-direction: column; gap: 10px; padding: 22px 20px; overflow: auto; max-height: 86vh }
@@ -237,9 +238,11 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
 /* ---------- ordenador: más ancho, cabecera en una fila y planes en dos columnas (una ficha abierta ocupa el ancho entero) */
 @media (min-width: 1024px) {
   .wrap { max-width: 1180px }
-  .top .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 560px); column-gap: 32px; align-items: center }
-  .top .brand { grid-column: 1; grid-row: 1 }
-  .top #q-global { grid-column: 2; grid-row: 1 }
+  .top .wrap { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 520px); column-gap: 24px; align-items: center; row-gap: 6px }
+  .top .brand { display: contents }
+  .top .brand > b { grid-column: 1; grid-row: 1; align-self: center }
+  .top #stamp { grid-column: 2; grid-row: 1; align-self: center; justify-self: start }
+  .top #q-global { grid-column: 3; grid-row: 1; align-self: center }
   .top nav.tabs { grid-column: 1 / -1 }
   #pt-list, #ex-list, #un-list, #ag-list, #ca-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start }
   #pt-list > *, #ex-list > *, #un-list > *, #ag-list > *, #ca-list > * { grid-column: 1 / -1 }
@@ -250,7 +253,7 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
   #pt-list > .btn, #un-list > .btn { justify-self: center; min-width: 380px }
   .filters { grid-template-columns: minmax(0, 360px) auto; justify-content: start }
   .filters .cuando { justify-self: start }
-  .segtabs { max-width: 560px }
+  .segtabs { max-width: 560px; width: 100%; margin-inline: auto }
 }
 @media (max-width: 760px) { .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)) } }
 .links { display: flex; gap: 8px; flex-wrap: wrap }
@@ -373,6 +376,10 @@ table.cov td.n, table.cov th.n { text-align: right }
   <div class="sp-msg" id="sp-msg">Buscando planes…</div>
   <div class="sp-bar"><i id="sp-bar"></i></div>
 </div>
+<script>
+/* Tema elegido en Perfil (automático / claro / oscuro), antes de pintar nada para que no parpadee */
+try { var _t = JSON.parse(localStorage.getItem('bureo.tema') || 'null'); if (_t === 'light' || _t === 'dark') document.documentElement.dataset.theme = _t; } catch (e) { }
+</script>
 <script>
 /* Progreso de la pantalla de carga: data.js marca hitos con limonSplash(0–1); entre hitos la barra avanza sola, sin llegar al final */
 (function () {
@@ -585,6 +592,11 @@ table.cov td.n, table.cov th.n { text-align: right }
           <p class="note" id="acc-del-msg" role="status"></p></details>
       </div>
     </div>
+      <div class="panel" id="tema-panel">
+        <h2 style="margin:0">Apariencia</h2>
+        <div class="seg" role="group" aria-label="Tema"><button class="pill" data-tema="auto">Automático</button><button class="pill" data-tema="light">☀️ Claro</button><button class="pill" data-tema="dark">🌙 Oscuro</button></div>
+        <p class="note" style="margin:0">Automático sigue la configuración de tu móvil u ordenador.</p>
+      </div>
       <div id="ig-perfil" hidden style="display:flex;gap:8px"></div>
       <button class="btn ghost" data-goto="fuentes" style="align-self:flex-start">Fuentes y cobertura ›</button>
       <p class="note" id="ver">Versión __VER__</p>
@@ -613,7 +625,7 @@ table.cov td.n, table.cov th.n { text-align: right }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
 <script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261108a"></script>
+<script src="data.js?v=20261108b"></script>
 <script>
 function startApp(DATA, TAX, sync) {
   const EV = DATA.eventos;
@@ -685,6 +697,12 @@ function startApp(DATA, TAX, sync) {
     return { boton: mismo ? `${a.getDate()}–${b.getDate()} ${MES[b.getMonth()]}` : `${a.getDate()} ${MES[a.getMonth()]} – ${b.getDate()} ${MES[b.getMonth()]}`,
       frase: mismo ? `del ${a.getDate()} al ${b.getDate()} de ${MES_LARGO[b.getMonth()]}` : `del ${a.getDate()} de ${MES_LARGO[a.getMonth()]} al ${b.getDate()} de ${MES_LARGO[b.getMonth()]}` };
   }
+  function pintaTema() {
+    const t = store.get('tema', 'auto');
+    document.querySelectorAll('[data-tema]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tema === t)));
+    const oscuro = document.documentElement.dataset.theme === 'dark' || (document.documentElement.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.content = oscuro ? '#0F1320' : '#FFD43B'; });
+  }
   function pintaCuando() {
     document.querySelectorAll('[data-cuando]').forEach(b => {
       const w = b.dataset.cuando === 'pt' ? state.when : $('ex-when').value;
@@ -694,6 +712,11 @@ function startApp(DATA, TAX, sync) {
   // ---------- calendario: elegir un día o unos días (tocar el primero y el último)
   let CAL = null;
   function abrirCalendario(ctx) {
+    if (ctx === 'ca') {
+      const d = (caDays().find(x => x.id === state.caDay) || { d: today }).d;
+      CAL = { ctx, mes: new Date(d.getFullYear(), d.getMonth(), 1), sel: [d, null], max: addDays(today, 30) };
+      openSheet('<div id="cal"></div>'); pintaCal(); return;
+    }
     const w = ctx === 'pt' ? state.when : $('ex-when').value;
     const [a, b] = range(w);
     CAL = { ctx, mes: new Date(a.getFullYear(), a.getMonth(), 1), sel: w === 'rango' || w === 'hoy' || w === 'manana' ? [a, b] : null };
@@ -702,9 +725,9 @@ function startApp(DATA, TAX, sync) {
   }
   function pintaCal() {
     const c = CAL, el = $('cal'); if (!c || !el) return;
-    const rapidas = [['hoy', 'Hoy'], ['manana', 'Mañana'], ['finde', 'Este finde'], ['semana', 'Esta semana'], ['mes', 'Próximos 30 días']].concat(c.ctx === 'ex' ? [['todo', 'Todo']] : []);
+    const rapidas = c.ctx === 'ca' ? [['hoy', 'Hoy'], ['manana', 'Mañana']] : [['hoy', 'Hoy'], ['manana', 'Mañana'], ['finde', 'Este finde'], ['semana', 'Esta semana'], ['mes', 'Próximos 30 días']].concat(c.ctx === 'ex' ? [['todo', 'Todo']] : []);
     const y = c.mes.getFullYear(), m = c.mes.getMonth(), primero = (new Date(y, m, 1).getDay() + 6) % 7, nd = new Date(y, m + 1, 0).getDate();
-    const max = addDays(today, 365), [sa, sb] = c.sel || [null, null];
+    const max = c.max || addDays(today, 365), [sa, sb] = c.sel || [null, null];
     let celdas = '';
     for (let i = 0; i < primero; i++) celdas += '<span></span>';
     for (let d = 1; d <= nd; d++) {
@@ -713,14 +736,14 @@ function startApp(DATA, TAX, sync) {
       celdas += `<button class="cd${enSel ? ' en' : ''}${borde ? ' bd' : ''}${+f === +today ? ' hoy' : ''}" data-cald="${f.getTime()}"${off ? ' disabled' : ''}>${d}</button>`;
     }
     let n = 0;
-    if (sa) { const fb = sb || sa; for (const e of EV) if (!isDismissed(e) && occurs(e, sa, fb)) n++; }
+    if (sa && c.ctx !== 'ca') { const fb = sb || sa; for (const e of EV) if (!isDismissed(e) && occurs(e, sa, fb)) n++; }
     const prevOk = new Date(y, m, 1) > today, nextOk = new Date(y, m + 1, 1) <= max;
     el.innerHTML = `<div class="seg" style="justify-content:space-between;align-items:center"><h2 style="margin:0">¿Cuándo?</h2><button class="btn ghost" data-sheet-close>Cerrar</button></div>
       <div class="seg calq">${rapidas.map(([v, t]) => `<button class="pill" data-calq="${v}">${t}</button>`).join('')}</div>
       <div class="calhead"><button class="btn ghost" data-calm="-1"${prevOk ? '' : ' disabled'} aria-label="Mes anterior">‹</button><b>${MES_LARGO[m][0].toUpperCase() + MES_LARGO[m].slice(1)} ${y}</b><button class="btn ghost" data-calm="1"${nextOk ? '' : ' disabled'} aria-label="Mes siguiente">›</button></div>
       <div class="calgrid"><i>L</i><i>M</i><i>X</i><i>J</i><i>V</i><i>S</i><i>D</i>${celdas}</div>
-      <p class="note" style="margin:0">${sa ? (sb ? 'Del ' + sa.getDate() + ' ' + MES[sa.getMonth()] + ' al ' + sb.getDate() + ' ' + MES[sb.getMonth()] : 'Toca otro día si quieres elegir varios.') : 'Toca un día, o el primero y el último de tu viaje.'}</p>
-      <div class="qfoot seg"><span></span><button class="btn" data-calok${sa ? '' : ' disabled'}>${sa ? `Ver ${n} ${n === 1 ? 'plan' : 'planes'}` : 'Elige un día'}</button></div>`;
+      ${c.ctx === 'ca' ? '<p class="note" style="margin:0">Toca un día para ver sus cortes y avisos (hasta 30 días).</p>' : `<p class="note" style="margin:0">${sa ? (sb ? 'Del ' + sa.getDate() + ' ' + MES[sa.getMonth()] + ' al ' + sb.getDate() + ' ' + MES[sb.getMonth()] : 'Toca otro día si quieres elegir varios.') : 'Toca un día, o el primero y el último de tu viaje.'}</p>
+      <div class="qfoot seg"><span></span><button class="btn" data-calok${sa ? '' : ' disabled'}>${sa ? `Ver ${n} ${n === 1 ? 'plan' : 'planes'}` : 'Elige un día'}</button></div>`}`;
   }
   function aplicaCuando(ctx, w) {
     if (ctx === 'pt') { state.when = w; state.ptShown = 12; }
@@ -1128,12 +1151,9 @@ function startApp(DATA, TAX, sync) {
     return null;
   }
   function caDays() {
+    // hoy, mañana y, si se ha elegido en el calendario, otro día (hasta 30 días)
     const out = [{ id: 'hoy', label: 'Hoy', d: today }, { id: 'manana', label: 'Mañana', d: addDays(today, 1) }];
-    const dow = iso(today);
-    const sat = dow <= 6 ? addDays(today, 6 - dow) : addDays(today, 6);
-    const sun = dow === 7 ? today : addDays(today, 7 - dow);
-    if (+sat > +addDays(today, 1)) out.push({ id: 'sab', label: 'Sábado ' + sat.getDate(), d: sat });
-    if (+sun > +addDays(today, 1)) out.push({ id: 'dom', label: 'Domingo ' + sun.getDate(), d: sun });
+    if (state.caOtro && state.caOtro > addDays(today, 1)) out.push({ id: 'otro', label: DIA[state.caOtro.getDay()] + ' ' + state.caOtro.getDate() + ' ' + MES[state.caOtro.getMonth()], d: state.caOtro });
     return out;
   }
   const KORDER = { metro: 0, cercanias: 0, metro_ligero: 0, autobus: 3, evento: 0, manifestacion: 1, partido: 1, recurrente: 2, otro: 3, obras: 4 };
@@ -1170,7 +1190,8 @@ function startApp(DATA, TAX, sync) {
   function renderCalle() {
     const days = caDays();
     if (!state.caDay || !days.some(x => x.id === state.caDay)) state.caDay = 'hoy';
-    $('ca-days').innerHTML = days.map(x => `<button class="pill" data-caday="${x.id}" aria-pressed="${x.id === state.caDay}">${esc(x.label)}</button>`).join('');
+    $('ca-days').innerHTML = days.map(x => `<button class="pill" data-caday="${x.id}" aria-pressed="${x.id === state.caDay}">${esc(x.label)}</button>`).join('')
+      + `<button class="pill cuando" data-cuando="ca" aria-haspopup="dialog">📅 <span>Otro día</span> ▾</button>`;
     const d = days.find(x => x.id === state.caDay).d;
     CA_DATE = d;
     // sin avisos de transporte en la ciudad (p. ej. Bilbao), no hace falta separar por tipo
@@ -2733,6 +2754,7 @@ function startApp(DATA, TAX, sync) {
   function renderAll() {
     placeAccount();
     pintaCuando();
+    pintaTema();
     $('stamp').innerHTML = `<button class="citybtn" id="city-btn" aria-haspopup="dialog" aria-label="Cambiar de ciudad (ahora ${esc(CITY.name)})">${esc(CITY.name)} <span aria-hidden="true">▾</span></button> · ${(ZONE ? EV.filter(inZone).length : META.eventos).toLocaleString('es-ES')} eventos`;
     document.querySelectorAll('.n-unicos').forEach(n => { n.textContent = EV.filter(e => e.unico && parse(e.fin) >= today && inZone(e)).length || ''; });
     $('n-unicos').textContent = EV.filter(e => e.unico && parse(e.fin) >= today && inZone(e)).length || '';
@@ -2917,12 +2939,20 @@ function startApp(DATA, TAX, sync) {
     if (ev.target.closest('#city-btn') || ev.target.closest('[data-zone-pick]')) { openZone(); return; }
     if (ev.target.closest('[data-nuevos-ver]')) { F.nuevos = true; go('explorar'); return; }
     if (ev.target.closest('[data-intereses-rapido]')) { interesesRapido(); return; }
+    const tm = ev.target.closest('[data-tema]');
+    if (tm) {
+      const t = tm.dataset.tema;
+      if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+      store.set('tema', t); pintaTema(); renderAll(); return;
+    }
     const cu = ev.target.closest('[data-cuando]'); if (cu) { abrirCalendario(cu.dataset.cuando); return; }
-    const cq = ev.target.closest('[data-calq]'); if (cq && CAL) { aplicaCuando(CAL.ctx, cq.dataset.calq); return; }
+    const cq = ev.target.closest('[data-calq]');
+    if (cq && CAL) { if (CAL.ctx === 'ca') { state.caDay = cq.dataset.calq; closeSheets(); renderCalle(); } else aplicaCuando(CAL.ctx, cq.dataset.calq); return; }
     const cmes = ev.target.closest('[data-calm]'); if (cmes && CAL) { CAL.mes = new Date(CAL.mes.getFullYear(), CAL.mes.getMonth() + +cmes.dataset.calm, 1); pintaCal(); return; }
     const cdia = ev.target.closest('[data-cald]');
     if (cdia && CAL) {
       const f = new Date(+cdia.dataset.cald);
+      if (CAL.ctx === 'ca') { state.caOtro = f; state.caDay = +f === +today ? 'hoy' : +f === +addDays(today, 1) ? 'manana' : 'otro'; closeSheets(); renderCalle(); return; }
       if (!CAL.sel || CAL.sel[1] || f < CAL.sel[0]) CAL.sel = [f, null];  // primer día (o se empieza de nuevo)
       else CAL.sel = +f === +CAL.sel[0] ? [f, null] : [CAL.sel[0], f];
       if (CAL.sel[1] && (CAL.sel[1] - CAL.sel[0]) / 864e5 > 30) CAL.sel = [f, null];  // como mucho un mes

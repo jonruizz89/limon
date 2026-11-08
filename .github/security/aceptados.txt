@@ -54,3 +54,10 @@ rls_enabled_no_policy:web_visits
 anon_security_definer_function_executable:contar_apertura
 authenticated_security_definer_function_executable:contar_apertura
 rls_enabled_no_policy:app_errors
+
+# Contador anónimo de errores de la app: se llama sin cuenta a propósito (anonimiza el mensaje y limita a 200 filas al día)
+anon_security_definer_function_executable:contar_error
+authenticated_security_definer_function_executable:contar_error
+
+# Estadísticas de Instagram: tabla interna que solo escribe y lee el servidor (flujo «Estadísticas»)
+rls_enabled_no_policy:ig_stats

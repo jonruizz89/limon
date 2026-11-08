@@ -457,7 +457,7 @@ def extra():
         by_place = None
     for e in json.load(open(p, encoding='utf-8')):
         ini, fin = d(e.get('inicio')), d(e.get('fin')) or d(e.get('inicio'))
-        if not ini or not e.get('titulo'):
+        if not ini or not e.get('titulo') or not e.get('fuente'):
             continue
         lat = lng = None
         desc = clean(e.get('descripcion'))

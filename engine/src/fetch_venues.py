@@ -210,13 +210,13 @@ TOOL = {'name': 'guardar_eventos', 'description': 'Guarda los eventos de la pág
 
 def llm(src, cache):
     page = get(src['url'])
-    if not page:
-        c = cache.get(src['name'])
-        return c['items'] if c else None
-    text = text_of(page)[:14000]
-    h = hashlib.md5(('v1' + text).encode()).hexdigest()
     c = cache.get(src['name'])
-    if c and c.get('hash') == h:
+    if not page and not c:
+        return None
+    # sin página: se reutilizan los eventos guardados, pero pasan por ev() como los demás (con su «fuente»)
+    text = text_of(page)[:14000] if page else ''
+    h = hashlib.md5(('v1' + text).encode()).hexdigest() if page else c.get('hash')
+    if not page or (c and c.get('hash') == h):
         items = c['items']
     elif not AKEY or (SPENT['in'] * 0.10 + SPENT['out'] * 0.50) / 1e6 >= MAX_USD:
         items = c['items'] if c else []
@@ -276,7 +276,7 @@ def main():
             print('  error en', src['name'], ex, file=sys.stderr)
             got = None
         if got is None:  # sin respuesta: se conserva lo de la última vez
-            got = [e for e in prev if e['fuente'] == src['name']]
+            got = [e for e in prev if e.get('fuente') == src['name']]
             print(f'{src["name"]}: sin respuesta, se reutilizan {len(got)}')
         else:
             print(f'{src["name"]}: {len(got)} eventos')

@@ -17,7 +17,7 @@ COLS = ('id,city_id,title,description,starts_on,ends_on,time_text,district,price
         'event_categories(category_id),event_sources(url,sources(name))')
 
 
-def get(path):
+def _get(path):
     out, off = [], 0
     while True:
         req = urllib.request.Request(f'{SB_URL}/rest/v1/{path}&offset={off}&limit=1000',
@@ -29,6 +29,26 @@ def get(path):
             return out
         off += 1000
 
+
+
+# Copia local de las lecturas (SB_CACHE_DIR): al publicar solo cambios de código (push) se reutiliza la última lectura en vez de
+# volver a descargar toda la base de datos, que es lo que más consume del cupo de transferencia de Supabase.
+import hashlib as _hl
+def _cache_get(path, fetch):
+    cdir = os.environ.get('SB_CACHE_DIR')
+    if not cdir:
+        return fetch(path)
+    f = os.path.join(cdir, _hl.sha1(path.encode()).hexdigest() + '.json')
+    if os.environ.get('SB_CACHE_USE') == '1' and os.path.exists(f):
+        return json.load(open(f, encoding='utf-8'))
+    out = fetch(path)
+    os.makedirs(cdir, exist_ok=True)
+    json.dump(out, open(f, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
+    return out
+
+
+def get(path):
+    return _cache_get(path, _get)
 
 hoy = dt.datetime.now(dt.timezone(dt.timedelta(hours=1))).date().isoformat()
 ahora = dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')

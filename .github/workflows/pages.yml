@@ -36,12 +36,35 @@ jobs:
           python-version: "3.12"
       - name: Versión visible en la app (para saber si un móvil tiene la última)
         run: sed -i "s/Versión __VER__/Versión $(TZ=Europe/Madrid date +'%d-%m %H:%M') · ${GITHUB_SHA::7}/" web/index.html
+      # Copia de la última lectura de Supabase: si solo cambia el código (push), se reutiliza en vez de descargar otra vez toda
+      # la base de datos (el cupo de transferencia del plan gratuito es de 5 GB al mes). Tras una carga nueva o cada mañana, se lee fresca.
+      - name: Recuperar la última lectura de la base de datos
+        id: sbcache
+        uses: actions/cache/restore@v4
+        with:
+          path: sbcache
+          key: sbdatos-${{ github.run_id }}
+          restore-keys: sbdatos-
+      - name: ¿Reutilizar la lectura?
+        run: |
+          echo "SB_CACHE_DIR=$GITHUB_WORKSPACE/sbcache" >> $GITHUB_ENV
+          if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ steps.sbcache.outputs.cache-matched-key }}" ]; then
+            echo "SB_CACHE_USE=1" >> $GITHUB_ENV; echo "Cambio de código: se reutiliza la última lectura"
+          else
+            rm -rf sbcache; echo "SB_CACHE_USE=0" >> $GITHUB_ENV; echo "Lectura nueva de la base de datos"
+          fi
       - name: Planes de cada zona en archivos estáticos (los descarga la app; menos carga para Supabase)
         working-directory: engine
         run: python3 src/export_events.py ../web
       - name: Páginas para buscadores (zonas, categorías y eventos) y sitemap
         working-directory: engine
         run: python3 src/site.py ../web
+      - name: Guardar la lectura para las próximas publicaciones
+        if: env.SB_CACHE_USE == '0'
+        uses: actions/cache/save@v4
+        with:
+          path: sbcache
+          key: sbdatos-${{ github.run_id }}
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

@@ -6,6 +6,7 @@ Formato compacto (formato 2): claves cortas, sin nulos ni falsos, nombres de fue
 coordenadas a 5 decimales; la app (data.js → desdeCompacto) lo devuelve a la forma de la consulta de Supabase.
 Pesa la mitad sin comprimir (menos que leer en el móvil) y un 15–35 % menos comprimido.
 """
+import gzip
 import datetime as dt, json, os, re, sys, urllib.parse, urllib.request
 
 WEB = sys.argv[1] if len(sys.argv) > 1 else '../web'
@@ -21,9 +22,10 @@ def _get(path):
     out, off = [], 0
     while True:
         req = urllib.request.Request(f'{SB_URL}/rest/v1/{path}&offset={off}&limit=1000',
-                                     headers={'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY})
+                                     headers={'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Accept-Encoding': 'gzip'})
         with urllib.request.urlopen(req, timeout=180) as r:
-            part = json.loads(r.read().decode())
+            _b = r.read()
+            part = json.loads((gzip.decompress(_b) if r.headers.get('Content-Encoding') == 'gzip' else _b).decode())
         out += part
         if len(part) < 1000:
             return out
@@ -39,7 +41,8 @@ def _cache_get(path, fetch):
     if not cdir:
         return fetch(path)
     f = os.path.join(cdir, _hl.sha1(path.encode()).hexdigest() + '.json')
-    if os.environ.get('SB_CACHE_USE') == '1' and os.path.exists(f):
+    fresca = os.environ.get('SB_CACHE_FRESH') and re.search(os.environ['SB_CACHE_FRESH'], path)  # p. ej. solo los cortes, tras leer cortes nuevos
+    if os.environ.get('SB_CACHE_USE') == '1' and os.path.exists(f) and not fresca:
         return json.load(open(f, encoding='utf-8'))
     out = fetch(path)
     os.makedirs(cdir, exist_ok=True)

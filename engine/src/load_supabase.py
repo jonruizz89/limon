@@ -3,6 +3,7 @@
 Uso: python3 src/load_supabase.py [ruta a un .env]  (o variables de entorno SUPABASE_URL y SUPABASE_SECRET)
 Se puede ejecutar cada noche: actualiza por ext_key y reemplaza sesiones y categorías.
 """
+import gzip
 import json, sys, hashlib, re, unicodedata, urllib.request, urllib.error
 def http_only(u):
     """Las URLs de las fuentes se guardan solo si son http(s): un «javascript:» en una web rastreada no debe llegar a la app."""
@@ -37,11 +38,13 @@ def api(method, path, body=None, prefer=None):
     req.add_header('apikey', KEY)
     req.add_header('Authorization', 'Bearer ' + KEY)
     req.add_header('Content-Type', 'application/json')
+    req.add_header('Accept-Encoding', 'gzip')  # respuestas comprimidas: mucho menos cupo de transferencia de Supabase
     if prefer:
         req.add_header('Prefer', prefer)
     try:
         with urllib.request.urlopen(req, timeout=120) as r:
-            txt = r.read().decode()
+            _b = r.read()
+            txt = (gzip.decompress(_b) if r.headers.get('Content-Encoding') == 'gzip' else _b).decode()
             return json.loads(txt) if txt else None
     except urllib.error.HTTPError as e:
         raise SystemExit(f'{method} {path}: {e.code} {e.read().decode()[:500]}')

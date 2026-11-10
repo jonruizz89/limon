@@ -4,6 +4,7 @@ Para cada evento, el modelo elige categorías de la taxonomía, extrae temas con
 épocas, artistas, lugares), detecta si forma parte de una serie o ciclo y si es un plan único de ciudad.
 Variables de entorno: SUPABASE_URL, SUPABASE_SECRET, ANTHROPIC_API_KEY. Opcional: BUREO_AI_LIMIT, BUREO_AI_MODEL.
 """
+import gzip
 import json, os, sys, hashlib, datetime as dt, urllib.request, urllib.error, concurrent.futures as cf, time
 
 URL = os.environ['SUPABASE_URL'].rstrip('/')
@@ -20,12 +21,13 @@ if not AKEY:
 def sb(method, path, body=None, prefer=None):
     req = urllib.request.Request(URL + '/rest/v1/' + path, method=method,
                                  data=json.dumps(body).encode() if body is not None else None)
-    for k, v in (('apikey', SKEY), ('Authorization', 'Bearer ' + SKEY), ('Content-Type', 'application/json')):
+    for k, v in (('apikey', SKEY), ('Authorization', 'Bearer ' + SKEY), ('Content-Type', 'application/json'), ('Accept-Encoding', 'gzip')):
         req.add_header(k, v)
     if prefer:
         req.add_header('Prefer', prefer)
     with urllib.request.urlopen(req, timeout=120) as r:
-        t = r.read().decode()
+        _b = r.read()
+        t = (gzip.decompress(_b) if r.headers.get('Content-Encoding') == 'gzip' else _b).decode()
         return json.loads(t) if t else None
 
 

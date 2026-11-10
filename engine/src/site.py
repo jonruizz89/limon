@@ -6,6 +6,7 @@ Se generan dentro de la carpeta de la web antes de publicarla (pages.yml); no se
 
 Uso: python3 src/site.py ../web   (lee la URL y la clave pública de web/config.js)
 """
+import gzip
 import datetime as dt, hashlib, html, json, math, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 from collections import defaultdict
 
@@ -27,11 +28,12 @@ ABIERTAS = re.compile(r'CC BY|Open Data|datos abiertos|dominio público', re.I) 
 def _get(path):
     out, off = [], 0
     while True:
-        req = urllib.request.Request(f'{SB_URL}/rest/v1/{path}&offset={off}&limit=1000', headers={'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY})
+        req = urllib.request.Request(f'{SB_URL}/rest/v1/{path}&offset={off}&limit=1000', headers={'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Accept-Encoding': 'gzip'})
         for intento in range(4):  # un 500 o un corte pasajero de Supabase no debe tumbar la publicación
             try:
                 with urllib.request.urlopen(req, timeout=120) as r:
-                    part = json.loads(r.read().decode())
+                    _b = r.read()
+                    part = json.loads((gzip.decompress(_b) if r.headers.get('Content-Encoding') == 'gzip' else _b).decode())
                 break
             except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as e:
                 if intento == 3 or (isinstance(e, urllib.error.HTTPError) and e.code < 500):
@@ -53,7 +55,8 @@ def _cache_get(path, fetch):
     if not cdir:
         return fetch(path)
     f = os.path.join(cdir, _hl.sha1(path.encode()).hexdigest() + '.json')
-    if os.environ.get('SB_CACHE_USE') == '1' and os.path.exists(f):
+    fresca = os.environ.get('SB_CACHE_FRESH') and re.search(os.environ['SB_CACHE_FRESH'], path)  # p. ej. solo los cortes, tras leer cortes nuevos
+    if os.environ.get('SB_CACHE_USE') == '1' and os.path.exists(f) and not fresca:
         return json.load(open(f, encoding='utf-8'))
     out = fetch(path)
     os.makedirs(cdir, exist_ok=True)

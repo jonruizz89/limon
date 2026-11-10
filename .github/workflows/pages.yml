@@ -50,6 +50,8 @@ jobs:
           echo "SB_CACHE_DIR=$GITHUB_WORKSPACE/sbcache" >> $GITHUB_ENV
           if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ steps.sbcache.outputs.cache-matched-key }}" ]; then
             echo "SB_CACHE_USE=1" >> $GITHUB_ENV; echo "Cambio de código: se reutiliza la última lectura"
+          elif [ "${{ github.event.workflow_run.name }}" = "Cortes de calle" ] && [ -n "${{ steps.sbcache.outputs.cache-matched-key }}" ]; then
+            echo "SB_CACHE_USE=1" >> $GITHUB_ENV; echo "SB_CACHE_FRESH=closures" >> $GITHUB_ENV; echo "Cortes nuevos: solo se leen los cortes"
           else
             rm -rf sbcache; echo "SB_CACHE_USE=0" >> $GITHUB_ENV; echo "Lectura nueva de la base de datos"
           fi
@@ -60,7 +62,7 @@ jobs:
         working-directory: engine
         run: python3 src/site.py ../web
       - name: Guardar la lectura para las próximas publicaciones
-        if: env.SB_CACHE_USE == '0'
+        if: env.SB_CACHE_USE == '0' || env.SB_CACHE_FRESH != ''
         uses: actions/cache/save@v4
         with:
           path: sbcache

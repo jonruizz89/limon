@@ -19,10 +19,43 @@ EMO = {'musica': '🎵', 'escena': '🎭', 'arte': '🖼️', 'patrimonio': '�
        'naturaleza': '🌿', 'ciudad': '🎉', 'deporte': '🏃', 'mascotas': '🐾', 'ferias': '🛍️', 'familia': '🧒', 'comunidad': '🤝'}
 KIND = {'manifestacion': ('📣', 0), 'evento': ('🎉', 1), 'metro': ('🚇', 1), 'cercanias': ('🚆', 1), 'autobus': ('🚌', 2), 'obras': ('🚧', 3), 'recurrente': ('🔁', 4), 'otro': ('⚠️', 4)}
 MAX = 255  # X cuenta los emojis como 2 caracteres: margen
-# uno o dos hashtags por zona y tipo de post (más parecería spam)
-TAGS = {'madrid': {'cortes': '#Madrid', 'metro': '#MetroMadrid', 'hoy': '#QuéHacerEnMadrid', 'finde': '#QuéHacerEnMadrid'},
+# hashtags por zona y tipo de post: los que la gente busca o son tendencia (huelgas, metro, cercanías), como mucho 3 para no parecer spam
+TAGS = {'madrid': {'cortes': '#Madrid', 'hoy': '#QuéHacerEnMadrid', 'finde': '#QuéHacerEnMadrid'},
         'bizkaia': {'cortes': '#Bilbao', 'hoy': '#Bilbao #Bizkaia', 'finde': '#Bilbao #Bizkaia'},
-        'barcelona': {'cortes': '#Barcelona', 'metro': '#Rodalies', 'hoy': '#Barcelona #PlansBCN', 'finde': '#Barcelona #PlansBCN'}}
+        'barcelona': {'cortes': '#Barcelona', 'hoy': '#Barcelona #PlansBCN', 'finde': '#Barcelona #PlansBCN'}}
+# en los cortes, según lo que entra en el post: (tipo de aviso, ¿huelga?) -> hashtag
+TAGS_AVISO = {'madrid': {('cercanias', True): '#HuelgaRenfe', ('metro', True): '#HuelgaMetro', ('autobus', True): '#HuelgaEMT',
+                         'cercanias': '#CercaníasMadrid', 'metro': '#MetroMadrid', 'autobus': '#EMTMadrid'},
+              'bizkaia': {('cercanias', True): '#HuelgaRenfe', ('metro', True): '#GrebaMetroBilbao', ('autobus', True): '#HuelgaBilbobus',
+                          'cercanias': '#RenfeBizkaia', 'metro': '#MetroBilbao', 'autobus': '#Bilbobus'},
+              'barcelona': {('cercanias', True): '#VagaRodalies', ('metro', True): '#VagaMetro', ('autobus', True): '#VagaTMB',
+                            'cercanias': '#Rodalies', 'metro': '#MetroBCN', 'autobus': '#TMB'}}
+HUELGA = re.compile(r'huelga|\bparos?\b|\bvaga\b|greba', re.I)
+
+
+def transporte(titulo, kind):
+    """El tipo de aviso según el título cuando habla de un transporte (a veces viene mal clasificado, p. ej. una huelga de Renfe como autobús)."""
+    if re.search(r'cercan|renfe|rodalies|euskotren', titulo, re.I):
+        return 'cercanias'
+    if re.search(r'\bmetro\b', titulo, re.I):
+        return 'metro'
+    return kind
+
+
+def tags_cortes(z, incluidos):
+    """Hashtags de los avisos que van en el post: primero huelgas, luego transporte, y el de la ciudad. Máximo 3."""
+    ta, out = TAGS_AVISO.get(z, {}), []
+    for k, titulo in incluidos:
+        if HUELGA.search(titulo) and ta.get((k, True)):
+            out.append(ta[(k, True)])
+    for k, _ in incluidos:
+        if ta.get(k):
+            out.append(ta[k])
+    if TAGS.get(z, {}).get('cortes'):
+        out.append(TAGS[z]['cortes'])
+    return ' '.join(list(dict.fromkeys(out))[:3])
+
+
 # nombre en los posts cuando el de la zona no basta (los cortes de Bizkaia son solo de Bilbao)
 NOMBRE = {'bizkaia': {'cortes': 'Bilbao', 'hoy': 'Bilbao y Bizkaia', 'finde': 'Bilbao y Bizkaia'}}
 # carpeta de /redes/ con la portada del carrusel de cada zona (la imagen del post del jueves)
@@ -63,17 +96,25 @@ def cortes(z):
     for r in rows:
         for g in r.get('ranges') or []:
             if g.get('from', '') <= hoy <= g.get('to', '') and (not g.get('weekdays') or wd in g['weekdays']):
-                emo, prio = KIND.get(r['kind'], ('⚠️', 4))
+                k = transporte(r['title'], r['kind'])
+                emo, prio = KIND.get(k, ('⚠️', 4))
+                if HUELGA.search(r['title']) and k in ('cercanias', 'metro', 'autobus'):
+                    prio = -1  # las huelgas de transporte, lo primero: es lo que la gente busca
                 h = f" ({g['start']}–{g['end']} h)" if g.get('start') and g.get('end') else ''
-                vale.append((prio, f"{emo} {corta(r['title'], 90)}{h}"))
+                vale.append((prio, f"{emo} {corta(r['title'], 90)}{h}", k, r['title']))
                 break
     if not vale:
         return None
     vale.sort(key=lambda x: x[0])
-    t = TAGS.get(z, {})
-    tags = ' '.join(x for x in (t.get('cortes'), t.get('metro') if any(v.startswith('🚇') for _, v in vale[:4]) else None) if x)
-    return junta(f"Cortes y avisos hoy en {NOMBRE.get(z, {}).get('cortes', c['name'])} ({DIAS[HOY.weekday()]} {HOY.day}):", [t for _, t in vale],
-                 f"Todos ({len(vale)}) en el mapa de Limón: enlace en el perfil 🍋" + (' ' + tags if tags else ''))
+    cab = f"Cortes y avisos hoy en {NOMBRE.get(z, {}).get('cortes', c['name'])} ({DIAS[HOY.weekday()]} {HOY.day}):"
+    pie = lambda inc: f"Todos ({len(vale)}) en el mapa de Limón: enlace en el perfil 🍋" + (' ' + tags_cortes(z, inc) if tags_cortes(z, inc) else '')
+    out, inc = cab, []
+    for _, linea_, k, titulo in vale:  # mete avisos mientras quepan, con los hashtags que les tocan
+        if len(out + '\n' + linea_ + '\n\n' + pie(inc + [(k, titulo)])) > MAX:
+            break
+        out += '\n' + linea_
+        inc.append((k, titulo))
+    return out + '\n\n' + pie(inc)
 
 
 def grupos():
@@ -84,7 +125,8 @@ def planes(z, desde, hasta, n):
     c, ids = zona(z)
     g = grupos()
     rows = get(f'events?select=id,title,starts_on,ends_on,time_text,is_free,is_unique,ai_unique,image_url,venues(name),event_categories(category_id)'
-               f'&city_id=in.({",".join(ids)})&starts_on=lte.{hasta}&ends_on=gte.{desde}&limit=3000')
+               f'&city_id=in.({",".join(ids)})&and=(starts_on.lte.{hasta},starts_on.gte.{dt.date.fromisoformat(desde) - dt.timedelta(days=3)})&ends_on=gte.{desde}&limit=3000')
+    # solo los que empiezan como mucho 3 días antes (los cortos): Supabase devuelve 1000 filas como máximo y en Barcelona las exposiciones las llenaban
     def corto(e):  # fuera exposiciones y ciclos largos: en X interesan los planes con fecha
         return (dt.date.fromisoformat(e['ends_on']) - dt.date.fromisoformat(e['starts_on'])).days <= 3
     def nota(e):

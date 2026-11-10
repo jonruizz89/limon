@@ -11,3 +11,8 @@ web/sitemap.xml
 web/redes/
 engine/src/node_modules/
 web/datos/
+
+# Configuración local de Claude Code y de servidores MCP: puede guardar comandos con claves dentro. Nunca al repositorio (es público)
+.claude/settings.local.json
+.claude/*.local.*
+.mcp.json

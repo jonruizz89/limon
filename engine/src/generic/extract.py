@@ -240,7 +240,7 @@ def main(cid):
         if len(part) < 1000:
             break
     geo = Geocoder(city, known, MAX_GEO)
-    placed, mll = 0, {}
+    placed, mll, barrio_de = 0, {}, {}
     for e in eventos:
         if not (e.get('lat') and e.get('lng')) and e.get('lugar'):
             g = geo.find(e['lugar'], e.get('direccion') if e.get('direccion') != e.get('lugar') else None)
@@ -254,6 +254,12 @@ def main(cid):
                 e['lat'], e['lng'] = e['muni_ll']
         elif e.get('lat') and not e.get('distrito') and e.get('lugar') and vnorm(e['lugar']) in known:
             e['distrito'] = known[vnorm(e['lugar'])][2]
+        if (not prov and city.get('districts') and e.get('lat') and e.get('lng') and not e.get('distrito')
+                and geo.calls < geo.max_calls):  # situado pero sin barrio (o barrios definidos después): se pregunta por el punto
+            k = (round(float(e['lat']), 4), round(float(e['lng']), 4))
+            if k not in barrio_de:
+                barrio_de[k] = geo.reverse_district(*k)
+            e['distrito'] = barrio_de[k]
         e.setdefault('distrito', None)
         e['cats'] = []
         e['descripcion'] = (e.get('descripcion') or '')[:420]

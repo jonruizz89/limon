@@ -29,11 +29,15 @@ def parse_when(v):
         if hh is None:
             return f'{y}-{mo}-{d}', None
         t = dt.datetime(int(y), int(mo), int(d), int(hh), int(mi))
+        if z and not (t.hour or t.minute):
+            return f'{y}-{mo}-{d}', None  # medianoche UTC = «solo la fecha»: no es la 01:00 o las 02:00 de aquí
         if z:
             t = t.replace(tzinfo=dt.timezone.utc).astimezone(TZ)
         return t.date().isoformat(), (t.strftime('%H:%M') if (t.hour or t.minute) else None)
     try:
         t = dt.datetime.fromisoformat(s.replace('Z', '+00:00'))
+        if t.tzinfo and not t.utcoffset() and not (t.hour or t.minute or t.second):
+            return t.date().isoformat(), None  # medianoche UTC = «solo la fecha» (salía como 01:00 o 02:00)
         if t.tzinfo:
             t = t.astimezone(TZ)
         hora = t.strftime('%H:%M') if (len(s) > 10 and (t.hour or t.minute)) else None

@@ -25,8 +25,8 @@ Lecturas de Supabase (estimación sin comprimir): publicar la web ~200 MB/día, 
 ## Mejoras (marcar al subir cada una a `pruebas`)
 
 - [x] 1 · `classify.py` lee solo su ciudad
-- [ ] 4 · Normalizar la hora
-- [ ] 5 · Rellenar la hora vacía desde la descripción
+- [x] 4 · Normalizar la hora
+- [x] 5 · Rellenar la hora vacía desde la descripción
 - [ ] 6 · Afinar la clasificación y reclasificar los afectados
 - [ ] 2 · Unir planes con la misma URL de ficha y fecha
 - [ ] 3 · Comparar títulos sin envoltorio y segunda pasada por cercanía

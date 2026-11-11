@@ -69,7 +69,7 @@ def kk_read(cfg, max_pages=None):
             web = i.get('urlEventEs') or i.get('sourceUrlEs') or i.get('purchaseUrlEs')
             out.append({
                 'titulo': name[:300], 'descripcion': _clean(i.get('descriptionEs'))[:600], 'inicio': ini, 'fin': max(ini, fin),
-                'hora': _clean(i.get('openingHoursEs'))[:60] or None,
+                'hora': _clean(i.get('openingHoursEs'))[:200] or None,  # se recorta con cuidado al cargar (calidad.norm_hora)
                 'lugar': _clean(i.get('establishmentEs') or i.get('placeEs')) or None,
                 'direccion': _clean(i.get('placeEs')) or None,
                 'precio': price or None, 'gratis': bool(re.search(r'\b(gratis|gratuit|doan)', fold(price))),

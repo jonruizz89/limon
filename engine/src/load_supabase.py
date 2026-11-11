@@ -20,6 +20,7 @@ def http_only(u):
 
 
 import os
+import calidad as C  # limpieza común de hora, título, lugar y dirección
 env = dict(l.strip().split('=', 1) for l in open(sys.argv[1]) if '=' in l) if len(sys.argv) > 1 else os.environ
 URL, KEY = env['SUPABASE_URL'].rstrip('/'), env['SUPABASE_SECRET']
 CITY = os.environ.get('BUREO_CITY', 'madrid')
@@ -95,7 +96,7 @@ for e in evs:
     e['_key'] = k
     rows.append({
         'ext_key': k, 'city_id': CITY, 'title': e['titulo'][:500], 'description': e.get('descripcion') or None,
-        'starts_on': e['inicio'], 'ends_on': max(e['inicio'], e['fin']), 'time_text': e.get('hora') if re.search(r'\w', e.get('hora') or '') else None,
+        'starts_on': e['inicio'], 'ends_on': max(e['inicio'], e['fin']), 'time_text': C.norm_hora(e.get('hora')) or (C.hora_de_texto(e.get('descripcion')) if e['inicio'] == e['fin'] else None),  # la hora de la descripción solo en planes de un día (en una exposición sería la de la inauguración)
         'venue_id': vid.get(norm(e.get('lugar') or '')[:200]), 'district': e.get('distrito'),
         'lat': e.get('lat'), 'lng': e.get('lng'), 'price_text': e.get('precio'), 'is_free': bool(e.get('gratis')),
         'image_url': http_only(e.get('imagen')), 'organizer_url': http_only(e.get('web_organizador')),

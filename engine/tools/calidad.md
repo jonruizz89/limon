@@ -12,7 +12,7 @@ Medición repetible: `engine/tools/calidad.sql` (solo lectura, agregada). Rama d
 | Horario raro | 209 | 153 texto sin hora, 24 cortados, 20 «00:00/01:00», 11 formato, 1 guiones |
 | Hora vacía con hora en la descripción | 165 | |
 | Solo categoría genérica | 158 | sin categoría: 0 |
-| Etiqueta «latina» | 252 | muchas por cantar en castellano o euskera |
+| Etiqueta «latina» | 252 | la categoría es «Latina y española»: la mayoría son correctas |
 | Dirección sin tipo de vía | 1.692 | aproximada |
 | Recinto sin dirección | 4.703 | |
 | Lugar que es una dirección | 627 | Barcelona 621 |
@@ -27,7 +27,7 @@ Lecturas de Supabase (estimación sin comprimir): publicar la web ~200 MB/día, 
 - [x] 1 · `classify.py` lee solo su ciudad
 - [x] 4 · Normalizar la hora
 - [x] 5 · Rellenar la hora vacía desde la descripción
-- [ ] 6 · Afinar la clasificación y reclasificar los afectados
+- [x] 6 · Afinar la clasificación y reclasificar los afectados
 - [ ] 2 · Unir planes con la misma URL de ficha y fecha
 - [ ] 3 · Comparar títulos sin envoltorio y segunda pasada por cercanía
 - [ ] 8 · Clave del plan estable

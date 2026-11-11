@@ -60,7 +60,7 @@ Taxonomía (usa SOLO estos identificadores; los que empiezan por g: son genéric
 {tax_txt}
 
 Para cada evento devuelve:
-- "cats": de 1 a 4 identificadores de la taxonomía, del más al menos relevante. Sé preciso: una película clásica es cine_clasico, una proyección de documental es documental, una exposición de pintura es pintura. No pongas categorías de familia (infantil, cuentacuentos, titeres, talleres_familia) salvo que el evento esté dirigido a niños o familias. Una sesión de DJ o una fiesta en discoteca o club es discotecas (y noche); un concierto en una sala no es discotecas. No confundas el nombre de un lugar con el contenido (el Hipódromo de la Zarzuela no es zarzuela; "Los pájaros" de Hitchcock no es observación de aves).
+- "cats": de 1 a 4 identificadores de la taxonomía, del más al menos relevante. Sé preciso: una película clásica es cine_clasico, una proyección de documental es documental, una exposición de pintura es pintura. No pongas categorías de familia (infantil, cuentacuentos, titeres, talleres_familia) salvo que el evento esté dirigido a niños o familias. Una sesión de DJ o una fiesta en discoteca o club es discotecas (y noche); un concierto en una sala no es discotecas. documental es solo para proyecciones de cine documental: una exposición (aunque sea histórica o de fotografía) no es documental. latina (Latina y española) es para géneros latinos (salsa, bachata, cumbia, bolero, tango…) y canción o copla española; un grupo de pop, rock o indie no es latina solo por cantar en castellano, y la música en euskera, catalán o gallego no lo es por el idioma. Mejor una o dos categorías certeras que cuatro dudosas: no añadas ninguna de relleno (solidarios, fiestas, talleres…) si el evento no va de eso. No confundas el nombre de un lugar con el contenido (el Hipódromo de la Zarzuela no es zarzuela; "Los pájaros" de Hitchcock no es observación de aves).
 - "topics": de 0 a 5 temas concretos en español que un aficionado buscaría: personas (director, autor, artista, compositor, intérprete), obras famosas, épocas o civilizaciones, movimientos, lugares. Usa tu conocimiento: si el título es una película conocida, incluye su director (p. ej. "Alfred Hitchcock"); si es una ópera, su compositor. Nombres propios con su forma más común. Nada genérico como "cine" o "cultura".
 - "series": si el evento forma parte claramente de un ciclo o serie (un ciclo de un director en un centro, un festival, una temporada), su nombre corto, p. ej. "Ciclo Hitchcock en el C.S. José de Espronceda"; si no, null.
 - "publico": a quién va dirigido. "ninos" si es para niños o pide edades infantiles (p. ej. «de 7 a 12 años», «hasta 14 años», «a partir de 4 años»), aunque sea un curso, un deporte o un concierto; "adolescentes" si es para jóvenes de 12 a 17; "familias" si es para ir con niños de cualquier edad; "mayores" si está pensado para personas mayores o jubiladas (centros de mayores, envejecimiento activo, «a partir de 60/65 años»); "adultos" si es solo para mayores de edad o pide +18; "todos" en el resto.
@@ -173,14 +173,26 @@ def save(batch, result):
 
 
 # ---------- eventos pendientes
+GENERICAS = {c['id'] for c in cats if c['is_generic'] or c['group_id'] == 'otros'}
+REPASO = '2026-11-11'  # al afinar las instrucciones se repasan una vez los planes clasificados antes de esta fecha que…
+
+
+def repasar(e):
+    if not e.get('ai_hash') or (e.get('ai_at') or '9')[:10] >= REPASO:
+        return False
+    cs = {c['category_id'] for c in e.get('event_categories') or []}
+    # …solo tienen categorías genéricas, o son una exposición marcada como documental
+    return bool(cs) and (cs <= GENERICAS or ('documental' in cs and any(c.startswith('expo') for c in cs)))
+
+
 today = dt.date.today().isoformat()
 pending, offset = [], 0
-cols = 'id,ext_key,city_id,title,description,details,starts_on,ends_on,price_text,ai_hash,venues(name),event_categories(category_id)'
+cols = 'id,ext_key,city_id,title,description,details,starts_on,ends_on,price_text,ai_hash,ai_at,venues(name),event_categories(category_id)'
 while True:
     page = sb('GET', f'events?select={cols}&ends_on=gte.{today}{CITY_FLT}&order=id&limit=1000&offset={offset}')
     for e in page:
         e['_hash'] = content_hash(e)
-        if e.get('ai_hash') != e['_hash']:
+        if e.get('ai_hash') != e['_hash'] or repasar(e):
             pending.append(e)
     if len(page) < 1000:
         break

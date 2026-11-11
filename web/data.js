@@ -655,7 +655,8 @@
         generado: last ? new Date(last).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) : 'sin datos'
       };
       sp(0.9);
-      app = startApp({ eventos: evs, meta, closures: cuts, audit: undefined, city: CITY, cities: CITIES }, tax, sync);
+      // startApp (js/app.js) carga js/inicio.js y devuelve la app cuando ha terminado de arrancar
+      app = await startApp({ eventos: evs, meta, closures: cuts, audit: undefined, city: CITY, cities: CITIES }, tax, sync);
       wireAccount();
       requestAnimationFrame(() => sp(1));
     } catch (e) {

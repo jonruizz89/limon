@@ -1,8 +1,10 @@
 // Limón · service worker: abre al instante y sin conexión, y recibe los avisos push.
 // Estrategia: la página y los datos, primero la red y si falla la copia; los ficheros propios, la copia y se renueva en segundo plano;
 // las librerías externas (con versión fija), la copia. Los mapas, el tiempo y las funciones del servidor no se guardan.
-const VERSION = 'limon-v5';  // v5: de Supabase solo se guardan tablas públicas (nada de tu agenda ni tu perfil); borra las copias anteriores
-const SHELL = ['./', 'index.html', 'data.js', 'config.js', 'limon.svg', 'limon-180.png', 'limon-192.png', 'manifest.webmanifest'];
+const VERSION = 'limon-v6';  // v6: el estilo y el código de la app van en archivos aparte (css/ y js/); borra las copias anteriores
+const SHELL = ['./', 'index.html', 'data.js', 'config.js', 'limon.svg', 'limon-180.png', 'limon-192.png', 'manifest.webmanifest',
+  'css/app.css', 'js/base.js', 'js/calendario.js', 'js/filtros.js', 'js/temporadas.js', 'js/tarjetas.js', 'js/compartir.js', 'js/calle.js',
+  'js/social.js', 'js/cuenta.js', 'js/parati.js', 'js/vistas.js', 'js/app.js', 'js/inicio.js'];
 const CDN = /^https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)\//;
 
 self.addEventListener('install', (e) => {
@@ -14,14 +16,15 @@ self.addEventListener('activate', (e) => {
 
 // fresh: pregunta al servidor aunque el navegador tenga una copia reciente en su caché HTTP (GitHub Pages la deja 10 min);
 // sin esto, al recargar en otra dirección (p. ej. «/» al cambiar de ciudad) se abría la versión anterior de la app
-async function networkFirst(req, fallbackUrl, fresh) {
+// propio: fichero de la app; sin red, si no está la copia de esa versión (?v=) vale la que se guardó al instalar (sin ?v=)
+async function networkFirst(req, fallbackUrl, fresh, propio) {
   const c = await caches.open(VERSION);
   try {
     const r = await fetch(fresh ? new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : req);
     if (r && r.ok) c.put(req, r.clone());
     return r;
   } catch (e) {
-    return (await c.match(req)) || (fallbackUrl && (await c.match(fallbackUrl))) || Response.error();
+    return (await c.match(req)) || (propio && (await c.match(req, { ignoreSearch: true }))) || (fallbackUrl && (await c.match(fallbackUrl))) || Response.error();
   }
 }
 // planes del día (datos/eventos-<zona>.json?d=<fecha>): primero la red; se guarda una sola copia por zona (sin la fecha),
@@ -38,7 +41,7 @@ async function datos(req) {
 }
 async function staleWhileRevalidate(req) {
   const c = await caches.open(VERSION), hit = await c.match(req);
-  const fresh = fetch(req).then((r) => { if (r && r.ok) c.put(req, r.clone()); return r; }).catch(() => hit);
+  const fresh = fetch(req).then((r) => { if (r && r.ok) c.put(req, r.clone()); return r; }).catch(async () => hit || (await c.match(req, { ignoreSearch: true })) || Response.error());
   return hit || fresh;
 }
 async function cacheFirst(req) {
@@ -57,7 +60,7 @@ self.addEventListener('fetch', (e) => {
   if (u.origin === self.location.origin && u.pathname.includes('/datos/')) { e.respondWith(datos(req)); return; }
   if (u.origin === self.location.origin) {
     // código (html, js): siempre la última versión si hay red, para que la página y su código no se desfasen
-    e.respondWith(/\.(js|html|webmanifest)$|\/$/.test(u.pathname) ? networkFirst(req, null, true) : staleWhileRevalidate(req)); return;
+    e.respondWith(/\.(js|html|webmanifest)$|\/$/.test(u.pathname) ? networkFirst(req, null, true, true) : staleWhileRevalidate(req)); return;
   }
   // datos públicos de Supabase (zonas, categorías, fuentes, cortes): para abrir sin cobertura. Lo de la cuenta (agenda,
   // perfil, listas…) no se guarda en el dispositivo; los planes sin conexión salen de datos/eventos-<zona>.json

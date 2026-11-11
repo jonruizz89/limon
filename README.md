@@ -9,6 +9,14 @@ Nació en 2013 como **Everent**, un proyecto fin de carrera.
 
 - `web/`: la aplicación web (HTML y JavaScript, sin compilación). Lee los eventos de Supabase y guarda
   intereses y agenda en la cuenta de cada usuario. Se publica con GitHub Pages.
+  - `index.html` lleva solo el HTML; el estilo está en `css/app.css` y el código en `js/`, repartido por temas
+    (`base`, `calendario`, `filtros`, `temporadas`, `tarjetas`, `compartir`, `calle`, `social`, `cuenta`, `parati`, `vistas`).
+  - Son scripts normales que comparten nombres entre sí (no módulos ES). Los archivos por tema **solo declaran**
+    funciones y valores fijos, así que no importa su orden. Todo lo que se ejecuta al arrancar (estado que se lee del
+    dispositivo o de los datos, eventos de interfaz, primer pintado) va en `js/inicio.js`, que `js/app.js` carga cuando
+    `data.js` tiene los planes. Al añadir algo: las funciones, a su tema; lo que se ejecuta, a `inicio.js`.
+  - Al tocar `css/` o `js/`, sube el `?v=` de `index.html` (el mismo en todos). Si añades un archivo, ponlo también
+    en la lista `SHELL` de `sw.js` y sube su `VERSION`.
 - `engine/`: el motor de datos en Python, sin dependencias externas.
   1. `src/fetch_sources.py` descarga la agenda municipal, el sitemap de esMadrid e IFEMA y el Real Jardín Botánico.
   2. `src/fetch_esmadrid.py` descarga solo las fichas de esMadrid nuevas o cambiadas, a una cada 10 s.

@@ -3,7 +3,7 @@ name: Publicar la web
 on:
   push:
     branches: [main]
-    paths: ["web/**", ".github/workflows/pages.yml", "engine/src/site.py", "engine/src/redes.mjs", "engine/src/export_events.py"]
+    paths: ["web/**", ".github/workflows/pages.yml", "engine/src/site.py", "engine/src/redes.mjs", "engine/src/export_events.py", "engine/src/lectura.py"]
   schedule:
     - cron: "37 4 * * *"   # cada mañana, con los planes del día en las páginas para buscadores
   workflow_run:  # en cuanto se cargan planes nuevos, se regeneran los archivos que descarga la app
@@ -53,7 +53,8 @@ jobs:
           elif [ "${{ github.event.workflow_run.name }}" = "Cortes de calle" ] && [ -n "${{ steps.sbcache.outputs.cache-matched-key }}" ]; then
             echo "SB_CACHE_USE=1" >> $GITHUB_ENV; echo "SB_CACHE_FRESH=closures" >> $GITHUB_ENV; echo "Cortes nuevos: solo se leen los cortes"
           else
-            rm -rf sbcache; echo "SB_CACHE_USE=0" >> $GITHUB_ENV; echo "Lectura nueva de la base de datos"
+            find sbcache -type f ! -name planes.json -delete 2>/dev/null || true   # planes.json se queda: de ahí salen los planes ya terminados (lectura.py)
+            echo "SB_CACHE_USE=0" >> $GITHUB_ENV; echo "Lectura nueva de la base de datos"
           fi
       - name: Planes de cada zona en archivos estáticos (los descarga la app; menos carga para Supabase)
         working-directory: engine

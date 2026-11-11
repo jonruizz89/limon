@@ -118,9 +118,13 @@ def compacto(zona, evs):
     return {'generado': ahora, 'zona': zona, 'formato': 2, 'fuentes': fuentes, 'eventos': out}
 
 
+# una sola lectura de los planes para esta publicación (la comparte site.py): ver lectura.py
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import lectura
+VIGENTES, _ = lectura.planes(SB_URL, SB_KEY)
 total = 0
 for c in ciudades:
-    evs = get(f"events?select={urllib.parse.quote(COLS, safe=',()')}&city_id=eq.{c['id']}&ends_on=gte.{hoy}&order=starts_on,id")
+    evs = [e for e in VIGENTES if e['city_id'] == c['id'] and e['ends_on'] >= hoy]
     json.dump(compacto(c['id'], evs), open(os.path.join(d, f"eventos-{c['id']}.json"), 'w', encoding='utf-8'),
               ensure_ascii=False, separators=(',', ':'))
     total += len(evs)

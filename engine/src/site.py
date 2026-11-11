@@ -101,13 +101,15 @@ cities = get('cities?select=id,name,kind,parent,status,districts,munis,lat,lng,f
 REDES_Z = {c['id']: {k: (c.get('features') or {}).get(k) for k in ('instagram', 'x') if re.fullmatch(r'[A-Za-z0-9._]{1,30}', (c.get('features') or {}).get(k) or '')} for c in cities}
 groups = {g['id']: g['name'] for g in get('category_groups?select=id,name&order=position') if g['id'] != 'otros'}
 cats = {c['id']: c for c in get('categories?select=id,group_id,label&order=position')}
-cols = ('id,city_id,title,description,details,starts_on,ends_on,time_text,district,price_text,is_free,image_url,organizer_url,lat,lng,is_unique,ai_unique,'
-        'series,venues(id,name,address,instagram,instagram_estado),event_categories(category_id),event_sources(url,sources(name,license))')
-ids = ','.join(c['id'] for c in cities)
-evs = get(f'events?select={cols}&city_id=in.({ids})&ends_on=gte.{HOY.isoformat()}&starts_on=lte.{HASTA_FICHA.isoformat()}&order=starts_on,id')
+# los planes se leen una sola vez por publicación (los comparte export_events.py) y los terminados salen de la copia: lectura.py
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import lectura
+_zonas = {c['id'] for c in cities}
+_vig, _pas = lectura.planes(SB_URL, SB_KEY)
+evs = [e for e in _vig if e['city_id'] in _zonas and e['ends_on'] >= HOY.isoformat() and e['starts_on'] <= HASTA_FICHA.isoformat()]
 # terminados en los últimos 60 días: su página sigue (sin indexar) para que Google y quien la tenga guardada no encuentren un error
 DIAS_PASADOS = 60
-pasados = get(f'events?select={cols}&city_id=in.({ids})&ends_on=lt.{HOY.isoformat()}&ends_on=gte.{(HOY - dt.timedelta(days=DIAS_PASADOS)).isoformat()}&order=ends_on.desc,id')
+pasados = [e for e in _pas if e['city_id'] in _zonas and (HOY - dt.timedelta(days=DIAS_PASADOS)).isoformat() <= e['ends_on'] < HOY.isoformat()]
 print(len(evs), 'eventos;', len(pasados), 'terminados hace poco;', len(cities), 'zonas publicadas')
 byc = {c['id']: c for c in cities}
 for e in evs + pasados:

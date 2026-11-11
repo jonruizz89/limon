@@ -33,7 +33,7 @@ Lecturas de Supabase (estimación sin comprimir): publicar la web ~200 MB/día, 
 - [x] 8 · Clave del plan estable
 - [x] 9 · Lugares y direcciones
 - [x] 10 · Limpieza de títulos sin cambiar la clave
-- [ ] 7 · Publicar la web leyendo solo lo cambiado
+- [x] 7 · Publicar la web leyendo solo lo cambiado
 - [ ] Repetir la medición tras una carga completa y anotar el resultado aquí
 
 ## Notas de lo aplicado
@@ -49,6 +49,16 @@ Lecturas de Supabase (estimación sin comprimir): publicar la web ~200 MB/día, 
   calle como lugar cuando el equipamiento no está en el listado municipal (los datos no traen nombre); la dirección de los
   recintos ya situados (4.703 planes) necesita una pasada aparte por OpenStreetMap: hoy solo se guarda en los recintos nuevos.
 - Los títulos limpios cambian la URL de la ficha (`/evento/id-titulo/`) de unos 470 planes.
+
+## Lecturas de Supabase (medido, comprimido)
+
+- Publicar la web: antes leía los vigentes dos veces (export_events.py y site.py) y los terminados de 60 días, unas 33.000
+  filas por publicación; ahora una sola lectura compartida (`engine/src/lectura.py`) y los terminados salen de la copia de
+  la víspera: 13.500 filas, 14 peticiones, 4,6 MB comprimidos por publicación (antes unos 10 MB).
+  Comprobado: con los mismos datos, la web generada por el código de main y por el nuevo es idéntica (21.904 ficheros).
+- Clasificar: cada carga lee solo su ciudad (antes, todas las zonas en cada una de las 13 ejecuciones diarias).
+- Ideas pendientes: que la publicación de las 04:37 reutilice la copia si ya se leyó ese día; `updated_at` con disparador
+  para leer solo lo cambiado (pide un cambio en la base de datos).
 
 ## Reglas
 

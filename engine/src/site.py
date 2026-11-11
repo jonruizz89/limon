@@ -122,6 +122,8 @@ for e in evs + pasados:
     e['largo'] = (d(e['ends_on']) - d(e['starts_on'])).days > 6
     e['img'] = e['image_url'] if OFICIAL.match(e.get('image_url') or '') else ''
     e['vid'] = ve.get('id')
+    # ferias profesionales (Construtec, Empack…): se pueden visitar, pero no son el plan que buscas un finde
+    e['prof'] = any(c['category_id'] == 'profesionales' for c in e.get('event_categories') or [])
 
 # ---------- zonas: ciudades, provincias, municipios de cada provincia y distritos de las ciudades
 zonas = []  # {path, name, titulo, evs, parent, center, kids}
@@ -311,6 +313,7 @@ def secciones(lista, z):
     s3 = [e for e in con if e not in s1 and e not in s2]
     largos = [e for e in lista if e['largo']]
     out = ''
+    s1, s2, s3 = (sorted(l, key=lambda e: bool(e.get('prof'))) for l in (s1, s2, s3))  # las ferias profesionales, al final
     for t, l, n in (('Este fin de semana', s1, 60), ('Próximos días', s2, 60), ('Más adelante', s3, 40), ('En curso: exposiciones, ciclos y cursos', largos, 40)):
         if l:
             out += f'<h2>{t}</h2><ul class="ev">' + ''.join(li(e, z) for e in l[:n]) + '</ul>' + (f'<p class="q">Y {len(l) - n} más en la app.</p>' if len(l) > n else '')
@@ -333,7 +336,7 @@ def vecinos(z):
 
 
 def picks(lista, vie, dom, n=12):
-    cand = [e for e in lista if d(e['starts_on']) <= dom and d(e['ends_on']) >= vie]
+    cand = [e for e in lista if d(e['starts_on']) <= dom and d(e['ends_on']) >= vie and not e.get('prof')]
     def score(e):
         return (3 if e.get('is_unique') or e.get('ai_unique') else 0) + (0 if e['largo'] else 1.5) + (0.7 if e.get('is_free') else 0) + \
                (0.5 if e['img'] else 0) + (0.5 if e.get('description') or e.get('details') else 0) + 0.3 * len(e.get('event_sources') or [])

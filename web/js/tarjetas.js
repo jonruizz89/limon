@@ -1,6 +1,8 @@
 // Limón · puntuación y tarjetas de los planes
 
 // ---------- puntuación
+// ferias profesionales (Construtec, Empack…): se pueden visitar, pero no son lo primero que hay que enseñar
+const esProf = e => e.cats.includes('profesionales');
 function score(e) {
   if (isDismissed(e)) return { s: -1, hits: [] };
   let s = 0; const hits = [];
@@ -92,7 +94,7 @@ function card(e, opt) {
   const cats = e.cats.filter(c => c !== 'sin_categoria').slice(0, 3);
   const vh = ventajaHit(e);
   const precioVale = e.precio && e.precio.length < 40 && !/consult|^[\s\-–—.?]*$/i.test(e.precio);  // «Consultar página oficial» o «--» no dicen nada
-  const nEst = (NEW.has(e.id) ? 1 : 0) + (e.gratis || precioVale ? 1 : 0) + (e.unico ? 1 : 0), cupo = Math.max(1, 4 - nEst);  // como mucho 4 etiquetas en total
+  const nEst = (NEW.has(e.id) ? 1 : 0) + (e.gratis || precioVale ? 1 : 0) + (e.unico && !esProf(e) ? 1 : 0), cupo = Math.max(1, 4 - nEst);  // como mucho 4 etiquetas en total
   const temas = (e.temas || []).slice(0, Math.min(2, cupo)), cats3 = cats.slice(0, cupo - temas.length);
   const lug = ((e.lugar ? esc(e.lugar) : '') + (userPos && e.lat ? ` · <span class="dist">a ${fmtDist(km(userPos, [e.lat, e.lng]))}</span>` : '') + (ZONE && zkm(e) > 0 && zkm(e) < 999 ? ` · <span class="dist">${e.distrito && !(e.lugar || '').includes(e.distrito) ? esc(e.distrito) + ', ' : ''}a ${fmtDist(zkm(e))} de ${esc(ZONE.name)}</span>` : '')).replace(/^ · /, '');
   const price = (e.gratis ? '<span class="tag free">Gratis</span>' : (precioVale ? `<span class="tag">${esc(e.precio)}</span>` : '')) + (vh ? `<span class="tag free" title="La ficha menciona condiciones para: ${esc(vh)}. Compruébalo en la web.">Posible descuento para ti</span>` : '');
@@ -130,7 +132,7 @@ function card(e, opt) {
           ${streetWarn(e, occ)}${rainWarn(e, occ)}${crewHtml(e)}${friendsHtml(e)}
           ${e.serie ? `<button class="serie link" data-f-serie="${esc(e.serie)}" aria-label="Ver todo el ciclo: ${esc(e.serie)}">${esc(e.serie)} ›</button>` : ''}
         </div></div>
-      <div class="tags">${NEW.has(e.id) ? '<span class="tag nuevo">Nuevo</span>' : ''}${price}${e.unico ? '<span class="tag uni">Único</span>' : ''}${temas.map(t => `<button class="tag tema link" data-f-tema="${esc(t)}" aria-label="Más planes sobre ${esc(t)}">${esc(t)}</button>`).join('')}${cats3.map(c => `<button class="tag link" data-f-cat="${esc(c)}" aria-label="Más planes de ${esc(labelOf(c))}">${esc(labelOf(c))}</button>`).join('')}</div>
+      <div class="tags">${NEW.has(e.id) ? '<span class="tag nuevo">Nuevo</span>' : ''}${price}${e.unico && !esProf(e) ? '<span class="tag uni">Único</span>' : ''}${temas.map(t => `<button class="tag tema link" data-f-tema="${esc(t)}" aria-label="Más planes sobre ${esc(t)}">${esc(t)}</button>`).join('')}${cats3.map(c => `<button class="tag link" data-f-cat="${esc(c)}" aria-label="Más planes de ${esc(labelOf(c))}">${esc(labelOf(c))}</button>`).join('')}</div>
       ${why}${more}
       <button class="save" data-save="${e.id}" aria-pressed="${isSaved}" aria-label="${isSaved ? 'Quitar de mi agenda' : 'Guardar en mi agenda'}">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>

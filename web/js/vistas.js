@@ -84,7 +84,10 @@ function renderExplorar() {
     if (q) { const h = (e.titulo + ' ' + (e.lugar || '') + ' ' + (e.distrito || '') + ' ' + (e.serie || '') + ' ' + (e.temas || []).join(' ') + ' ' + e.cats.map(labelOf).join(' ') + ' ' + (e.descripcion || '')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); if (!h.includes(q) && !q.split(/\s+/).every(w => h.includes(w) || (/^gratu?i?s|^gratuit/.test(w) && e.gratis))) continue; }
     res.push({ e, occ });
   }
-  res.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, (x.occ.date - y.occ.date) || (horaOrden(x.e) - horaOrden(y.e))));
+  res.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, (x.occ.date - y.occ.date) || (esProf(x.e) - esProf(y.e)) || (horaOrden(x.e) - horaOrden(y.e))));
+  // el mismo plan en el mismo sitio y día (una sala que publica cada sesión por separado): una sola tarjeta
+  const visto = new Set();
+  for (let i = 0; i < res.length; i++) { const x = res[i]; if (x.occ.ongoing) continue; const k = nf(x.e.titulo) + '|' + nf(x.e.lugar || '') + '|' + x.occ.date.toDateString(); if (visto.has(k)) res.splice(i--, 1); else visto.add(k); }
   const f = state.filter;
   $('ex-active').innerHTML = f ? `<button class="filterchip" id="ex-clear" aria-label="Quitar filtro">${esc(f.kind === 'cat' ? labelOf(f.value) : f.kind === 'id' ? f.label : f.value)} <span aria-hidden="true">✕</span></button>` : '';
   $('ex-count').textContent = res.length + (res.length === 1 ? ' evento' : ' eventos');
@@ -166,8 +169,8 @@ function renderAll() {
   pintaCuando();
   pintaTema();
   $('stamp').innerHTML = `<button class="citybtn" id="city-btn" aria-haspopup="dialog" aria-label="Cambiar de ciudad (ahora ${esc(CITY.name)})">${esc(CITY.name)} <span aria-hidden="true">▾</span></button> · ${(ZONE ? EV.filter(inZone).length : META.eventos).toLocaleString('es-ES')} eventos`;
-  document.querySelectorAll('.n-unicos').forEach(n => { n.textContent = EV.filter(e => e.unico && parse(e.fin) >= today && inZone(e)).length || ''; });
-  $('n-unicos').textContent = EV.filter(e => e.unico && parse(e.fin) >= today && inZone(e)).length || '';
+  document.querySelectorAll('.n-unicos').forEach(n => { n.textContent = EV.filter(e => e.unico && !esProf(e) && parse(e.fin) >= today && inZone(e)).length || ''; });
+  $('n-unicos').textContent = EV.filter(e => e.unico && !esProf(e) && parse(e.fin) >= today && inZone(e)).length || '';
   renderFilters();
   renderAgenda();
   $('n-calle').textContent = streets.length ? (cutsOn(today).filter(x => x.mine).length || '') : '';

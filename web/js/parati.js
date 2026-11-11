@@ -115,7 +115,7 @@ function renderParaTi() {
       if (isDismissed(e)) continue;
       if (isFamily(e) && !opts.ninos) continue;
       const occ = occurs(e, a, b); if (!occ || !passF(e, occ)) continue;
-      const s = (e.unico ? 3 : 0) + (e.destacado ? 2 : 0) + (e.fuentes.length > 1 ? 1 : 0);
+      const s = (e.unico ? 3 : 0) + (e.destacado ? 2 : 0) + (e.fuentes.length > 1 ? 1 : 0) - (esProf(e) ? 6 : 0);
       items.push({ e, occ, s });  // en pueblos con pocos destacados, detrás van los demás por fecha
     }
     items.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, y.s - x.s || x.occ.date - y.occ.date || horaOrden(x.e) - horaOrden(y.e)));
@@ -194,7 +194,7 @@ function renderTaste() {
 }
 function setTaste(t) { ponTaste(t); store.set('taste', taste); Object.keys(aiReco).forEach(k => delete aiReco[k]); }
 function renderUnicos() {
-  const list = EV.filter(e => e.unico && !isDismissed(e) && parse(e.fin) >= today && inZone(e))
+  const list = EV.filter(e => e.unico && !esProf(e) && !isDismissed(e) && parse(e.fin) >= today && inZone(e))
     .map(e => ({ e, occ: occurs(e, today, addDays(today, 400)) })).filter(x => x.occ)
     .sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, x.occ.date - y.occ.date || horaOrden(x.e) - horaOrden(y.e)));
   $('un-list').innerHTML = conSeccion(list, x => card(x.e, { occ: x.occ })) || '<div class="empty">No hay planes únicos en las próximas semanas.</div>';

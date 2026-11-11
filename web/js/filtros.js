@@ -167,3 +167,85 @@ function openZone() {
     const z = ev.target.closest('[data-zone-v]'); if (z) { if (z.dataset.zoneV === zone) closeSheets(); else zonaSet(z.dataset.zoneV); }
   });
 }
+
+// ---------- arranque: filtros guardados, distancia, municipio elegido y planes nuevos
+let DISTRITOS, ZONE, SEEN_KEY, seen0, first, sinAlta, muchos, NEW, seenNow, seenObs;  // se fijan al arrancar (iniciaFiltros)
+let F;
+function iniciaFiltros() {
+  // ---------- filtros: zona, hora del día, días y precio (compartidos por Para ti y Explorar)
+  F = Object.assign({ dist: '', near: 0, pos: null, franja: '', dias: '', precio: '' }, store.get('filters', {}));
+  F.pos = null;   F.near = 0;    // la ubicación no se guarda: se pide cada vez
+  // si ya diste permiso antes (o activaste la opción), se usa sin volver a preguntar
+  try {
+    if (opts.dist) askPos(true);
+    else if (navigator.permissions) navigator.permissions.query({ name: 'geolocation' }).then(r => { if (r.state === 'granted') askPos(true); }).catch(() => { });
+  } catch (e) { }
+  DISTRITOS = (CITY.districts || []).slice().sort((a, b) => a.localeCompare(b, 'es'));
+  // ---------- municipio elegido: sus planes primero y después los de alrededor, del más cercano al más lejano
+  ZONE = CITY.muni ? { name: CITY.muni, c: [CITY.lat, CITY.lng], r: 40 } : null;
+  if (ZONE) {  // radio: el menor que junte un buen puñado de planes este mes (un pueblo pequeño mira más lejos)
+    const t0 = new Date(), t1 = new Date(Date.now() + 30 * 864e5);
+    const near = EV.filter(e => e.lat || e.distrito === ZONE.name).filter(e => occurs(e, t0, t1)).map(zkm);
+    ZONE.own = near.filter(d => d === 0).length;
+    ZONE.r = [5, 10, 15, 25, 40].find(r => near.filter(d => d <= r).length >= 40) || 40;
+  }
+  // ---------- planes nuevos: los que no habías visto en este dispositivo antes de esta visita.
+  // «Visto» = la ficha estuvo en pantalla. La lista de vistos se guarda por zona y solo en este dispositivo.
+  // La primera vez en una zona no sabemos qué viste: cuentan como nuevos los planes que entraron en Limón en las últimas 24 horas.
+  // ?nuevos=reset: olvida lo visto en este dispositivo (vuelven a salir como nuevos los planes de las últimas 24 h)
+  if (new URLSearchParams(location.search).get('nuevos') === 'reset') {
+    try { Object.keys(localStorage).filter(k => /^bureo\.seen\d?\./.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) { }
+    history.replaceState(null, '', location.pathname);
+  }
+  SEEN_KEY = 'seen3.' + window.limonCity.zone();
+  seen0 = store.get(SEEN_KEY, null), first = !(Array.isArray(seen0) && seen0.length);
+  sinAlta = EV.length && !EV.some(e => e.alta);    // datos de una versión vieja: no se puede saber qué es nuevo, mejor no guardar nada
+  muchos = EV.filter(reciente0).length > EV.length * 0.3;    // zona recién cargada entera: no tendría sentido marcarlo todo
+  NEW = new Set(EV.filter(e => first ? reciente(e) : !seen0.includes(e.id)).map(e => e.id));
+  seenNow = new Set(first ? EV.filter(e => !reciente(e)).map(e => e.id) : seen0.filter(id => BYID[id]));
+  saveSeen();
+  seenObs = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(x => {
+    if (!x.isIntersecting) return; const id = x.target.dataset.eid; seenObs.unobserve(x.target);
+    if (id && !seenNow.has(id)) { seenNow.add(id); saveSeen(); }
+  }), { threshold: 0.6 }) : null;
+}
+
+// ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
+function clicFtoggle(ev) {
+  const ft = ev.target.closest('[data-ftoggle]');
+  if (ft) { const p = $(ft.dataset.ftoggle + '-fpanel'); p.hidden = !p.hidden; ft.setAttribute('aria-expanded', !p.hidden); renderFilters(); return true; }
+  return false;
+}
+function clicFset(ev) {
+  const fs = ev.target.closest('[data-fset]');
+  if (fs) { setF(fs.dataset.fset, fs.dataset.fval); return true; }
+  return false;
+}
+function clicFclear(ev) {
+  if (ev.target.closest('[data-fclear]')) { F = { dist: '', near: 0, pos: F.pos, franja: '', dias: '', precio: '', temp: false }; setF('dist', ''); return true; }
+  return false;
+}
+function clicCityBtn(ev) {
+  if (ev.target.closest('#city-btn') || ev.target.closest('[data-zone-pick]')) { openZone(); return true; }
+  return false;
+}
+function clicNuevosVer(ev) {
+  if (ev.target.closest('[data-nuevos-ver]')) { F.nuevos = true; go('explorar'); return true; }
+  return false;
+}
+function clicZoneWider(ev) {
+  if (ev.target.closest('[data-zone-wider]')) { ZONE.r = +ev.target.closest('[data-zone-wider]').dataset.zoneWider; renderAll(); return true; }
+  return false;
+}
+function clicZoneLocate(ev) {
+  if (ev.target.closest('[data-zone-locate]')) { locateZone(ev.target.closest('[data-zone-locate]')); return true; }
+  return false;
+}
+function clicZoneHintX(ev) {
+  if (ev.target.closest('[data-zone-hint-x]')) { store.set('zoneAsked', 1); $('zone-hint').hidden = true; return true; }
+  return false;
+}
+function clicCity(ev) {
+  const cb2 = ev.target.closest('[data-city]'); if (cb2) { if (cb2.dataset.city !== CITY.id) zonaSet(cb2.dataset.city); else closeSheets(); return true; }
+  return false;
+}

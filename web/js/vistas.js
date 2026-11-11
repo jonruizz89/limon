@@ -204,3 +204,205 @@ function openFold(id, on) {
   p.classList.toggle('open', !!FOLDS[id]); const h = p.querySelector('h2'); if (h) h.setAttribute('aria-expanded', !!FOLDS[id]);
 }
 const foldHead = t => { const p = t.closest('#v-intereses .panel.fold'); if (!p) return null; const head = p.firstElementChild; return head && head.contains(t) && !t.closest('button:not([role]), a, input, select, textarea, label') ? p : null; };
+
+// ---------- arranque: recuento por categoría, pestañas, nombre de la ciudad y pie
+let tabs;  // se fija al arrancar (iniciaPagina)
+function iniciaPagina() {
+  EV.forEach(e => { if (parse(e.fin) >= today) e.cats.forEach(c => { counts[c] = (counts[c] || 0) + 1; }); });
+  // ---------- eventos de interfaz
+  tabs = ['parati', 'calle', 'unicos', 'explorar', 'agenda', 'intereses', 'fuentes'].filter(t => t !== 'calle' || HAS_CALLE);
+  // nombre de la ciudad en textos fijos; sin datos de cortes, la pestaña Calle no aparece
+  document.querySelectorAll('.cityname').forEach(x => { x.textContent = CITY.name; });
+  document.title = (window.LIMON_STAGING ? '[Pruebas] ' : '') + 'Limón · ' + CITY.name;
+  // redes de la zona (cities.features.instagram / .x): solo se enseñan las que existen, como iconos
+  { const f = CITY.features || {}, ok = v => v && /^[a-z0-9._]{1,30}$/i.test(v);
+    const svg = (n, d) => `<svg width="${n}" height="${n}" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+    const redes = [
+      ok(f.instagram) && { url: 'https://www.instagram.com/' + f.instagram + '/', nombre: 'Instagram: @' + f.instagram,
+        d: '<g fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></g><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/>' },
+      ok(f.x) && { url: 'https://x.com/' + f.x, nombre: 'X: @' + f.x,
+        d: '<path fill="currentColor" d="M17.8 3h3.1l-6.8 7.8L22 21h-6.3l-4.9-6.4L5.2 21H2.1l7.3-8.3L1.8 3h6.4l4.4 5.9zm-1.1 16.2h1.7L7.4 4.7H5.6z"/>' }
+    ].filter(Boolean);
+    if (redes.length) {
+      const a = (r, n, cls, st) => `<a class="${cls}" href="${r.url}" target="_blank" rel="noopener" title="${esc(r.nombre)}" aria-label="${esc(r.nombre)}" style="${st}">${svg(n, r.d)}</a>`;
+      const box = $('ig-perfil'); box.innerHTML = redes.map(r => a(r, 22, 'btn ghost', 'display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0')).join(''); box.hidden = false;
+      const p = $('ig-pt'); p.innerHTML = redes.map(r => a(r, 24, '', 'color:inherit;display:inline-flex;padding:10px')).join(''); p.hidden = false;
+    } }
+  // textos de la pestaña Calle propios de cada ciudad (tabla cities, campo features)
+  { const f = CITY.features || {};
+    if (f.calle_lead) $('ca-lead').textContent = f.calle_lead;
+    if (f.calle_fuentes) $('ca-src').textContent = f.calle_fuentes;
+    if (f.calle_ejemplo) $('ca-street').placeholder = f.calle_ejemplo; }
+  if (!HAS_CALLE) { ['t-calle'].forEach(id => { const el = $(id); if (el) el.hidden = true; }); document.querySelectorAll('[data-bnav="calle"]').forEach(b => { b.hidden = true; b.style.display = 'none'; }); }
+  tabs.forEach(t => $('t-' + t).addEventListener('click', ev => { if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button) return; ev.preventDefault(); go(t); }));
+}
+
+// ---------- arranque: controles de Para ti, Explorar e Intereses
+function iniciaControles() {
+  document.querySelectorAll('[data-when]').forEach(b => b.addEventListener('click', () => { state.when = b.dataset.when; state.ptShown = 12; renderParaTi(); }));
+  $('pt-free').addEventListener('click', () => setF('precio', 'gratis'));
+  // en Para ti solo se ven los mejores de esta semana; los nuevos se repasan todos, por fecha, en Explorar
+  document.querySelectorAll('[data-fventaja]').forEach(b => b.addEventListener('click', () => { F.ventaja = !F.ventaja; renderAll(); }));
+  document.querySelectorAll('[data-ftemp]').forEach(b => b.addEventListener('click', () => { F.temp = !F.temp; store.set('filters', F); track('filtro', null, { temporada: TEMPORADA && TEMPORADA.id, on: F.temp }); renderAll(); }));
+  document.querySelectorAll('[data-nuevos]').forEach(b => b.addEventListener('click', () => { F.nuevos = !F.nuevos; if (F.nuevos && state.tab === 'parati') go('explorar'); else renderAll(); }));
+  $('pt-more').addEventListener('click', () => { state.ptShown += 12; renderParaTi(); });
+  $('ex-more').addEventListener('click', () => { state.exShown += 20; renderExplorar(); });
+  ['ex-q', 'ex-grp', 'ex-when'].forEach(id => $(id).addEventListener('input', () => { state.exShown = 20; renderExplorar(); }));
+  $('ex-free').addEventListener('click', () => setF('precio', 'gratis'));
+  document.addEventListener('change', ev => { const sl = ev.target.closest('[data-fsel]'); if (sl) { F[sl.dataset.fsel] = ''; setF(sl.dataset.fsel, sl.value); } });
+  $('ex-grp').innerHTML = '<option value="">Todas las categorías</option>' + TAX.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('');
+  $('in-q').addEventListener('input', renderIntereses);
+}
+
+// ---------- arranque: buscador de arriba y opciones de Perfil
+function iniciaBuscadorYOpciones() {
+  $('q-global').addEventListener('input', () => {
+    clearTimeout(qTimer); qTimer = setTimeout(() => { const q = $('q-global').value.trim(); if (q.length >= 3) track('buscar', null, { q: q.slice(0, 80) }); }, 1500);
+    $('ex-q').value = $('q-global').value;
+    // al buscar se mira todo lo disponible; al vaciar la búsqueda vuelve el rango que había
+    const qv = $('q-global').value.trim();
+    if (qv && state.whenAntesBuscar == null) { state.whenAntesBuscar = $('ex-when').value; $('ex-when').value = 'todo'; }
+    else if (!qv && state.whenAntesBuscar != null) { $('ex-when').value = state.whenAntesBuscar; state.whenAntesBuscar = null; }
+    state.exShown = 20;
+    if (state.tab !== 'explorar') go('explorar'); else renderExplorar();
+    $('q-global').focus();
+  });
+  $('ex-q').addEventListener('input', () => { $('q-global').value = $('ex-q').value; });
+  $('o-ninos').addEventListener('change', e => { opts.ninos = e.target.checked; store.set('opts', opts); });
+  $('o-stats').checked = !!(window.limonConsent && window.limonConsent.get() === '1');
+  $('o-stats').addEventListener('change', async e => { await window.limonConsent.set(e.target.checked); toast(e.target.checked ? 'Gracias por ayudar.' : 'Hecho: dejamos de guardar estadísticas de tu uso.'); renderAll(); });
+  $('o-perro').addEventListener('change', e => { opts.perro = e.target.checked; store.set('opts', opts); });
+  $('o-dist').addEventListener('change', e => { opts.dist = e.target.checked; store.set('opts', opts); if (opts.dist) askPos(false); else { userPos = null; renderAll(); } });
+  $('in-reset').addEventListener('click', () => { prefs = Object.assign({}, SAMPLE); store.set('prefs', prefs); renderIntereses(); });
+  $('in-clear').addEventListener('click', () => { prefs = {}; store.set('prefs', prefs); renderIntereses(); });
+}
+
+// ---------- arranque: la pestaña o el plan con el que se abre la app
+let QS, t0, ev0;  // se fijan al arrancar (iniciaPrimeraVista)
+function iniciaPrimeraVista() {
+  // enlaces desde los correos: ?ev=e123 abre ese evento, ?tab=calle abre una pestaña, ?baja=…&k=… da de baja un aviso
+  QS = new URLSearchParams(location.search);
+  try { tabSes = sessionStorage.getItem('bureo.tab'); } catch (e) { }
+  t0 = QS.get('tab') || tabSes || 'parati';
+  ev0 = QS.get('ev') && (BYID[QS.get('ev')] || BYID['e' + QS.get('ev')]);
+  if (ev0) { state.filter = { kind: 'id', value: ev0.id, label: ev0.titulo }; state.open[ev0.id] = true; $('ex-when').value = 'todo'; go('explorar'); }
+  else go(tabs.includes(t0) ? t0 : 'parati');
+}
+
+// ---------- arranque: secciones plegables de Perfil
+function iniciaPlegables() {
+  try { FOLDS = JSON.parse(sessionStorage.getItem('bureo.folds') || '{}'); localStorage.removeItem('bureo.folds'); } catch (e) { }
+  document.addEventListener('click', ev => { const p = foldHead(ev.target); if (p) { ev.stopPropagation(); openFold(p.id); } }, true);
+  document.addEventListener('keydown', ev => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('#v-intereses .panel.fold h2')) { ev.preventDefault(); openFold(ev.target.closest('.panel').id); } });
+  // los apartados se repintan a menudo: se vuelve a marcar el título como botón
+  new MutationObserver(() => setupFolds()).observe($('v-intereses'), { childList: true, subtree: false });
+  ['social', 'seguir', 'ventajas', 'year', 'ideas', 'org', 'adm', 'stats', 'mail'].forEach(id => { const el = $(id); if (el) new MutationObserver(() => { const h = el.querySelector('h2'); if (h && !h.hasAttribute('role')) { h.setAttribute('role', 'button'); h.tabIndex = 0; h.setAttribute('aria-expanded', !!FOLDS[id]); } }).observe(el, { childList: true }); });
+  setupFolds();
+}
+
+// ---------- arranque: ideas parecidas y enlaces ?fui, ?ideas, ?u y ?lista
+function iniciaEnlacesDirectos() {
+    // partido para que la sustitución al publicar no lo toque
+  document.addEventListener('input', ev => { if (ev.target.id === 'idea-title') { IDEAS_SIM = similarIdeas(ev.target.value); const b = $('idea-sim'); if (b) b.innerHTML = IDEAS_SIM.length ? '<p class="note" style="margin:0">¿Es alguna de estas? Mejor vótala para que sume:</p>' + IDEAS_SIM.map(ideaRow).join('') : ''; } });
+  if (QS.get('fui')) go('parati');
+  if (QS.get('ideas') !== null) { go('intereses'); openFold('ideas', true); setTimeout(() => { const b = $('ideas'); if (b) b.scrollIntoView({ behavior: 'smooth' }); }, 400); }
+  if (QS.get('u') && /^[a-z0-9_.]{3,20}$/i.test(QS.get('u'))) { const un = QS.get('u'); go('intereses'); setTimeout(() => openProfile(un), 300); }
+  if (QS.get('lista') && /^\d+$/.test(QS.get('lista'))) { const li = QS.get('lista'); setTimeout(() => openList(li), 300); }
+  if (QS.has('ev') || QS.has('baja') || QS.has('tab') || QS.has('quedar') || QS.has('u') || QS.has('lista') || QS.has('ideas') || QS.has('fui')) history.replaceState(null, '', location.pathname);
+}
+
+// ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
+function clicEnlaceDeLaApp(ev) {
+  // enlaces de la app (pestañas, planes): clic normal se queda en la app; Ctrl/Cmd/Mayús o botón central, pestaña nueva
+  const lk = ev.target.closest('a[data-goto], a[data-open]');
+  if (lk) { if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button) return true; ev.preventDefault(); }
+  return false;
+}
+function clicFiltroDeTarjeta(ev) {
+  const ff = ev.target.closest('[data-f-cat], [data-f-tema], [data-f-serie]');
+  if (ff) {
+    const kind = ff.dataset.fCat ? 'cat' : ff.dataset.fTema ? 'tema' : 'serie';
+    state.filter = { kind, value: ff.dataset.fCat || ff.dataset.fTema || ff.dataset.fSerie };
+    $('q-global').value = ''; $('ex-q').value = ''; $('ex-grp').value = ''; $('ex-when').value = 'todo';
+    state.exShown = 20; go('explorar'); return true;
+  }
+  return false;
+}
+function clicExClear(ev) {
+  if (ev.target.closest('#ex-clear')) { state.filter = null; state.exShown = 20; renderExplorar(); return true; }
+  return false;
+}
+function clicGoto(ev) {
+  const gt = ev.target.closest('[data-goto]');
+  if (gt) { if (gt.dataset.fold) openFold(gt.dataset.fold, true); go(gt.dataset.goto); return true; }
+  return false;
+}
+function clicInteresesRapido(ev) {
+  if (ev.target.closest('[data-intereses-rapido]')) { interesesRapido(); return true; }
+  return false;
+}
+function clicQgrp(ev) {
+  const qg = ev.target.closest('[data-qgrp]');
+  if (qg) {
+    const g = TAX.find(x => x.id === qg.dataset.qgrp); if (!g) return true;
+    const all = g.items.every(it => prefs[it.id] === 1);
+    g.items.forEach(it => { if (all) delete prefs[it.id]; else prefs[it.id] = 1; });
+    store.set('prefs', prefs); qg.setAttribute('aria-pressed', String(!all)); return true;
+  }
+  return false;
+}
+function clicQver(ev) {
+  if (ev.target.closest('[data-qver]')) { closeSheets(); state.ptShown = 20; go('parati'); window.scrollTo(0, 0); renderAll(); return true; }
+  return false;
+}
+function clicQmas(ev) {
+  if (ev.target.closest('[data-qmas]')) { closeSheets(); go('intereses'); if (!logged) openFold('account', false); openFold('in-panel', true); setTimeout(() => { const p = $('in-panel'); if (p) p.scrollIntoView({ block: 'start' }); }, 50); return true; }
+  return false;
+}
+function clicIdeas(ev) {
+  if (ev.target.closest('[data-vote],[data-idea-tab],[data-idea-del]')) { ideasClick(ev.target); return true; }
+  return false;
+}
+function clicGoev(ev) {
+  const gv = ev.target.closest('[data-goev]');
+  if (gv && BYID[gv.dataset.goev]) { closeSheets(); const x = BYID[gv.dataset.goev]; state.filter = { kind: 'id', value: x.id, label: x.titulo }; state.open[x.id] = true; $('ex-when').value = 'todo'; go('explorar'); return true; }
+  return false;
+}
+function clicGotoEv(ev) {
+  const ge = ev.target.closest('[data-goto-ev]');
+  if (ge) { const id = ge.dataset.gotoEv; state.open[id] = true; $('ex-q').value = $('q-global').value = BYID[id].titulo; $('ex-when').value = 'todo'; go('explorar'); return true; }
+  return false;
+}
+function clicGrp(ev) {
+  const g = ev.target.closest('[data-grp]');
+  if (g) { state.groupsOpen[g.dataset.grp] = !state.groupsOpen[g.dataset.grp]; renderIntereses(); return true; }
+  return false;
+}
+function clicCat(ev) {
+  const c = ev.target.closest('[data-cat]');
+  if (c) { const id = c.dataset.cat; prefs[id] = ((prefs[id] || 0) + 1) % 3; if (!prefs[id]) delete prefs[id]; store.set('prefs', prefs); renderIntereses(); const el = document.querySelector(`[data-cat="${id}"]`); if (el) el.focus(); }
+  return false;
+}
+
+// ---------- cambios y envíos de formularios de este tema. Devuelven false si no era suyo; el orden está en js/inicio.js
+function envioIdea(ev) {
+  const db = window.limonDB, u = db && db.user();
+  if (ev.target.id === 'idea-form') return (async () => {
+    ev.preventDefault(); const f = new FormData(ev.target);
+    $('idea-msg').textContent = 'Enviando…';
+    const { error } = await db.sb.from('ideas').insert({ author: u.id, kind: f.get('kind'), title: String(f.get('title')).trim(), body: String(f.get('body') || '').trim() || null });
+    if (error) { $('idea-msg').textContent = error.message; return; }
+    IDEAS_SIM = []; IDEAS_TAB = 'nuevas'; flushMail(); await loadIdeas(); toast('¡Gracias! La revisamos y en cuanto la aprobemos saldrá en el tablón.'); return;
+  })();
+  return false;
+}
+function envioIdeaAdmin(ev) {
+  const db = window.limonDB, u = db && db.user();
+  const ia = ev.target.closest('[data-idea-adm]');
+  if (ia) return (async () => {
+    ev.preventDefault(); const f = new FormData(ia);
+    const { error } = await db.sb.from('ideas').update({ status: f.get('s'), admin_note: String(f.get('n') || '').trim() || null }).eq('id', +ia.dataset.ideaAdm);
+    toast(error ? 'No se ha podido: ' + error.message : 'Guardado.'); flushMail(); await loadIdeas(); return;
+  })();
+  return false;
+}

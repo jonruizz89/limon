@@ -314,3 +314,171 @@ function buildYear() {
   return `<div class="routewarn" style="font-size:15px"><b style="font-size:22px">${rows.length}</b> ${rows.length === 1 ? 'plan' : 'planes'} en ${y}<ul style="margin:8px 0 0;padding-left:18px">${lines.slice(1).map(l => `<li>${esc(l)}</li>`).join('')}</ul></div>
       <div class="seg"><button class="btn ghost" data-year-share>Compartir</button></div>`;
 }
+
+// ---------- arranque: temas seguidos, diario y ventajas
+let ORIGIN;  // se fija al arrancar (iniciaSocial)
+let TOPICS, DIARY, ventajas;
+function iniciaSocial() {
+  TOPICS = store.get('topics', []);    // [{ kind: 'sala' | 'ciclo' | 'tema' | 'artista', value }]
+  DIARY = store.get('diary', {});      // 'e123' → { rating, note }
+  ORIGIN = location.origin + location.pathname;
+  ventajas = store.get('ventajas', []);
+}
+
+// ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
+function clicSheetClose(ev) {
+  if (ev.target.closest('[data-sheet-close]')) { closeSheets(); return true; }
+  return false;
+}
+function clicProf(ev) {
+  const pf = ev.target.closest('[data-prof]'); if (pf) { openProfile(pf.dataset.prof); return true; }
+  return false;
+}
+function clicList(ev) {
+  const ol = ev.target.closest('[data-list]'); if (ol) { openList(ol.dataset.list); return true; }
+  return false;
+}
+function clicSocial(ev) {
+  if (ev.target.closest('[data-follow],[data-unfollow],[data-req-ok],[data-req-no]')) { socialAction(ev.target); return true; }
+  return false;
+}
+function clicTopic(ev) {
+  const tp = ev.target.closest('[data-topic]'); if (tp) { toggleTopic(tp.dataset.topicKind, tp.dataset.topic); return true; }
+  return false;
+}
+function clicAddlist(ev) {
+  const al = ev.target.closest('[data-addlist]'); if (al) { state.listing = state.listing === al.dataset.addlist ? null : al.dataset.addlist; renderAll(); return true; }
+  return false;
+}
+function clicRate(ev) {
+  const rate = ev.target.closest('[data-rate]'); if (rate) { saveDiary(rate.dataset.rate, { rating: +rate.dataset.n }).then(() => { renderAll(); }); return true; }
+  return false;
+}
+function clicSocEdit(ev) {
+  if (ev.target.closest('[data-soc-edit]')) { SOC.editing = true; renderSocial(); return true; }
+  return false;
+}
+function clicSocCancel(ev) {
+  if (ev.target.closest('[data-soc-cancel]')) { SOC.editing = false; renderSocial(); return true; }
+  return false;
+}
+function clicSocShare(ev) {
+  if (ev.target.closest('[data-soc-share]') && SOC.me) { shareLink(ORIGIN + '?u=' + SOC.me.username, 'Limón', `Sígueme en Limón para ver a qué planes voy en ${CITY.name}:`); return true; }
+  return false;
+}
+function clicSocContacts(ev) {
+  if (ev.target.closest('[data-soc-contacts]')) {
+    (async () => {
+      try {
+        const cs = await navigator.contacts.select(['email'], { multiple: true });
+        const emails = cs.flatMap(c => c.email || []).slice(0, 500);
+        if (!emails.length) { toast('Esos contactos no tienen correo.'); return; }
+        const { data } = await sbx().rpc('find_by_emails', { p_emails: emails });
+        SOC.results = data || []; SOC.resultsMsg = 'Ninguno de esos contactos está en Limón o ha permitido que le encuentren por su correo.'; renderSocial();
+      } catch (x) { if (x && x.name !== 'AbortError') toast('No he podido abrir tus contactos.'); }
+    })(); return true;
+  }
+  return false;
+}
+function clicYear(ev) {
+  if (ev.target.closest('[data-year]')) { state.year = state.year ? '' : buildYear(); renderYear(); if (state.year) openFold('year', true); return true; }
+  return false;
+}
+function clicYearShare(ev) {
+  if (ev.target.closest('[data-year-share]')) { shareLink(ORIGIN, 'Mi año en planes', 'Mi año en planes con Limón: ' + (SOC.yearText || '')); return true; }
+  return false;
+}
+function clicListPub(ev) {
+  const lp = ev.target.closest('[data-list-pub]');
+  if (lp) { const l = MYLISTS.find(x => x.id === +lp.dataset.listPub); sbx().from('user_lists').update({ is_public: !l.is_public, updated_at: new Date().toISOString() }).eq('id', l.id).then(() => loadSocial()); return true; }
+  return false;
+}
+function clicListShare(ev) {
+  const ls = ev.target.closest('[data-list-share]');
+  if (ls) { const l = MYLISTS.find(x => x.id === +ls.dataset.listShare) || (SHEET && SHEET.data) || {}; shareLink(ORIGIN + '?lista=' + ls.dataset.listShare, l.title || 'Lista', `Mira esta lista de planes en Limón: «${l.title || ''}»`); return true; }
+  return false;
+}
+function clicListDel(ev) {
+  const ld = ev.target.closest('[data-list-del]');
+  if (ld) { const l = MYLISTS.find(x => x.id === +ld.dataset.listDel); if (confirm(`¿Borrar la lista «${l.title}»?`)) sbx().from('user_lists').delete().eq('id', l.id).then(() => { toast('Lista borrada.'); loadSocial(); }); return true; }
+  return false;
+}
+function clicListFollow(ev) {
+  const lf = ev.target.closest('[data-list-follow]');
+  if (lf) {
+    const id = +lf.dataset.listFollow, on = !(SHEET && SHEET.data && SHEET.data.following);
+    (on ? sbx().from('list_follows').insert({ user_id: uid(), list_id: id }) : sbx().from('list_follows').delete().eq('user_id', uid()).eq('list_id', id))
+      .then(() => { toast(on ? 'Sigues esta lista: la tienes en tu agenda.' : 'Ya no sigues esta lista.'); openList(id); loadSocial(); });
+    return true;
+  }
+  return false;
+}
+
+// ---------- cambios y envíos de formularios de este tema. Devuelven false si no era suyo; el orden está en js/inicio.js
+function cambioVentaja(ev) {
+  const vj = ev.target.closest('[data-ventaja]');
+  if (vj) {
+    ventajas = vj.checked ? ventajas.concat(vj.dataset.ventaja) : ventajas.filter(x => x !== vj.dataset.ventaja); store.set('ventajas', ventajas);
+    const sb = sbx(), id = uid(); if (sb && id) sb.from('profiles').update({ ventajas }).eq('id', id);
+    renderFilters();
+    renderAll(); return true;
+  }
+  return false;
+}
+function cambioListaDePlan(ev) {
+  const lt = ev.target.closest('[data-li-toggle]');
+  if (lt) return (async () => {
+    const l = MYLISTS.find(x => x.id === +lt.dataset.liToggle), evId = lt.dataset.ev, sb = sbx();
+    if (lt.checked) await sb.from('list_items').insert({ list_id: l.id, event_id: +evId.slice(1) }); else await sb.from('list_items').delete().eq('list_id', l.id).eq('event_id', +evId.slice(1));
+    await sb.from('user_lists').update({ updated_at: new Date().toISOString() }).eq('id', l.id);
+    toast(lt.checked ? `Añadido a «${l.title}».` : `Quitado de «${l.title}».`); await loadSocial(); return;
+  })();
+  return false;
+}
+function envioPerfil(ev) {
+  const db = window.limonDB, u = db && db.user();
+  if (ev.target.id === 'soc-form') return (async () => {
+    ev.preventDefault(); const f = new FormData(ev.target);
+    const username = String(f.get('username') || '').trim().toLowerCase().replace(/^@/, '');
+    if (!/^[a-z0-9_.]{3,20}$/.test(username)) { $('soc-msg').textContent = 'El usuario debe tener de 3 a 20 caracteres: letras sin tildes, números, punto o guion bajo.'; return; }
+    $('soc-msg').textContent = 'Guardando…';
+    const { error } = await db.sb.from('profiles').update({ username, display_name: String(f.get('name')).trim(), bio: String(f.get('bio') || '').trim() || null,
+      is_public: f.get('vis') === 'pub', findable_email: !!f.get('findable') }).eq('id', u.id);
+    if (error) { $('soc-msg').textContent = /duplicate|unique/i.test(error.message) ? 'Ese usuario ya existe: prueba otro.' : 'No se ha podido guardar: ' + error.message; return; }
+    SOC.editing = false; await loadSocial(); toast('Perfil guardado.'); return;
+  })();
+  return false;
+}
+function envioBuscarGente(ev) {
+  const db = window.limonDB, u = db && db.user();
+  if (ev.target.id === 'soc-search') return (async () => {
+    ev.preventDefault(); const q = String(new FormData(ev.target).get('q') || '').trim(); if (q.length < 2) return;
+    const { data } = await db.sb.rpc('profile_search', { p_q: q }); SOC.results = data || []; SOC.lastQ = q; SOC.resultsMsg = 'No he encontrado a nadie con ese nombre o usuario.'; renderSocial(); return;
+  })();
+  return false;
+}
+function envioSeguirTema(ev) {
+  if (ev.target.id === 'seguir-form') return (async () => {
+    ev.preventDefault(); const v = String(new FormData(ev.target).get('v') || '').trim(); if (v.length < 2) return;
+    const tema = Object.values(BYID).some(e => (e.temas || []).some(t => nf(t) === nf(v)));
+    if (!following(tema ? 'tema' : 'artista', v)) await toggleTopic(tema ? 'tema' : 'artista', v); return;
+  })();
+  return false;
+}
+function envioListaNueva(ev) {
+  const db = window.limonDB, u = db && db.user();
+  const nl = ev.target.closest('[data-newlist]');
+  if (nl) return (async () => {
+    ev.preventDefault(); const f = new FormData(nl), e = BYID[nl.dataset.newlist];
+    const { data, error } = await db.sb.from('user_lists').insert({ owner: u.id, title: String(f.get('t')).trim(), is_public: !!f.get('pub') }).select('id').single();
+    if (error) { toast('No se ha podido crear: ' + error.message); return; }
+    await db.sb.from('list_items').insert({ list_id: data.id, event_id: +e.id.slice(1) });
+    toast('Lista creada con este plan.'); await loadSocial(); return;
+  })();
+  return false;
+}
+function envioNota(ev) {
+  const nf2 = ev.target.closest('[data-note-form]');
+  if (nf2) return (async () => { ev.preventDefault(); await saveDiary(nf2.dataset.noteForm, { note: String(new FormData(nf2).get('note') || '').trim() || null }); toast('Apunte guardado.'); renderAll(); return; })();
+  return false;
+}

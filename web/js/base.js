@@ -115,3 +115,82 @@ function toast(msg, undo, label) {
   $('toast-t').textContent = msg; $('toast-undo').hidden = !undo; $('toast-undo').textContent = label || 'Deshacer'; toastUndo = undo || null;
   $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, label ? 6000 : 5000);
 }
+
+// ---------- arranque: los datos de la zona, las etiquetas, lo guardado en el dispositivo y la fecha de hoy
+let DATA, TAX, sync, EV, META, CLOSURES, CITY, CENTER, HAS_CALLE, today, HOY0, BYID;  // se fijan al arrancar (iniciaDatos)
+let VISITAS, prefs, opts, saved, streets, dismissed, went, nofui, learned, taste, tasteText;
+function iniciaDatos() {
+  ({ DATA, TAX, sync } = window.LIMON_INICIO);
+
+  EV = DATA.eventos;
+  META = DATA.meta;
+  TAX.forEach(g => { GROUP_NAME[g.id] = g.name; g.items.forEach(it => { LABEL[it.id] = it.label; GROUP_OF[it.id] = g.id; }); });
+  // número de veces que se ha abierto la app en este navegador (una por sesión): para no repetir presentaciones
+  VISITAS = store.get('visitas', 0);
+  try { if (!sessionStorage.getItem('limon.ses')) { sessionStorage.setItem('limon.ses', '1'); VISITAS += 1; store.set('visitas', VISITAS); } } catch (e) { }
+  prefs = store.get('prefs', null) || {};
+  opts = store.get('opts', { ninos: false, perro: false });
+  saved = store.get('saved', []);
+  streets = store.get('streets', []);
+  dismissed = store.get('dismissed', []);
+  went = store.get('went', []);
+  nofui = store.get('nofui', []);    // planes guardados a los que al final no fue («¿Al final fuiste?» → No)
+  learned = store.get('learned', {});
+  taste = store.get('taste', null);
+  tasteText = store.get('taste_text', '');
+  CLOSURES = DATA.closures || [];
+  // ciudad elegida: centro, distritos, estadios y secciones disponibles vienen de la tabla de ciudades
+  CITY = DATA.city || { id: 'madrid', name: 'Madrid', lat: 40.4168, lng: -3.7038, districts: [], stadiums: [], features: { calle: true } };
+  CENTER = [CITY.lat, CITY.lng];
+  HAS_CALLE = !!(CITY.features && CITY.features.calle);
+  // ---------- fechas
+  today = new Date();   today.setHours(0, 0, 0, 0);
+  HOY0 = +parse(ymd(new Date()));
+  BYID = Object.fromEntries(EV.map(e => [e.id, e]));
+}
+
+// ---------- arranque: botones del aviso (deshacer y cerrar)
+function iniciaAviso() {
+  $('toast-undo').addEventListener('click', () => { $('toast').hidden = true; if (toastUndo) toastUndo(); toastUndo = null; });
+  $('toast-x').addEventListener('click', () => { $('toast').hidden = true; toastUndo = null; clearTimeout(toastTimer); });
+}
+
+// ---------- arranque: clics en enlaces a las webs de los planes
+function iniciaEnlacesExternos() {
+  // enlaces que sacan de Limón (web del organizador, fuente, cómo llegar): señal fuerte de interés
+  document.addEventListener('click', ev => {
+    const a = ev.target.closest('.card a[target="_blank"]'); if (!a) return;
+    const c = a.closest('[data-eid]'); if (!c) return;
+    track('web', c.dataset.eid, { tipo: /google\.com\/maps/.test(a.href) ? 'mapa' : /organizador/i.test(a.textContent) ? 'organizador' : 'fuente' });
+  }, true);
+}
+
+// ---------- arranque: lo que data.js necesita de la app (sincronizar con la cuenta, repintar…)
+function entregaApp() {
+  // lo que usa data.js para sincronizar la cuenta
+  window.LIMON_INICIO.listo({
+    get: () => ({ prefs, opts, saved, streets, dismissed, went, nofui, learned, taste }),
+    setUser(v) { logged = v; Object.keys(aiReco).forEach(k => delete aiReco[k]); renderAll(); loadMe(); loadInvites(); loadSocial(); loadIdeas(); loadPast(); },
+    set(p) {
+      if (p.prefs) prefs = p.prefs; if (p.opts) opts = Object.assign({}, opts, p.opts, { dist: opts.dist });  // la distancia es de cada dispositivo: la cuenta no la pisa
+      if (p.saved) saved = p.saved; if (p.streets) streets = p.streets;
+      if (p.dismissed) dismissed = p.dismissed; if (p.went) went = p.went; if (p.nofui) nofui = p.nofui; if (p.learned) learned = p.learned;
+      if ('taste' in p) { taste = p.taste; try { localStorage.setItem('bureo.taste', JSON.stringify(taste)); } catch (e) { } }
+      if ('taste_text' in p) { tasteText = p.taste_text || ''; try { localStorage.setItem('bureo.taste_text', JSON.stringify(tasteText)); } catch (e) { } }
+      if ('taste' in p || 'taste_text' in p) { Object.keys(aiReco).forEach(k => delete aiReco[k]); if (!p.prefs) { renderAll(); return; } }
+      store.set('prefs', prefs); store.set('opts', opts); store.set('saved', saved); store.set('streets', streets);
+      store.set('dismissed', dismissed); store.set('went', went); store.set('nofui', nofui); store.set('learned', learned); renderAll(); loadPast();
+    }
+  });
+}
+
+// ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
+function clicTema(ev) {
+  const tm = ev.target.closest('[data-tema]');
+  if (tm) {
+    const t = tm.dataset.tema;
+    if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+    store.set('tema', t); pintaTema(); renderAll(); return true;
+  }
+  return false;
+}

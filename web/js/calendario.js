@@ -69,3 +69,34 @@ const LIBRE = new Set(['pintura', 'fotografia', 'escultura', 'contemporaneo', 'u
   'ferias_arte', 'artesania', 'ferias_consumo', 'comic', 'videojuegos', 'coleccionismo', 'moda', 'hogar', 'salones_motor', 'profesionales', 'salones_mascota',
   'adopcion', 'petfriendly', 'fiestas', 'tradiciones', 'ferias', 'mercadillos', 'desfiles', 'noche', 'discotecas', 'mercados_gastro', 'tapas', 'jornadas_gastro',
   'festivales_gastro', 'popups', 'foodtrucks', 'museos', 'monumentos', 'jardines', 'ferias_libro', 'festivales_musica', 'huertos']);
+
+// ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
+function clicCuando(ev) {
+  const cu = ev.target.closest('[data-cuando]'); if (cu) { abrirCalendario(cu.dataset.cuando); return true; }
+  return false;
+}
+function clicCalq(ev) {
+  const cq = ev.target.closest('[data-calq]');
+  if (cq && CAL) { if (CAL.ctx === 'ca') { state.caDay = cq.dataset.calq; closeSheets(); renderCalle(); } else aplicaCuando(CAL.ctx, cq.dataset.calq); return true; }
+  return false;
+}
+function clicCalm(ev) {
+  const cmes = ev.target.closest('[data-calm]'); if (cmes && CAL) { CAL.mes = new Date(CAL.mes.getFullYear(), CAL.mes.getMonth() + +cmes.dataset.calm, 1); pintaCal(); return true; }
+  return false;
+}
+function clicCald(ev) {
+  const cdia = ev.target.closest('[data-cald]');
+  if (cdia && CAL) {
+    const f = new Date(+cdia.dataset.cald);
+    if (CAL.ctx === 'ca') { state.caOtro = f; state.caDay = +f === +today ? 'hoy' : +f === +addDays(today, 1) ? 'manana' : 'otro'; closeSheets(); renderCalle(); return true; }
+    if (!CAL.sel || CAL.sel[1] || f < CAL.sel[0]) CAL.sel = [f, null];  // primer día (o se empieza de nuevo)
+    else CAL.sel = +f === +CAL.sel[0] ? [f, null] : [CAL.sel[0], f];
+    if (CAL.sel[1] && (CAL.sel[1] - CAL.sel[0]) / 864e5 > 30) CAL.sel = [f, null];  // como mucho un mes
+    pintaCal(); return true;
+  }
+  return false;
+}
+function clicCalok(ev) {
+  if (ev.target.closest('[data-calok]') && CAL && CAL.sel) { state.rango = [CAL.sel[0], CAL.sel[1] || CAL.sel[0]]; aplicaCuando(CAL.ctx, 'rango'); return true; }
+  return false;
+}

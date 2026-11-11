@@ -1,6 +1,6 @@
 // Carga los archivos de web/js en un contexto aislado de Node, con el reloj parado en el momento que diga la prueba.
 // Los archivos por tema solo declaran funciones y valores (lo que se ejecuta al arrancar está en inicio.js), así que se pueden
-// cargar sin navegador. De inicio.js se toman, tal cual, las líneas que calculan «hoy» y la temporada.
+// cargar sin navegador. De sus funciones de arranque se toman, tal cual, las líneas que calculan «hoy» y la temporada.
 process.env.TZ = 'Europe/Madrid';
 import vm from 'node:vm';
 import fs from 'node:fs';
@@ -10,7 +10,8 @@ import { fileURLToPath } from 'node:url';
 export const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const JS = path.join(RAIZ, 'web/js');
 const TEMAS = ['base', 'calendario', 'filtros', 'temporadas', 'tarjetas', 'compartir', 'calle'];
-const DE_INICIO = [/^const today = .*$/m, /^const HOY0 = .*$/m, /^const TEMPORADA = .*$/m];
+// lo que la app calcula al arrancar (en las funciones inicia… de cada tema) y hace falta aquí: la fecha de hoy y la temporada
+const AL_ARRANCAR = [/^ *today = new Date\(\); *today\.setHours\(0, 0, 0, 0\);$/m, /^ *HOY0 = .*$/m, /^ *TEMPORADA = .*$/m];
 
 // app('2026-11-10T19:00') → función que evalúa código dentro de la app: const { yaPaso } = app(...)(`({ yaPaso })`)
 export function app(ahora = '2026-11-10T12:00', { grupos = {} } = {}) {
@@ -28,11 +29,11 @@ export function app(ahora = '2026-11-10T12:00', { grupos = {} } = {}) {
   // reloj parado: new Date() y Date.now() devuelven siempre el mismo instante
   vm.runInContext(`{ const R = Date; globalThis.Date = class extends R { constructor(...a) { if (a.length) super(...a); else super(${T}); } static now() { return ${T}; } }; }`, ctx);
   for (const f of TEMAS) vm.runInContext(fs.readFileSync(path.join(JS, f + '.js'), 'utf8'), ctx, { filename: 'web/js/' + f + '.js' });
-  const inicio = fs.readFileSync(path.join(JS, 'inicio.js'), 'utf8');
-  for (const re of DE_INICIO) {
-    const m = inicio.match(re);
-    if (!m) throw new Error('inicio.js ya no tiene la línea ' + re + ': revisa engine/tests/app/cargar.mjs');
-    vm.runInContext(m[0], ctx, { filename: 'web/js/inicio.js' });
+  const codigo = TEMAS.map((f) => fs.readFileSync(path.join(JS, f + '.js'), 'utf8')).join('\n');
+  for (const re of AL_ARRANCAR) {
+    const m = codigo.match(re);
+    if (!m) throw new Error('web/js ya no tiene la línea ' + re + ': revisa engine/tests/app/cargar.mjs');
+    vm.runInContext(m[0], ctx, { filename: 'web/js (arranque)' });
   }
   // grupo de cada categoría (en la app sale de la taxonomía): { rock: 'musica', teatro: 'escena' }
   vm.runInContext(`Object.assign(GROUP_OF, ${JSON.stringify(grupos)})`, ctx);

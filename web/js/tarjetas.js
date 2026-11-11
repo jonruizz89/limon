@@ -137,3 +137,57 @@ function card(e, opt) {
       </button>
     </article>`;
 }
+
+// ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
+function clicSave(ev) {
+  const s = ev.target.closest('[data-save]');
+  if (s) {
+    const id = s.dataset.save, on = !saved.includes(id);
+    saved = on ? saved.concat(id) : saved.filter(x => x !== id); store.set('saved', saved);
+    if (BYID[id]) learn(BYID[id], on ? 'save' : 'unsave');
+    // al repintar, la lista puede reordenarse (aprende de lo guardado): la tarjeta tocada se queda donde estaba en pantalla
+    const art = s.closest('article'), y0 = art ? art.getBoundingClientRect().top : null, vista = art && art.closest('section, .view, [id^="v-"]');
+    renderAll();
+    if (y0 != null && vista) {
+      const otra = [...vista.querySelectorAll('[data-save]')].find(b => b.dataset.save === id);
+      const a2 = otra && otra.closest('article');
+      if (a2) window.scrollBy(0, a2.getBoundingClientRect().top - y0);
+    }
+    const deshacer = () => { saved = on ? saved.filter(x => x !== id) : saved.concat(id); store.set('saved', saved); if (BYID[id]) learn(BYID[id], on ? 'unsave' : 'save'); renderAll(); };
+    if (on && !logged && (saved.length === 1 || saved.length === 3)) toast('Guardado. Con una cuenta gratis te avisamos antes de que empiece.', () => go('intereses'), 'Crear cuenta');
+    else toast(on ? 'Guardado en tu agenda.' : 'Quitado de tu agenda.', deshacer);
+    return true;
+  }
+  return false;
+}
+function clicDismiss(ev) {
+  const dm = ev.target.closest('[data-dismiss]');
+  if (dm) {
+    const id = dm.dataset.dismiss, on = !dismissed.includes(id);
+    dismissed = on ? dismissed.concat(id) : dismissed.filter(x => x !== id); store.set('dismissed', dismissed);
+    if (BYID[id]) learn(BYID[id], on ? 'dismiss' : 'undismiss');
+    if (on) toast('No volverá a salir en tus recomendaciones.', () => { dismissed = dismissed.filter(x => x !== id); store.set('dismissed', dismissed); learn(BYID[id], 'undismiss'); renderAll(); });
+    renderAll(); return true;
+  }
+  return false;
+}
+function clicWent(ev) {
+  const wn = ev.target.closest('[data-went]');
+  if (wn) {
+    const id = wn.dataset.went, on = !went.includes(id);
+    went = on ? went.concat(id) : went.filter(x => x !== id); store.set('went', went);
+    if (BYID[id]) learn(BYID[id], on ? 'went' : 'unwent');
+    if (on) toast('Anotado. Te recomendaremos más planes así.');
+    renderAll(); return true;
+  }
+  return false;
+}
+function clicTarjeta(ev) {
+  let o = ev.target.closest('[data-open]');
+  if (!o) {
+    const c = ev.target.closest('.card');
+    if (c && !ev.target.closest('a, button, .more')) o = c.querySelector('[data-open]');
+  }
+  if (o) { const id = o.dataset.open; state.open[id] = !state.open[id]; fichaHistoria(id, state.open[id]); if (state.open[id]) { store.set('abiertos', store.get('abiertos', 0) + 1); const all = [...document.querySelectorAll('#v-' + state.tab + ' [data-open]')].map(x => x.dataset.open); track('abrir', id, { pos: all.indexOf(id) + 1 || null }); } renderAll(); const el = document.querySelector(`[data-open="${id}"]`); if (el) el.focus(); return true; }
+  return false;
+}

@@ -272,3 +272,133 @@ async function onAccountClick(ev) {
   if (cp) { try { await navigator.clipboard.writeText(cp.dataset.copy); toast('Enlace copiado. En tu calendario, busca «Añadir calendario desde URL» (o «suscribirse») y pégalo.'); } catch (e) { prompt('Copia este enlace:', cp.dataset.copy); } return true; }
   return false;
 }
+
+// ---------- arranque: instalar la app, avisos push, versión y vuelta a primer plano
+let CONF, isIOS, esSafariIOS;  // se fijan al arrancar (iniciaCuenta)
+function iniciaCuenta() {
+  // ---------- cuenta: organizadores, revisión (admin) y calendario
+  CONF = window.BUREO_CONFIG;
+  isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // ---------- proponer instalar la app: a partir de la 3.ª visita, en el móvil, y nunca más si se descarta
+  esSafariIOS = isIOS && /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
+  window.addEventListener('limon-install', () => { if (state.tab === 'parati') renderAll(); });
+  window.addEventListener('appinstalled', () => { store.set('instalar_no', true); renderAll(); });
+  clearBadge();   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') clearBadge(); });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').then(refreshPush).catch(e => console.warn('sw', e));
+  pageVersion().then(v => { myVersion = v; });
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+    if (!hiddenAt || Date.now() - hiddenAt < 10 * 60e3) return;
+    if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => { });
+    const v = await pageVersion();
+    const busy = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) || document.querySelector('dialog[open]');
+    if (v && myVersion && v !== myVersion && !busy) location.reload();
+  });
+}
+
+// ---------- arranque: bloques de la cuenta y bajas de avisos desde un correo
+function iniciaCuentaVisible() {
+  renderAccountExtras();
+  if (QS.get('baja') && window.limonDB) {
+    window.limonFn('limon-mail', { body: { action: 'unsub', t: QS.get('baja'), k: QS.get('k') } }).then(({ data }) => {
+      toast(data && data.ok ? ({ semanal: 'Ya no recibirás el resumen semanal.', calle: 'Ya no recibirás avisos de cortes.', lluvia: 'Ya no recibirás avisos de lluvia.', quedadas: 'Ya no recibirás avisos de quedadas.', amigos: 'Ya no recibirás avisos de amigos.', ideas: 'Ya no recibirás avisos de tus ideas.', organizador: 'Ya no recibirás avisos de organizador.', admin: 'Ya no recibirás avisos de admin.' })[data.k] + ' Puedes volver a activarlo en tu perfil.' : 'Ese enlace de baja no es válido.');
+      if (data && data.ok && me && me.notify) { me.notify[data.k] = false; renderAccountExtras(); }
+    });
+  }
+}
+
+// ---------- arranque: texto de la versión
+function iniciaVersion() {
+  { const v = $('ver'); if (v && v.textContent.includes('__' + 'VER__')) v.textContent = 'Versión en desarrollo'; }
+}
+
+// ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
+function clicCuenta(ev) {
+  if (ev.target.closest('#org, #adm, #ag-cal, #mail') && ev.target.closest('button, a[data-copy]')) { onAccountClick(ev).then(done => { if (done) ev.preventDefault(); }); if (ev.target.closest('[data-org-new],[data-org-edit],[data-org-cancel],[data-org-retire],[data-adm-ed],[data-adm-pub],[data-adm-idea],[data-copy],[data-mail-test]')) return true; }
+  return false;
+}
+function clicInstalarNo(ev) {
+  if (ev.target.closest('[data-instalar-no]')) { store.set('instalar_no', true); renderAll(); return true; }
+  return false;
+}
+function clicInstalar(ev) {
+  if (ev.target.closest('[data-instalar]') && window.__limonInstall) {
+    const p = window.__limonInstall; window.__limonInstall = null;
+    p.prompt(); p.userChoice.then(r => { if (r && r.outcome === 'accepted') store.set('instalar_no', true); renderAll(); }).catch(() => { });
+    return true;
+  }
+  return false;
+}
+function clicStatsDays(ev) {
+  const sd = ev.target.closest('[data-stats-days]');
+  if (sd) { statsDays = +sd.dataset.statsDays; loadStats(); return true; }
+  return false;
+}
+function clicConsent(ev) {
+  const cs = ev.target.closest('[data-consent]');
+  if (cs) { window.limonConsent.set(cs.dataset.consent === '1'); $('o-stats').checked = cs.dataset.consent === '1'; toast(cs.dataset.consent === '1' ? 'Gracias. Puedes cambiarlo cuando quieras en Perfil.' : 'Entendido: no guardamos nada. Puedes cambiarlo en Perfil.'); renderAll(); return true; }
+  return false;
+}
+
+// ---------- cambios y envíos de formularios de este tema. Devuelven false si no era suyo; el orden está en js/inicio.js
+function cambioDemo(ev) {
+  const dm = ev.target.closest('[data-demo]');
+  if (dm && me) return (async () => {
+    const db = window.limonDB, u = db && db.user(); if (!u) return;
+    const v = dm.value === '' ? null : dm.dataset.demo === 'birth_year' ? +dm.value : dm.value;
+    const { error } = await db.sb.from('profiles').update({ [dm.dataset.demo]: v }).eq('id', u.id);
+    if (error) { toast('No se ha podido guardar: ' + error.message); return; }
+    me[dm.dataset.demo] = v; toast('Guardado.'); return;
+  })();
+  return false;
+}
+function cambioPush(ev) {
+  const pc = ev.target.closest('[data-push]');
+  if (pc && me) return (async () => {
+    const db = window.limonDB, u = db && db.user(); if (!u) return;
+    me.notify = Object.assign({}, me.notify || {}); me.notify.push = Object.assign({}, me.notify.push || {}, { [pc.dataset.push]: pc.checked });
+    const { error } = await db.sb.from('profiles').update({ notify: me.notify }).eq('id', u.id);
+    toast(error ? 'No se ha podido guardar: ' + error.message : pc.checked ? 'Activado.' : 'Desactivado.'); return;
+  })();
+  return false;
+}
+function cambioAvisos(ev) {
+  const cb = ev.target.closest('[data-notify]'); if (!cb || !me) return true;
+  const db = window.limonDB, u = db && db.user(); if (!u) return true;
+  me.notify = Object.assign({ semanal: false, calle: false, lluvia: false, organizador: true, admin: true, quedadas: true, amigos: true, ideas: true }, me.notify || {}, { [cb.dataset.notify]: cb.checked });
+  return (async () => {
+    const { error } = await db.sb.from('profiles').update({ notify: me.notify }).eq('id', u.id);
+    toast(error ? 'No se ha podido guardar: ' + error.message
+      : cb.dataset.notify === 'calle' && cb.checked && !streets.length && !saved.length ? 'Activado. Guarda planes o añade tus calles en «Calle» para recibir avisos.'
+      : cb.checked ? 'Activado.' : 'Desactivado.');
+    renderAccountExtras();
+  })();
+}
+function envioPerfilCuenta(ev) {
+  const db = window.limonDB, u = db && db.user();
+  if (ev.target.id === 'ed-form') return (async () => {
+    ev.preventDefault(); const f = new FormData(ev.target);
+    const { error } = await db.sb.from('profiles').update({ organizer: { nombre: f.get('nombre'), web: f.get('web'), que: f.get('que') }, editor_status: 'solicitado' }).eq('id', u.id);
+    $('ed-msg').textContent = error ? 'No se ha podido enviar: ' + error.message : 'Enviado.'; if (!error) { flushMail(); loadMe(); }
+  })();
+  return false;
+}
+function envioOrganizador(ev) {
+  const db = window.limonDB, u = db && db.user();
+  if (ev.target.id === 'org-form') return (async () => {
+    ev.preventDefault(); const f = new FormData(ev.target), id = ev.target.dataset.id;
+    const row = { title: f.get('title').trim(), starts_on: f.get('starts_on'), ends_on: f.get('ends_on') || f.get('starts_on'), time_text: f.get('time_text').trim() || null,
+      price_text: f.get('price_text').trim() || null, venue_name: f.get('venue_name').trim() || null, address: f.get('address').trim() || null,
+      url: f.get('url').trim() || null, description: f.get('description').trim() || null, is_free: !!f.get('is_free'), status: 'revision' };
+    if (row.ends_on < row.starts_on) { $('org-msg').textContent = 'La fecha de fin es anterior a la de inicio.'; return; }
+    $('org-msg').textContent = 'Guardando…';
+    const r = id ? await db.sb.from('submitted_events').update(row).eq('id', +id).select('id').single()
+      : await db.sb.from('submitted_events').insert(Object.assign({ owner: u.id, city_id: CITY.id }, row)).select('id').single();
+    if (r.error) { $('org-msg').textContent = 'No se ha podido guardar: ' + r.error.message; return; }
+    $('org-msg').textContent = 'Revisando…';
+    const res = await db.fn('limon-org', { id: r.data.id });
+    flushMail(); orgEdit = null; await loadMe();
+    toast(res.error ? res.error : res.estado === 'publicado' ? 'Publicado. Saldrá en Limón al recargar la página.' : (res.motivo || 'Enviado a revisión.'));
+  })();
+  return false;
+}

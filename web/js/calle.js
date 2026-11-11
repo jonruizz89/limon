@@ -347,3 +347,78 @@ async function checkRoute(e) {
       ` <span class="note">Solo se comprueban los avisos que nombran calles concretas.</span>`);
   } catch (x) { put('No he podido calcular la ruta ahora. Prueba en un rato.'); }
 }
+
+// ---------- arranque: cortes con mapa, estadios, lluvia y avisos
+let GEOCUTS, STADIUMS;  // se fijan al arrancar (iniciaCalle)
+function iniciaCalle() {
+  // ---------- avisos de calle en cada evento: cortes y cierres cerca del lugar ese día
+  // cada tramo lleva su nombre; un tramo a más de 2,5 km del resto del corte es una calle mal situada (homónima de otro barrio) y se ignora
+  GEOCUTS = CLOSURES.filter(c => c.geom).map(c => {
+    let segs = (c.geom.segs || []).filter(s => s.l && s.l.length).map(s => ({ l: s.l, n: s.n }));
+    if (segs.length >= 3) {
+      const cen = segs.map(s => [s.l.reduce((a, p) => a + p[0], 0) / s.l.length, s.l.reduce((a, p) => a + p[1], 0) / s.l.length]);
+      const med = i => cen.map(x => x[i]).sort((a, b) => a - b)[cen.length >> 1], mc = [med(0), med(1)];
+      const ok = segs.filter((s, i) => km(cen[i], mc) <= 2.5);
+      if (ok.length) segs = ok;
+    }
+    return { c, segs, pts: c.geom.pts || [] };
+  });
+  // ---------- estadios: unir cortes con el partido o concierto de ese día
+  STADIUMS = (CITY.stadiums || []).map(x => ({ re: new RegExp(x.re, 'i'), name: x.name, ll: x.ll, big: !!x.big }));
+  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${CENTER[0]}&longitude=${CENTER[1]}&hourly=precipitation_probability&daily=precipitation_probability_max&timezone=Europe%2FMadrid&forecast_days=8`)
+    .then(r => r.ok ? r.json() : null).then(j => {
+      if (!j || !j.daily) return;
+      const R = { daily: {}, hourly: {} };
+      j.daily.time.forEach((d, i) => { R.daily[d] = j.daily.precipitation_probability_max[i] || 0; });
+      j.hourly.time.forEach((t, i) => { const d = t.slice(0, 10); (R.hourly[d] = R.hourly[d] || [])[+t.slice(11, 13)] = j.hourly.precipitation_probability[i] || 0; });
+      RAIN = R; renderAll();
+    }).catch(() => { });
+  if (window.limonAvisos) window.limonAvisos().then(a => { AVISOS = a || []; if (AVISOS.length) renderAll(); });
+}
+
+// ---------- arranque: formulario de «mis calles»
+function iniciaMisCalles() {
+  $('ca-form').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const v = $('ca-street').value.trim();
+    if (v && !streets.some(x => streetKey(x) === streetKey(v))) { streets = streets.concat(v); store.set('streets', streets); }
+    $('ca-street').value = ''; renderAll();
+  });
+}
+
+// ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
+function clicCakind(ev) {
+  const ck = ev.target.closest('[data-cakind]');
+  if (ck) { state.caKind = ck.dataset.cakind; renderCalle(); return true; }
+  return false;
+}
+function clicCaday(ev) {
+  const cd = ev.target.closest('[data-caday]');
+  if (cd) { state.caDay = cd.dataset.caday; renderCalle(); return true; }
+  return false;
+}
+function clicCadayGo(ev) {
+  const cg = ev.target.closest('[data-caday-go]');
+  if (cg) { state.caDay = cg.dataset.cadayGo; go('calle'); return true; }
+  return false;
+}
+function clicCutmap(ev) {
+  const cm = ev.target.closest('[data-cutmap]');
+  if (cm) { focusCut(+cm.dataset.cutmap); return true; }
+  return false;
+}
+function clicCutgo(ev) {
+  const cgo = ev.target.closest('[data-cutgo]');
+  if (cgo) { goCut(+cgo.dataset.cutgo); return true; }
+  return false;
+}
+function clicRmstreet(ev) {
+  const rm = ev.target.closest('[data-rmstreet]');
+  if (rm) { streets = streets.filter((_, i) => i !== Number(rm.dataset.rmstreet)); store.set('streets', streets); renderAll(); return true; }
+  return false;
+}
+function clicRoute(ev) {
+  const rb = ev.target.closest('[data-route]');
+  if (rb && BYID[rb.dataset.route]) { checkRoute(BYID[rb.dataset.route]); return true; }
+  return false;
+}

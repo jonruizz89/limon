@@ -199,3 +199,56 @@ function renderUnicos() {
     .sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, x.occ.date - y.occ.date || horaOrden(x.e) - horaOrden(y.e)));
   $('un-list').innerHTML = conSeccion(list, x => card(x.e, { occ: x.occ })) || '<div class="empty">No hay planes únicos en las próximas semanas.</div>';
 }
+
+// ---------- arranque: «¿al final fuiste?»
+let fuiSnooze, fuiFocus;
+function iniciaFui() {
+  fuiSnooze = store.get('fui_snooze', {});
+  fuiFocus = new URLSearchParams(location.search).get('fui');
+}
+
+// ---------- arranque: «cuéntanos qué te gusta» y «ahora cerca de ti»
+function iniciaGustosYCerca() {
+  $('ts-go').addEventListener('click', async () => {
+    const text = $('ts-text').value.trim();
+    if (text.length < 8) { $('ts-msg').textContent = 'Cuéntame un poco más.'; return; }
+    $('ts-go').disabled = true; $('ts-msg').textContent = 'Interpretando…';
+    const res = await window.limonAI({ action: 'taste', text });
+    $('ts-go').disabled = false;
+    if (!res || res.error) { $('ts-msg').textContent = (res && res.error) || 'No se ha podido conectar. Prueba en un rato.'; return; }
+    tasteText = text; store.set('taste_text', text); setTaste(res.taste);
+    $('ts-msg').textContent = 'Listo. Para ti ya usa este perfil.'; renderIntereses();
+  });
+  $('near-go').addEventListener('click', () => {
+    if (!navigator.geolocation) { toast('Tu navegador no permite saber dónde estás.'); return; }
+    $('near-go').disabled = true; $('near-go').textContent = 'Buscando dónde estás…';
+    navigator.geolocation.getCurrentPosition(p => {
+      nearPos = [p.coords.latitude, p.coords.longitude]; userPos = nearPos; keepDist();
+      $('near-go').disabled = false; $('near-go').textContent = '📍 Ahora cerca de ti';
+      if (km(nearPos, CENTER) > 25) toast(`Pareces estar fuera de ${CITY.name}: te enseño lo que hay cerca del centro.`), nearPos = CENTER;
+      $('near').hidden = false; $('near-go').hidden = true; renderNear(); $('near').scrollIntoView({ behavior: 'smooth' });
+    }, () => { $('near-go').disabled = false; $('near-go').textContent = '📍 Ahora cerca de ti'; toast('Sin permiso de ubicación no puedo saber qué tienes cerca.'); }, { timeout: 12000, maximumAge: 120000 });
+  });
+  $('near-close').addEventListener('click', () => { $('near').hidden = true; $('near-go').hidden = false; });
+}
+
+// ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
+function clicRmtema(ev) {
+  const rt = ev.target.closest('[data-rmtema]');
+  if (rt) { const t = Object.assign({}, taste); t.temas = t.temas.filter((_, i) => i !== +rt.dataset.rmtema); setTaste(t); renderIntereses(); return true; }
+  return false;
+}
+function clicRmtcat(ev) {
+  const rc = ev.target.closest('[data-rmtcat]');
+  if (rc) { const t = Object.assign({}, taste); t.categorias = t.categorias.filter(c => c.id !== rc.dataset.rmtcat); setTaste(t); renderIntereses(); return true; }
+  return false;
+}
+function clicAiRefresh(ev) {
+  if (ev.target.closest('[data-ai-refresh]')) { loadAI(state.when, true); renderParaTi(); return true; }
+  return false;
+}
+function clicFui(ev) {
+  const fu = ev.target.closest('[data-fui]');
+  if (fu) { fuiAnswer(fu.dataset.id, fu.dataset.fui); return true; }
+  return false;
+}

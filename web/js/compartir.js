@@ -99,3 +99,101 @@ async function shareFinde(p) {
   if (navigator.share) { try { await navigator.share({ title: text, text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
   window.open('https://wa.me/?text=' + encodeURIComponent(text + ': ' + url), '_blank', 'noopener');
 }
+
+// ---------- arranque: ahorro de datos, botón atrás con una ficha abierta e icono de compartir
+let AHORRO, SHARE_ICO, C_ZONA;  // se fijan al arrancar (iniciaFichas)
+function iniciaFichas() {
+  AHORRO = !!(navigator.connection && navigator.connection.saveData);
+  window.addEventListener('popstate', ev => {
+    if (fichaHist && !(ev.state && ev.state.ev)) { state.open[fichaHist] = false; fichaHist = null; renderAll(); }
+  });
+  // icono de compartir como el del sistema: en Apple, la caja con la flecha; en el resto, los tres puntos unidos
+  SHARE_ICO = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)
+    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M8 11H6a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-2"/></svg>'
+    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg>';
+  C_ZONA = window.limonCity.zone().split('|')[0];
+}
+
+// ---------- arranque: «este finde», si ya está publicado
+function iniciaFinde() {
+  fetch('/planes/finde.json').then(r => r.ok ? r.json() : {}).then(j => { FINDE = j || {}; renderAll(); }).catch(() => { FINDE = {}; });
+}
+
+// ---------- arranque: enlace de una quedada
+function iniciaQuedada() {
+  if (QS.get('quedar') && /^[0-9a-f-]{36}$/i.test(QS.get('quedar')) && window.limonDB) {
+    const tk = QS.get('quedar');
+    window.limonDB.sb.rpc('invite_get', { p_token: tk }).then(({ data }) => {
+      if (!data) { toast('Esa invitación no existe o se ha borrado.'); return; }
+      QD = { token: tk, data };
+      const e = BYID['e' + data.event_id];
+      if (e) { state.filter = { kind: 'id', value: e.id, label: e.titulo }; state.open[e.id] = true; $('ex-when').value = 'todo'; }
+      go('explorar'); renderQuedar();
+    });
+  }
+}
+
+// ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
+function clicSharev(ev) {
+  const shv = ev.target.closest('[data-sharev]'); if (shv && BYID[shv.dataset.sharev]) { shareEv(BYID[shv.dataset.sharev]); return true; }
+  return false;
+}
+function clicShareFinde(ev) {
+  if (ev.target.closest('[data-share-finde]')) { shareFinde(ev.target.closest('[data-share-finde]').dataset.shareFinde); return true; }
+  return false;
+}
+function clicInvite(ev) {
+  const ib = ev.target.closest('[data-invite]');
+  if (ib) {
+    if (!logged) { toast('Entra con tu cuenta (en Perfil) para proponer planes y ver quién se apunta.'); return true; }
+    state.inviting = state.inviting === ib.dataset.invite ? null : ib.dataset.invite; renderAll(); return true;
+  }
+  return false;
+}
+function clicInviteCancel(ev) {
+  if (ev.target.closest('[data-invite-cancel]')) { state.inviting = null; renderAll(); return true; }
+  return false;
+}
+function clicReshare(ev) {
+  const rs = ev.target.closest('[data-reshare]');
+  if (rs) { shareInvite(BYID[rs.dataset.ev], rs.dataset.reshare, store.get('myname', '')); return true; }
+  return false;
+}
+
+// ---------- cambios y envíos de formularios de este tema. Devuelven false si no era suyo; el orden está en js/inicio.js
+function envioInvitar(ev) {
+  const db = window.limonDB, u = db && db.user();
+  const inf = ev.target.closest('[data-invite-form]');
+  if (inf) return (async () => {
+    ev.preventDefault(); if (!u) return;
+    const e = BYID[inf.dataset.inviteForm], f = new FormData(inf), from = String(f.get('from') || '').trim(), note = String(f.get('note') || '').trim();
+    store.set('myname', from);
+    const occ = occurs(e, today, addDays(today, 400));
+    const { data, error } = await db.sb.from('plan_invites').insert({ owner: u.id, event_id: +e.id.slice(1), on_date: occ && !occ.ongoing ? ymd(occ.date) : null, from_name: from, note: note || null }).select('token').single();
+    if (error) { toast('No se ha podido crear: ' + error.message); return; }
+    if (!saved.includes(e.id)) { saved = saved.concat(e.id); store.set('saved', saved); learn(e, 'save'); }
+    state.inviting = null; await loadInvites();
+    track('quedar', e.id);
+    shareInvite(e, data.token, from);
+    return;
+  })();
+  return false;
+}
+function envioQuedada(ev) {
+  const db = window.limonDB, u = db && db.user();
+  if (ev.target.id === 'q-form') return (async () => {
+    ev.preventDefault();
+    const f = new FormData(ev.target), name = String(f.get('name') || '').trim(), st = ev.submitter && ev.submitter.value;
+    if (!name || !st) return;
+    store.set('myname', name);
+    const { data, error } = await db.sb.rpc('invite_reply', { p_token: QD.token, p_device: deviceKey(), p_name: name, p_status: st });
+    if (error) { toast(error.message); return; }
+    QD.data = data; store.set('rsvp:' + QD.token, st);
+    const e = BYID['e' + data.event_id];
+    if (st === 'voy' && e && !saved.includes(e.id)) { saved = saved.concat(e.id); store.set('saved', saved); learn(e, 'save'); }
+    toast(st === 'voy' ? '¡Apuntado! Lo tienes en tu agenda.' : st === 'quizas' ? 'Anotado como «quizá».' : 'Anotado: no puedes ir.');
+    renderQuedar(); renderAll();
+    return;
+  })();
+  return false;
+}

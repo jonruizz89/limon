@@ -13,3 +13,9 @@ const TEMPORADAS = [
 const md = d => String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const enVentana = (v, d) => v[0] <= v[1] ? d >= v[0] && d <= v[1] : d >= v[0] || d <= v[1];
 const esTemporada = e => !!TEMPORADA && (TEMPORADA.re.test(e.titulo) || TEMPORADA.re.test(e.serie || ''));
+
+// ---------- arranque: la temporada que toca hoy
+let TEMPORADA;  // se fija al arrancar (iniciaTemporada)
+function iniciaTemporada() {
+  TEMPORADA = TEMPORADAS.find(t => enVentana(t.ver, md(today))) || null;
+}

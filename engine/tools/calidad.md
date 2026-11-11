@@ -34,7 +34,8 @@ Lecturas de Supabase (estimación sin comprimir): publicar la web ~200 MB/día, 
 - [x] 9 · Lugares y direcciones
 - [x] 10 · Limpieza de títulos sin cambiar la clave
 - [x] 7 · Publicar la web leyendo solo lo cambiado
-- [ ] Repetir la medición tras una carga completa y anotar el resultado aquí
+- [x] Medición repetida en Donostia (carga de prueba con el motor de `pruebas`)
+- [ ] Pasar a `main` (pendiente de aprobación) y repetir la medición en todas las zonas tras la primera carga nocturna
 
 ## Notas de lo aplicado
 
@@ -49,6 +50,19 @@ Lecturas de Supabase (estimación sin comprimir): publicar la web ~200 MB/día, 
   calle como lugar cuando el equipamiento no está en el listado municipal (los datos no traen nombre); la dirección de los
   recintos ya situados (4.703 planes) necesita una pasada aparte por OpenStreetMap: hoy solo se guarda en los recintos nuevos.
 - Los títulos limpios cambian la URL de la ficha (`/evento/id-titulo/`) de unos 470 planes.
+
+## Resultado en Donostia (11-11-2026, carga de prueba desde `pruebas`)
+
+| Medida | Antes | Después |
+|---|---|---|
+| Planes vigentes | 680 | 566 |
+| Duplicados por título (parejas) | 65 | 11 (las que quedan tienen horas distintas o son plan y programa) |
+| Horario raro | 18 | 2 |
+| Títulos «Entradas …» | 19 | 0 |
+| Títulos en mayúsculas | 19 | 2 |
+| Sin categoría | 0 | 0 |
+
+Mientras no esté en `main`, la carga nocturna (que corre desde `main`) vuelve a dejar Donostia como antes.
 
 ## Lecturas de Supabase (medido, comprimido)
 

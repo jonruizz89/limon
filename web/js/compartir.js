@@ -171,7 +171,7 @@ function envioInvitar(ev) {
     const occ = occurs(e, today, addDays(today, 400));
     const { data, error } = await db.sb.from('plan_invites').insert({ owner: u.id, event_id: +e.id.slice(1), on_date: occ && !occ.ongoing ? ymd(occ.date) : null, from_name: from, note: note || null }).select('token').single();
     if (error) { toast('No se ha podido crear: ' + error.message); return; }
-    if (!saved.includes(e.id)) { saved = saved.concat(e.id); store.set('saved', saved); learn(e, 'save'); }
+    if (!saved.includes(e.id)) { ponSaved(saved.concat(e.id)); store.set('saved', saved); learn(e, 'save'); }
     state.inviting = null; await loadInvites();
     track('quedar', e.id);
     shareInvite(e, data.token, from);
@@ -190,7 +190,7 @@ function envioQuedada(ev) {
     if (error) { toast(error.message); return; }
     QD.data = data; store.set('rsvp:' + QD.token, st);
     const e = BYID['e' + data.event_id];
-    if (st === 'voy' && e && !saved.includes(e.id)) { saved = saved.concat(e.id); store.set('saved', saved); learn(e, 'save'); }
+    if (st === 'voy' && e && !saved.includes(e.id)) { ponSaved(saved.concat(e.id)); store.set('saved', saved); learn(e, 'save'); }
     toast(st === 'voy' ? '¡Apuntado! Lo tienes en tu agenda.' : st === 'quizas' ? 'Anotado como «quizá».' : 'Anotado: no puedes ir.');
     renderQuedar(); renderAll();
     return;

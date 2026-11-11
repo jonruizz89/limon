@@ -84,8 +84,8 @@ function fuiCard() {
 function fuiAnswer(id, a) {
   const x = PAST[id]; if (!x) return;
   if (fuiFocus === id) fuiFocus = null;
-  if (a === 'si') { went = went.concat(id); store.set('went', went); BYID[id] = BYID[id] || Object.assign({ inicio: x.fecha, fin: x.fecha, sesiones: [], fuentes: [] }, x); learn(x, 'went'); toast('¡Apuntado en tu diario! Ponle nota en Agenda → Mi diario.'); }
-  else if (a === 'no') { nofui = nofui.concat(id); store.set('nofui', nofui); track('novoy', id); toast('Entendido. No cambia tus recomendaciones.'); }
+  if (a === 'si') { ponWent(went.concat(id)); store.set('went', went); BYID[id] = BYID[id] || Object.assign({ inicio: x.fecha, fin: x.fecha, sesiones: [], fuentes: [] }, x); learn(x, 'went'); toast('¡Apuntado en tu diario! Ponle nota en Agenda → Mi diario.'); }
+  else if (a === 'no') { ponNofui(nofui.concat(id)); store.set('nofui', nofui); track('novoy', id); toast('Entendido. No cambia tus recomendaciones.'); }
   else { fuiSnooze[id] = ymd(addDays(today, 2)); store.set('fui_snooze', fuiSnooze); }
   renderParaTi();
 }
@@ -192,7 +192,7 @@ function renderTaste() {
       ${(taste.evitar || []).length ? `<p class="note">Evito: ${taste.evitar.map(c => esc(labelOf(c))).join(', ')}</p>` : ''}
       ${taste.pregunta ? `<p class="note"><b>Para afinar:</b> ${esc(taste.pregunta)} Añádelo al texto y vuelve a interpretarlo.</p>` : ''}`;
 }
-function setTaste(t) { taste = t; store.set('taste', taste); Object.keys(aiReco).forEach(k => delete aiReco[k]); }
+function setTaste(t) { ponTaste(t); store.set('taste', taste); Object.keys(aiReco).forEach(k => delete aiReco[k]); }
 function renderUnicos() {
   const list = EV.filter(e => e.unico && !isDismissed(e) && parse(e.fin) >= today && inZone(e))
     .map(e => ({ e, occ: occurs(e, today, addDays(today, 400)) })).filter(x => x.occ)
@@ -216,14 +216,14 @@ function iniciaGustosYCerca() {
     const res = await window.limonAI({ action: 'taste', text });
     $('ts-go').disabled = false;
     if (!res || res.error) { $('ts-msg').textContent = (res && res.error) || 'No se ha podido conectar. Prueba en un rato.'; return; }
-    tasteText = text; store.set('taste_text', text); setTaste(res.taste);
+    ponTasteText(text); store.set('taste_text', text); setTaste(res.taste);
     $('ts-msg').textContent = 'Listo. Para ti ya usa este perfil.'; renderIntereses();
   });
   $('near-go').addEventListener('click', () => {
     if (!navigator.geolocation) { toast('Tu navegador no permite saber dónde estás.'); return; }
     $('near-go').disabled = true; $('near-go').textContent = 'Buscando dónde estás…';
     navigator.geolocation.getCurrentPosition(p => {
-      nearPos = [p.coords.latitude, p.coords.longitude]; userPos = nearPos; keepDist();
+      nearPos = [p.coords.latitude, p.coords.longitude]; ponUserPos(nearPos); keepDist();
       $('near-go').disabled = false; $('near-go').textContent = '📍 Ahora cerca de ti';
       if (km(nearPos, CENTER) > 25) toast(`Pareces estar fuera de ${CITY.name}: te enseño lo que hay cerca del centro.`), nearPos = CENTER;
       $('near').hidden = false; $('near-go').hidden = true; renderNear(); $('near').scrollIntoView({ behavior: 'smooth' });

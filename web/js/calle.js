@@ -324,7 +324,7 @@ async function checkRoute(e) {
   if (!pos) {
     if (!navigator.geolocation) { put('Tu navegador no permite saber dónde estás.'); return; }
     put('Buscando dónde estás…');
-    try { pos = await new Promise((ok, ko) => navigator.geolocation.getCurrentPosition(p => ok([p.coords.latitude, p.coords.longitude]), ko, { timeout: 10000, maximumAge: 300000 })); userPos = pos; keepDist(); }
+    try { pos = await new Promise((ok, ko) => navigator.geolocation.getCurrentPosition(p => ok([p.coords.latitude, p.coords.longitude]), ko, { timeout: 10000, maximumAge: 300000 })); ponUserPos(pos); keepDist(); }
     catch (x) { put('Sin permiso de ubicación no puedo calcular la ruta.'); return; }
   }
   if (km(pos, CENTER) > 35) { put(`Estás lejos de ${CITY.name}: no puedo comprobar la ruta desde ahí.`); return; }
@@ -381,7 +381,7 @@ function iniciaMisCalles() {
   $('ca-form').addEventListener('submit', ev => {
     ev.preventDefault();
     const v = $('ca-street').value.trim();
-    if (v && !streets.some(x => streetKey(x) === streetKey(v))) { streets = streets.concat(v); store.set('streets', streets); }
+    if (v && !streets.some(x => streetKey(x) === streetKey(v))) { ponStreets(streets.concat(v)); store.set('streets', streets); }
     $('ca-street').value = ''; renderAll();
   });
 }
@@ -414,7 +414,7 @@ function clicCutgo(ev) {
 }
 function clicRmstreet(ev) {
   const rm = ev.target.closest('[data-rmstreet]');
-  if (rm) { streets = streets.filter((_, i) => i !== Number(rm.dataset.rmstreet)); store.set('streets', streets); renderAll(); return true; }
+  if (rm) { ponStreets(streets.filter((_, i) => i !== Number(rm.dataset.rmstreet))); store.set('streets', streets); renderAll(); return true; }
   return false;
 }
 function clicRoute(ev) {

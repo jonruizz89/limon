@@ -272,9 +272,9 @@ function iniciaBuscadorYOpciones() {
   $('o-stats').checked = !!(window.limonConsent && window.limonConsent.get() === '1');
   $('o-stats').addEventListener('change', async e => { await window.limonConsent.set(e.target.checked); toast(e.target.checked ? 'Gracias por ayudar.' : 'Hecho: dejamos de guardar estadísticas de tu uso.'); renderAll(); });
   $('o-perro').addEventListener('change', e => { opts.perro = e.target.checked; store.set('opts', opts); });
-  $('o-dist').addEventListener('change', e => { opts.dist = e.target.checked; store.set('opts', opts); if (opts.dist) askPos(false); else { userPos = null; renderAll(); } });
-  $('in-reset').addEventListener('click', () => { prefs = Object.assign({}, SAMPLE); store.set('prefs', prefs); renderIntereses(); });
-  $('in-clear').addEventListener('click', () => { prefs = {}; store.set('prefs', prefs); renderIntereses(); });
+  $('o-dist').addEventListener('change', e => { opts.dist = e.target.checked; store.set('opts', opts); if (opts.dist) askPos(false); else { ponUserPos(null); renderAll(); } });
+  $('in-reset').addEventListener('click', () => { ponPrefs(Object.assign({}, SAMPLE)); store.set('prefs', prefs); renderIntereses(); });
+  $('in-clear').addEventListener('click', () => { ponPrefs({}); store.set('prefs', prefs); renderIntereses(); });
 }
 
 // ---------- arranque: la pestaña o el plan con el que se abre la app

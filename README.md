@@ -12,9 +12,15 @@ Nació en 2013 como **Everent**, un proyecto fin de carrera.
   - `index.html` lleva solo el HTML; el estilo está en `css/app.css` y el código en `js/`, repartido por temas
     (`base`, `calendario`, `filtros`, `temporadas`, `tarjetas`, `compartir`, `calle`, `social`, `cuenta`, `parati`, `vistas`).
   - Son scripts normales que comparten nombres entre sí (no módulos ES). Los archivos por tema **solo declaran**
-    funciones y valores fijos, así que no importa su orden. Todo lo que se ejecuta al arrancar (estado que se lee del
-    dispositivo o de los datos, eventos de interfaz, primer pintado) va en `js/inicio.js`, que `js/app.js` carga cuando
-    `data.js` tiene los planes. Al añadir algo: las funciones, a su tema; lo que se ejecuta, a `inicio.js`.
+    funciones y variables, así que no importa su orden; nada se ejecuta al cargarlos.
+  - `js/inicio.js` solo dice **el orden del arranque**: llama a las funciones `inicia…()` de cada tema y reparte los
+    clics, los cambios y los envíos de formularios entre las funciones `clic…`, `cambio…` y `envio…` de los temas (se
+    prueban en el orden de la lista y gana la primera que lo reconoce). Lo carga `js/app.js` cuando `data.js` tiene los planes.
+  - Al añadir algo: las funciones, a su tema; si hay que ejecutar algo al arrancar, en una función `inicia…` de ese
+    tema; un botón nuevo, una función `clicLoQueSea(ev)` en su tema (devuelve `true` si el clic era suyo) añadida a la
+    lista `CLICS` de `inicio.js`.
+  - Cada variable se asigna **solo en el archivo que la declara**; desde otro se cambia con su función `pon…`
+    (`ponSaved(x)`). Lo vigila `engine/tests/app/estado.test.mjs`. Más detalle en `engine/tools/plan-modulos.md`.
   - Al tocar `css/` o `js/`, sube el `?v=` de `index.html` (el mismo en todos). Las tres precargas del principio (`config.js`, `data.js`, `js/app.js`)
     llevan la misma dirección que sus etiquetas `<script>`: si cambias una, cambia la otra. Si añades un archivo, ponlo también
     en la lista `SHELL` de `sw.js` y sube su `VERSION`.

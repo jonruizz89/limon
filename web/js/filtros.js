@@ -249,3 +249,6 @@ function clicCity(ev) {
   const cb2 = ev.target.closest('[data-city]'); if (cb2) { if (cb2.dataset.city !== CITY.id) zonaSet(cb2.dataset.city); else closeSheets(); return true; }
   return false;
 }
+
+// ---------- cada variable se asigna solo en su archivo: desde los demás, estas se cambian con su función pon…
+function ponUserPos(v) { return (userPos = v); }

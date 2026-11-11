@@ -194,3 +194,13 @@ function clicTema(ev) {
   }
   return false;
 }
+
+// ---------- cada variable se asigna solo en su archivo: desde los demás, estas se cambian con su función pon…
+function ponStreets(v) { return (streets = v); }
+function ponSaved(v) { return (saved = v); }
+function ponWent(v) { return (went = v); }
+function ponNofui(v) { return (nofui = v); }
+function ponTaste(v) { return (taste = v); }
+function ponTasteText(v) { return (tasteText = v); }
+function ponDismissed(v) { return (dismissed = v); }
+function ponPrefs(v) { return (prefs = v); }

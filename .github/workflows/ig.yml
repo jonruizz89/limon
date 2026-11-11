@@ -52,29 +52,35 @@ jobs:
       - name: ¿Toca esta cuenta?
         id: m
         working-directory: .
+        env:
+          EVENT: ${{ github.event_name }}
+          IN_CUENTA: ${{ inputs.cuenta }}
+          IN_MODO: ${{ inputs.modo }}
+          IN_PRUEBA: ${{ inputs.prueba }}
+          CUENTA: ${{ matrix.cuenta }}
         run: |
-          if [ "${{ github.event_name }}" = schedule ]; then
+          if [ "$EVENT" = schedule ]; then
             h=$(TZ=Europe/Madrid date +%H); h=$((10#$h)); dow=$(TZ=Europe/Madrid date +%u)
             # GitHub a veces lanza las tareas horas tarde: un jueves por la noche ya no tiene sentido
             if [ "$dow" -eq 4 ] && [ "$h" -lt 22 ]; then m=carrusel; else m=none; fi
             dry=$([ "$IG_AUTO" = 1 ] && echo 0 || echo 1)
           else
-            c="${{ inputs.cuenta }}"; m="${{ inputs.modo }}"; dry="${{ inputs.prueba }}"
-            if [ "$c" != todas ] && [ "$c" != "${{ matrix.cuenta }}" ]; then m=none; fi
+            c="$IN_CUENTA"; m="$IN_MODO"; dry="$IN_PRUEBA"
+            if [ "$c" != todas ] && [ "$c" != "$CUENTA" ]; then m=none; fi
           fi
           echo "modo=$m" >> "$GITHUB_OUTPUT"; echo "dry=$dry" >> "$GITHUB_OUTPUT"
           echo "dia=$(TZ=Europe/Madrid date +%F)" >> "$GITHUB_OUTPUT"
           echo "Toca: $m (prueba: $dry)"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         if: steps.m.outputs.modo != 'none'
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         if: steps.m.outputs.modo != 'none'
         with:
           python-version: "3.12"
       - name: ¿Ya publicado hoy?
         id: hecho
         if: steps.m.outputs.modo == 'carrusel' && steps.m.outputs.dry != '1'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
         with:
           path: engine/.ig-hecho
           key: ig-${{ matrix.cuenta }}-${{ steps.m.outputs.dia }}
@@ -91,7 +97,7 @@ jobs:
         if: steps.m.outputs.modo == 'carrusel' && steps.m.outputs.dry != '1' && steps.hecho.outputs.cache-hit != 'true' && success()
         run: echo ok > .ig-hecho
       - if: steps.m.outputs.modo == 'carrusel' && steps.m.outputs.dry != '1' && steps.hecho.outputs.cache-hit != 'true' && success()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
         with:
           path: engine/.ig-hecho
           key: ig-${{ matrix.cuenta }}-${{ steps.m.outputs.dia }}

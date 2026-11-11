@@ -125,7 +125,7 @@ function demoHtml(d, tbl) {
       <p class="note" style="margin:0">${tot ? `De ${tot} respuestas, el ${Math.round(100 * (as.fui || 0) / tot)} % fue al plan que tenía guardado.` : 'Aún sin respuestas.'}</p>
       <h3 style="margin:6px 0 0;font:600 14px var(--f-body)">Edad y sexo</h3>
       <p class="note" style="margin:0">${d.con_edad} cuentas con edad y ${d.con_sexo} con sexo. Solo se muestran los grupos con al menos ${d.umbral} personas, para que nadie sea identificable.</p>
-      ${(d.tramos || []).length ? tbl(d.tramos, [['Edad', r => esc(r.tramo)], ['Cuentas', r => r.personas, 1], ['Activas', r => r.activas, 1]]) : ''}
+      ${(d.tramos || []).length ? tbl(d.tramos, [['Edad', r => esc(r.tramo)], ['Cuentas', r => r.personas, 1], ['Activas', r => r.activas == null ? '&lt; ' + d.umbral : r.activas, 1]]) : ''}
       ${(d.sexo || []).length ? tbl(d.sexo, [['Sexo', r => esc(TR[r.sexo] || r.sexo)], ['Cuentas', r => r.personas, 1]]) : ''}
       ${(d.categorias_por_tramo || []).length ? tbl(d.categorias_por_tramo, [['Edad', r => esc(r.tramo)], ['Lo que más guardan o a lo que van', r => esc(labelOf(r.cat))], ['Personas', r => r.personas, 1]]) : ''}`;
 }

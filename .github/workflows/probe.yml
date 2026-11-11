@@ -9,6 +9,10 @@ on:
         description: "URL a probar"
         required: true
 
+# el token del flujo solo puede leer el repositorio
+permissions:
+  contents: read
+
 jobs:
   probe:
     runs-on: ubuntu-latest

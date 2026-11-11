@@ -98,7 +98,7 @@ function card(e, opt) {
   const price = (e.gratis ? '<span class="tag free">Gratis</span>' : (precioVale ? `<span class="tag">${esc(e.precio)}</span>` : '')) + (vh ? `<span class="tag free" title="La ficha menciona condiciones para: ${esc(vh)}. Compruébalo en la web.">Posible descuento para ti</span>` : '');
   const why = opt.info ? `<div class="why">${esc(opt.info)}</div>` : opt.reason ? `<div class="why"><b>Por qué:</b> ${esc(opt.reason)}</div>` : opt.why && opt.why.length ? `<div class="why">Te encaja: ${esc(opt.why.slice(0, 3).join(' · '))}</div>` : '';
   const more = open ? `<div class="more" id="m-${e.id}">
-        ${imgOf(e) ? `<img class="evimg" src="${esc(imgOf(e))}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}
+        ${imgOf(e) ? `<img class="evimg" src="${esc(imgOf(e))}" alt="" loading="lazy" decoding="async">` : ''}
         ${e.descripcion ? `<p>${esc(e.descripcion)}</p>` : detailsHtml(e)}
         ${e.hora && e.hora.length >= 40 ? `<p class="note">${esc(e.hora)}</p>` : ''}
         ${e.precio && e.precio.length >= 40 ? `<p class="note">${esc(e.precio)}</p>` : ''}

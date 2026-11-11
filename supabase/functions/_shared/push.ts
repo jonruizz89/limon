@@ -19,6 +19,9 @@ export async function vapid(admin: SupabaseClient): Promise<Keys> {
   return cached;
 }
 
+// solo se envía a los servicios de avisos de los navegadores (lo mismo que exige la base de datos)
+const PUSH_HOST = /^https:\/\/([a-z0-9-]+\.)*(push\.apple\.com|googleapis\.com|push\.services\.mozilla\.com|notify\.windows\.com)\//;
+
 export type PushMsg = { title: string; body: string; url: string; tag?: string };
 
 /** Envía el aviso a todos los dispositivos de la persona. Devuelve cuántos lo han recibido. Borra las suscripciones caducadas. */
@@ -29,6 +32,7 @@ export async function pushTo(admin: SupabaseClient, userId: string, msg: PushMsg
   const payload = JSON.stringify({ title: msg.title.slice(0, 120), body: msg.body.slice(0, 240), url: msg.url, tag: msg.tag || null });
   let ok = 0;
   for (const s of subs) {
+    if (!PUSH_HOST.test(s.endpoint)) continue;
     try {
       await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 12 * 3600, urgency: 'normal' });
       await admin.from('push_subscriptions').update({ last_ok: new Date().toISOString(), fails: 0 }).eq('id', s.id);

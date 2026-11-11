@@ -11,6 +11,10 @@ on:
         required: true
         default: "daily"
 
+# el token del flujo solo puede leer el repositorio
+permissions:
+  contents: read
+
 jobs:
   mail:
     runs-on: ubuntu-latest

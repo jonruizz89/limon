@@ -2,6 +2,14 @@
 // eventos y pinta la app. Los demás archivos de js/ (cargados antes, desde index.html) solo declaran funciones y valores fijos.
 // Todos son scripts normales que comparten nombres entre sí: sin compilación ni dependencias.
 (function () {
+  // Limón no se muestra dentro de un marco de otra web (evita que alguien la tape con otra página y capture los clics)
+  if (window.top !== window.self) {
+    document.documentElement.style.display = 'none';
+    try { window.top.location = window.self.location.href; } catch (e) { }
+    return;
+  }
+  // una imagen de un plan que no carga se quita (antes lo hacía un atributo onerror, que la política de seguridad ya no permite)
+  document.addEventListener('error', (ev) => { const t = ev.target; if (t && t.tagName === 'IMG' && t.classList.contains('evimg')) t.remove(); }, true);
   const INICIO = document.currentScript.src.replace('js/app.js', 'js/inicio.js');  // misma carpeta y misma versión (?v=)
   // se adelanta su descarga mientras llegan los datos. Con el service worker ya activo no sirve (el navegador no reutiliza esa
   // descarga) y la petición es solo una comprobación rápida de que no ha cambiado.

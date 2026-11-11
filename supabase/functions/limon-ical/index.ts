@@ -58,7 +58,8 @@ Deno.serve(async (req) => {
     for (const e of evs || []) {
       const sess = ((e.event_sessions || []) as { on_date: string }[]).map((x) => x.on_date).sort();
       const days = sess.length > 1 ? sess.filter((d) => d >= today).slice(0, 1) : [e.starts_on];
-      const url = (((e.event_sources || []) as { url: string }[])[0] || {}).url || WEB;
+      const src = String((((e.event_sources || []) as { url: string }[])[0] || {}).url || '');
+      const url = /^https?:\/\/[^\s]+$/i.test(src) ? src : WEB;  // solo enlaces http(s) de una pieza
       const venue = (e.venues as unknown as { name: string } | null)?.name || '';
       for (const d of days.length ? days : [e.starts_on]) {
         const h = timed(e.time_text);
@@ -109,6 +110,6 @@ Deno.serve(async (req) => {
   }
   lines.push('END:VCALENDAR');
   return new Response(lines.join('\r\n') + '\r\n', {
-    headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'public, max-age=1800', 'Access-Control-Allow-Origin': '*' },
+    headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'private, max-age=1800', 'Access-Control-Allow-Origin': '*' },
   });
 });

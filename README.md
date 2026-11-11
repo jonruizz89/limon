@@ -38,7 +38,7 @@ En *Settings → Secrets and variables → Actions*:
 - `SUPABASE_URL`: la URL del proyecto.
 - `SUPABASE_SECRET`: una clave secreta de Supabase (`sb_secret_…`) solo para el motor.
 - `SUPABASE_ACCESS_TOKEN`: token personal de Supabase para desplegar funciones y leer los avisos de seguridad.
-- `SUPABASE_DB_PASSWORD` (o `SUPABASE_DB_URL`) y `BACKUP_PASSPHRASE`: para la copia de seguridad semanal (ver «Copias de seguridad»).
+- `SUPABASE_DB_PASSWORD` (o `SUPABASE_DB_URL`), `BACKUP_PASSPHRASE`, `BACKUP_REPO` y `BACKUP_REPO_TOKEN`: para la copia de seguridad semanal (ver «Copias de seguridad»).
 
 La clave publicable de `web/config.js` es pública por diseño: las políticas de seguridad por filas solo permiten
 leer el catálogo y que cada usuario gestione sus propios datos.
@@ -76,9 +76,25 @@ Corre sola en cada push (`.github/workflows/pruebas.yml`) y no necesita claves n
 - **Captcha** (Cloudflare Turnstile): la clave pública va en `web/config.js` (`turnstile`); la secreta solo en Supabase → Authentication → Attack Protection. Si se activa en Supabase sin clave en la web, nadie podrá entrar.
 - **Web**: política de contenido (CSP) en cada página y huella (SRI) en las librerías externas. Al cambiar de versión una librería hay que recalcular su huella: `npm pack <paquete>@<versión>` y `openssl dgst -sha384 -binary <fichero> | base64`.
 
+## Seguridad de la base de datos
+
+- Todas las tablas tienen seguridad por filas. Las que solo usa el servidor no tienen políticas ni permisos para la web.
+- **Lo nuevo nace cerrado**: una tabla o función nueva no la puede usar la web hasta que se le da permiso a propósito
+  (`grant select on public.tabla to anon, authenticated;`, `grant execute on function public.fn(...) to authenticated;`) y,
+  en las tablas, se le pone su política. Si la app responde «permission denied», falta ese permiso.
+- Ningún dato sale con menos de 10 personas detrás (afinidad entre categorías y estadísticas del panel).
+- Los cambios de la auditoría de noviembre de 2026 y sus pruebas están en `supabase/sql/`.
+- `security.yml` comprueba cada día los avisos de Supabase contra `.github/security/aceptados.txt`.
+
 ## Copias de seguridad
 
-Cada domingo `backup.yml` guarda una copia cifrada de la base de datos durante 90 días (pestaña Actions → «Copia de seguridad» → artefacto). Para restaurar:
+Cada domingo `backup.yml` guarda una copia cifrada de la base de datos durante 90 días en un **repositorio privado aparte**, como «release» (este repositorio es público y sus artefactos los puede descargar cualquiera). Hace falta, una sola vez:
+
+1. Crear un repositorio privado (por ejemplo `limon-copias`) con un README, para que tenga un primer commit.
+2. Crear un token de GitHub «fine-grained» solo para ese repositorio, con permiso *Contents: Read and write*.
+3. Guardar en los secretos de este repositorio `BACKUP_REPO` (`dueño/limon-copias`) y `BACKUP_REPO_TOKEN` (el token).
+
+Sin esos secretos, o si el repositorio no es privado, el flujo falla y avisa: no sube la copia a ningún sitio. Para restaurar (la copia se descarga de las releases del repositorio privado):
 
 ```sh
 gpg -d limon-AAAA-MM-DD.tgz.gpg > limon.tgz   # pide la frase BACKUP_PASSPHRASE

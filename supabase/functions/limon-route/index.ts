@@ -11,9 +11,20 @@ const inSpain = (p: unknown) => Array.isArray(p) && p.length === 2 && p.every((x
   p[0] > 27.5 && p[0] < 44 && p[1] > -18.5 && p[1] < 4.5;
 const near = (a: number[], b: number[]) => Math.abs(a[0] - b[0]) < 0.55 && Math.abs(a[1] - b[1]) < 0.75;
 
+// freno por dirección de origen: 20 rutas por minuto (en memoria; basta para que nadie use esto como pasarela a OSRM)
+const hits = new Map<string, number[]>();
+function tooMany(ip: string) {
+  const now = Date.now(), l = (hits.get(ip) || []).filter((t) => now - t < 60e3);
+  l.push(now); hits.set(ip, l);
+  if (hits.size > 5000) hits.clear();
+  return l.length > 20;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
+    const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'sin-ip';
+    if (tooMany(ip)) return json({ error: 'Demasiadas rutas seguidas. Espera un minuto.' }, 429);
     const { from, to } = await req.json();
     if (!inSpain(from) || !inSpain(to) || !near(from, to)) return json({ error: 'Solo calculo rutas dentro de la misma ciudad.' }, 400);
     const f = [Math.round(from[0] * 1000) / 1000, Math.round(from[1] * 1000) / 1000];

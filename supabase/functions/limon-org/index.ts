@@ -11,6 +11,7 @@ const AKEY = Deno.env.get('ANTHROPIC_API_KEY');
 const MODEL = Deno.env.get('LIMON_AI_MODEL') || 'claude-haiku-5-5';
 const MAX_REVIEWS_DAY = 20;  // revisiones por organizador y día
 const MAX_USD_DAY = Number(Deno.env.get('LIMON_AI_MAX_USD_DAY') || '1');  // el mismo tope diario que el resto de la IA
+const RESERVE = 0.02;  // lo que se aparta por revisión hasta saber su coste real
 const admin = createClient(URL, SECRET, { auth: { persistSession: false } });
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -69,16 +70,17 @@ Deno.serve(async (req) => {
     if (s.owner !== u.user.id && !(me && me.role === 'admin')) return json({ error: 'No es tuyo.' }, 403);
     // solo organizadores aprobados (o admin), y con tope diario: cada revisión es una llamada a la IA y dos a los geocodificadores
     if (!me || (me.role !== 'admin' && me.editor_status !== 'aprobado')) return json({ error: 'Tu cuenta de organizador aún no está aprobada.' }, 403);
+    // la revisión se reserva antes de hacerla (y al acabar se apunta lo que costó): así varias peticiones a la vez no se saltan el tope
+    let reserved = false;
     if (me.role !== 'admin') {
-      const day = new Date().toISOString().slice(0, 10);
-      const [{ data: mine }, { data: all }] = await Promise.all([
-        admin.from('ai_usage').select('calls').eq('day', day).eq('user_id', u.user.id).maybeSingle(),
-        admin.from('ai_usage').select('usd').eq('day', day),
-      ]);
-      if (mine && mine.calls >= MAX_REVIEWS_DAY) return json({ error: 'Has llegado al límite de revisiones de hoy. Mañana más.' }, 429);
-      const total = (all || []).reduce((t: number, r: { usd: number }) => t + Number(r.usd), 0);
-      if (total >= MAX_USD_DAY) return json({ error: 'Las revisiones están en pausa hasta mañana.' }, 429);
+      const { data: r, error: re } = await admin.rpc('ai_usage_reserve', { p_user: u.user.id, p_max_calls: MAX_REVIEWS_DAY, p_max_usd: MAX_USD_DAY, p_reserve: RESERVE });
+      if (re) throw re;
+      if (r === 'persona') return json({ error: 'Has llegado al límite de revisiones de hoy. Mañana más.' }, 429);
+      if (r !== 'ok') return json({ error: 'Las revisiones están en pausa hasta mañana.' }, 429);
+      reserved = true;
     }
+    let usd = 0;
+    try {
 
     // 1) dónde
     const { data: cityRow } = await admin.from('cities').select('id,name,lat,lng,districts').eq('id', s.city_id || 'madrid').maybeSingle();
@@ -111,8 +113,8 @@ Deno.serve(async (req) => {
       const blk = (res.content || []).find((b: { type: string }) => b.type === 'tool_use');
       if (blk) review = { ok: !!blk.input.ok, motivo: String(blk.input.motivo || ''), categorias: (blk.input.categorias || []).filter((c: string) => ids.has(c)).slice(0, 3) };
       const us = res.usage || {};
-      const usd = ((us.input_tokens || 0) + (us.cache_creation_input_tokens || 0) * 1.25 + (us.cache_read_input_tokens || 0) * 0.1) * 0.10 / 1e6 + (us.output_tokens || 0) * 0.50 / 1e6;
-      if (usd > 0) await admin.rpc('ai_usage_add', { p_user: u.user.id, p_usd: usd });
+      usd = ((us.input_tokens || 0) + (us.cache_creation_input_tokens || 0) * 1.25 + (us.cache_read_input_tokens || 0) * 0.1) * 0.10 / 1e6 + (us.output_tokens || 0) * 0.50 / 1e6;
+      if (usd > 0 && !reserved) await admin.rpc('ai_usage_add', { p_user: u.user.id, p_usd: usd });
     }
     const fueraDeCiudad = (s.address || s.venue_name) && !geo;
     const publish = review.ok && me?.role === 'admin' && !fueraDeCiudad;
@@ -135,6 +137,9 @@ Deno.serve(async (req) => {
       motivo: !review.ok ? review.motivo : fueraDeCiudad ? `No encuentro esa dirección en ${city.name}: revísala o la revisará el equipo.` : !publish ? (s.event_id ? 'Lo revisará el equipo de Limón; mientras tanto sigue saliendo la versión anterior.' : 'Lo revisará el equipo de Limón antes de publicarlo. Te avisamos cuando salga.') : '',
       categorias: review.categorias, distrito: geo && geo.district,
     });
+    } finally {
+      if (reserved) await admin.rpc('ai_usage_settle', { p_user: u.user.id, p_usd: usd, p_reserve: RESERVE });
+    }
   } catch (e) {
     console.error(e);
     return json({ error: 'Algo ha fallado en el servidor. Prueba otra vez en un rato.' }, 500);

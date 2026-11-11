@@ -101,7 +101,17 @@ function pushOf(subject: string, html: string, tag: string) {
 
 // ---------- cola: organizadores, quedadas, amigos, ideas y admins
 async function flush() {
-  const { data: rows } = await admin.from('mail_outbox').select('*').is('sent_at', null).is('error', null).order('created_at').limit(50);
+  // Cada envío de la cola se aparta antes de mandarlo (error = «en curso <hora>»): si dos peticiones vacían la cola a la vez,
+  // ninguna manda lo que ya tiene la otra. Lo apartado hace más de 15 minutos (una ejecución que se cortó) vuelve a la cola.
+  const { data: stuck } = await admin.from('mail_outbox').select('id,error').is('sent_at', null).like('error', 'en curso %').limit(100);
+  const old = (stuck || []).filter((m) => Date.now() - Date.parse(String(m.error).slice(9)) > 15 * 60e3).map((m) => m.id);
+  if (old.length) await admin.from('mail_outbox').update({ error: null }).in('id', old).is('sent_at', null);
+  const { data: cand } = await admin.from('mail_outbox').select('id').is('sent_at', null).is('error', null).order('created_at').limit(50);
+  const ids = (cand || []).map((m) => m.id);
+  const { data: mine } = ids.length
+    ? await admin.from('mail_outbox').update({ error: 'en curso ' + new Date().toISOString() }).in('id', ids).is('sent_at', null).is('error', null).select('*')
+    : { data: [] };
+  const rows = (mine || []).sort((a, b) => a.id - b.id);
   let sent = 0, skipped = 0;
   for (const m of rows || []) {
     const { data: p } = await admin.from('profiles').select('id,email,notify,mail_token,role').eq('id', m.user_id).maybeSingle();
@@ -161,7 +171,7 @@ async function flush() {
     if (!mail || !p) { await admin.from('mail_outbox').update({ sent_at: new Date().toISOString(), error: 'omitido' }).eq('id', m.id); skipped++; continue; }
     const viaPush = wantsPush(p, k) ? await pushTo(admin, p.id, pushOf(mail.subject, mail.html, m.kind)).catch(() => 0) : 0;
     if (!wants(p, k)) { await admin.from('mail_outbox').update({ sent_at: new Date().toISOString(), error: viaPush ? 'solo push' : 'omitido' }).eq('id', m.id); viaPush ? sent++ : skipped++; continue; }
-    try { await send(p, mail.subject, mail.html, k); await admin.from('mail_outbox').update({ sent_at: new Date().toISOString() }).eq('id', m.id); sent++; }
+    try { await send(p, mail.subject, mail.html, k); await admin.from('mail_outbox').update({ sent_at: new Date().toISOString(), error: null }).eq('id', m.id); sent++; }
     catch (e) { await admin.from('mail_outbox').update({ error: String(e).slice(0, 300) }).eq('id', m.id); }
   }
   return { sent, skipped };

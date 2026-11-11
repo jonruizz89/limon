@@ -10,12 +10,16 @@ on:
     branches: [main]
     paths: [".github/security/**", ".github/workflows/security.yml"]
 
+# el token del flujo solo puede leer el repositorio
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - name: Avisos de seguridad de Supabase
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -25,7 +29,7 @@ jobs:
             "https://api.supabase.com/v1/projects/$REF/advisors/security")
           if [ "$code" != "200" ]; then echo "::error::No se han podido leer los avisos ($code)"; cat advisors.json | head -c 500; exit 1; fi
           python3 - <<'PY'
-          import json, sys
+          import collections, json, sys
           ok = {l.strip() for l in open('.github/security/aceptados.txt') if l.strip() and not l.startswith('#')}
           data = json.load(open('advisors.json'))
           seen, new = set(), []
@@ -35,13 +39,14 @@ jobs:
                   key = f"{lint['name']}:{md.get('name') or md.get('entity') or ''}"
                   seen.add(key)
                   if key not in ok:
-                      new.append((lint.get('level'), key, f.get('detail') or lint.get('detail') or lint.get('title')))
+                      new.append((lint.get('level'), lint['name']))
           print(f'{len(seen)} avisos, {len(seen & ok)} ya revisados')
           for k in sorted(ok - seen):
               print(f'  resuelto (se puede quitar de aceptados.txt): {k}')
           if new:
-              for lvl, key, det in new:
-                  print(f'::error title={lvl} {key}::{det}')
+              # el registro de este flujo es público: se dice cuántos avisos hay y de qué tipo, no sobre qué tabla o función
+              for (lvl, name), n in sorted(collections.Counter(new).items()):
+                  print(f'::error title={lvl} {name}::{n} aviso(s) nuevo(s) de este tipo. El detalle, en Supabase → Advisors (o pídeselo a Claude con get_advisors).')
               sys.exit(1)
           print('Sin avisos nuevos.')
           PY

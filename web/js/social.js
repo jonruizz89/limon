@@ -161,7 +161,7 @@ function listPicker(e) {
   if (!logged) return '<p class="note">Entra con tu cuenta para crear listas.</p>';
   return `<div class="routewarn"><b>Añadir a una lista</b>
       ${MYLISTS.map(l => `<label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" data-li-toggle="${l.id}" data-ev="${e.id}" ${l.items.includes(e.id) ? 'checked' : ''}> ${esc(l.title)} <span class="note">${l.is_public ? 'pública' : 'privada'}</span></label>`).join('')}
-      <form class="seg" data-newlist="${e.id}" style="margin-top:8px"><input class="search" name="t" required minlength="2" maxlength="80" placeholder="Nueva lista (ej.: Domingos de lluvia)" style="flex:1;min-width:160px"><label class="note" style="display:flex;gap:4px;align-items:center"><input type="checkbox" name="pub" checked> Pública</label><button class="btn" type="submit">Crear</button></form></div>`;
+      <form class="seg" data-newlist="${e.id}" style="margin-top:8px"><input class="search" name="t" required minlength="2" maxlength="80" placeholder="Nueva lista (ej.: Domingos de lluvia)" style="flex:1;min-width:160px"><label class="note" style="display:flex;gap:4px;align-items:center"><input type="checkbox" name="pub"> Pública</label><button class="btn" type="submit">Crear</button></form></div>`;
 }
 function renderLists() {
   const box = $('ag-lists'); if (!box) return;

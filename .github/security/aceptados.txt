@@ -2,24 +2,34 @@
 # security.yml falla si aparece cualquier aviso que no esté aquí. Antes de añadir uno, comprueba que es intencionado.
 
 # Tablas solo para el servidor: sin políticas = nadie desde la web puede leerlas ni escribirlas
+rls_enabled_no_policy:aemet_peticiones
+rls_enabled_no_policy:aemet_zonas
 rls_enabled_no_policy:ai_usage
+rls_enabled_no_policy:app_errors
 rls_enabled_no_policy:app_keys
+rls_enabled_no_policy:app_opens
+rls_enabled_no_policy:ig_stats
 rls_enabled_no_policy:mail_outbox
+rls_enabled_no_policy:web_visits
 
-# Funciones públicas a propósito (sin cuenta): tablón de ideas, invitaciones por enlace, perfiles y listas públicas
+# Funciones públicas a propósito (sin cuenta): tablón de ideas, invitaciones por enlace, perfiles y listas públicas,
+# y los contadores anónimos de aperturas y de errores de la app
+anon_security_definer_function_executable:contar_apertura
+anon_security_definer_function_executable:contar_error
 anon_security_definer_function_executable:ideas_board
 anon_security_definer_function_executable:invite_get
 anon_security_definer_function_executable:invite_reply
 anon_security_definer_function_executable:is_admin
 anon_security_definer_function_executable:is_editor
 anon_security_definer_function_executable:list_view
-anon_security_definer_function_executable:profile_search
 anon_security_definer_function_executable:profile_view
 anon_security_definer_function_executable:social_card
 
 # Funciones para usuarios con cuenta; las de admin comprueban dentro que quien llama es admin
 authenticated_security_definer_function_executable:admin_demographics
 authenticated_security_definer_function_executable:admin_stats
+authenticated_security_definer_function_executable:contar_apertura
+authenticated_security_definer_function_executable:contar_error
 authenticated_security_definer_function_executable:find_by_emails
 authenticated_security_definer_function_executable:follow_respond
 authenticated_security_definer_function_executable:follow_user
@@ -61,3 +71,6 @@ authenticated_security_definer_function_executable:contar_error
 
 # Estadísticas de Instagram: tabla interna que solo escribe y lee el servidor (flujo «Estadísticas»)
 rls_enabled_no_policy:ig_stats
+
+# pg_net viene instalada así en el proyecto y no se puede cambiar de esquema sin reinstalarla; sus funciones no están en la API
+extension_in_public:pg_net

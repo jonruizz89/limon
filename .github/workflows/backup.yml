@@ -1,13 +1,20 @@
 name: Copia de seguridad
 
 # Cada domingo: copia completa de la base de datos (datos de la app y cuentas), comprimida y CIFRADA con una frase
-# que solo tiene Jon. Se guarda 90 días como artefacto del flujo (el repositorio es público: sin la frase no sirve de nada).
+# que solo tiene Jon. Se guarda 90 días en un repositorio PRIVADO aparte, como «release» (este repositorio es público y sus
+# artefactos los puede descargar cualquiera con cuenta de GitHub: aquí ya no se sube ninguna copia).
 # Secretos: SUPABASE_DB_PASSWORD (contraseña de la base de datos) y BACKUP_PASSPHRASE. También vale SUPABASE_DB_URL en lugar de la contraseña.
+#           BACKUP_REPO (el repositorio privado, «dueño/nombre») y BACKUP_REPO_TOKEN (token de GitHub con permiso de
+#           escritura de contenidos SOLO en ese repositorio). Sin ellos el flujo falla y avisa: no hay copia en sitio público.
 # Restaurar: ver «Copias de seguridad» en el README.
 on:
   schedule:
     - cron: "23 3 * * 0"
   workflow_dispatch:
+
+# el token del flujo solo puede leer el repositorio
+permissions:
+  contents: read
 
 jobs:
   backup:
@@ -19,11 +26,18 @@ jobs:
       REF: pxeqbxxfsrvsxcdfiddc
       REGION: eu-central-1
       BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
+      GH_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
     steps:
       - name: Comprobar los secretos
         run: |
           if { [ -z "$SUPABASE_DB_URL" ] && [ -z "$PGPASSWORD" ]; } || [ -z "$BACKUP_PASSPHRASE" ]; then
             echo "::error::Faltan los secretos SUPABASE_DB_PASSWORD y/o BACKUP_PASSPHRASE en GitHub"; exit 1; fi
+          if [ -z "$BACKUP_REPO" ] || [ -z "$GH_TOKEN" ]; then
+            echo "::error::Faltan los secretos BACKUP_REPO y/o BACKUP_REPO_TOKEN: la copia se guarda en un repositorio privado (ver README, «Copias de seguridad»)"; exit 1; fi
+          # el destino tiene que ser privado: si no, no se sube nada
+          vis=$(gh api "repos/$BACKUP_REPO" --jq .visibility 2>/dev/null || true)
+          if [ "$vis" != "private" ]; then echo "::error::El repositorio de copias no existe, no es privado o el token no llega a él"; exit 1; fi
       - name: Instalar pg_dump 17
         run: |
           sudo install -d /usr/share/postgresql-common/pgdg
@@ -49,16 +63,21 @@ jobs:
             [ -n "${PGHOST:-}" ] || { echo "::error::No se ha podido conectar a la base de datos: revisa la contraseña (SUPABASE_DB_PASSWORD)"; exit 1; }
             echo "conectado por $PGHOST"; DB=()
           fi
-          # 1) la app: esquema y datos del esquema public
-          $PGD "${DB[@]}" -n public --no-owner --no-privileges -Fc -f app.dump
+          # 1) la app: esquema y datos del esquema public, con sus permisos (lo nuevo nace cerrado: sin ellos la web no podría leer nada)
+          $PGD "${DB[@]}" -n public --no-owner -Fc -f app.dump
           # 2) las cuentas: solo datos de usuarios e identidades (el esquema auth lo crea Supabase)
           $PGD "${DB[@]}" --data-only -t auth.users -t auth.identities --no-owner --no-privileges -Fc -f cuentas.dump
           tar czf limon.tgz app.dump cuentas.dump
           echo "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --symmetric --cipher-algo AES256 -o "out/limon-$D.tgz.gpg" limon.tgz
           rm -f app.dump cuentas.dump limon.tgz
           ls -la out
-      - uses: actions/upload-artifact@v4
-        with:
-          name: copia-${{ github.run_id }}
-          path: out/*.gpg
-          retention-days: 90
+      - name: Guardar en el repositorio privado y quitar las copias de más de 90 días
+        run: |
+          set -euo pipefail
+          D=$(date -u +%Y-%m-%d)
+          gh release create "copia-$D-${{ github.run_id }}" out/*.gpg --repo "$BACKUP_REPO" --title "Copia $D" --notes "Copia cifrada de la base de datos de Limón."
+          limite=$(date -u -d '90 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh release list --repo "$BACKUP_REPO" --limit 200 --json tagName,createdAt \
+            --jq ".[] | select(.tagName | startswith(\"copia-\")) | select(.createdAt < \"$limite\") | .tagName" |
+            while read -r t; do gh release delete "$t" --repo "$BACKUP_REPO" --yes --cleanup-tag; done
+          echo "Copia guardada."

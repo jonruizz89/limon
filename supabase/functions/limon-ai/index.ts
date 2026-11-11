@@ -1,5 +1,7 @@
 // Limón · IA en el servidor: perfil en lenguaje natural y recomendación razonada.
-// Solo para usuarios con sesión. Tope de llamadas por persona y día y de gasto diario total.
+// Solo para usuarios con sesión. Tope de llamadas por persona y día y de gasto diario total: cada llamada a la IA se
+// reserva antes de hacerla (ai_usage_reserve) y al acabar se apunta lo que costó (ai_usage_settle), para que una ráfaga
+// de peticiones a la vez no se salte los topes.
 // Secretos: ANTHROPIC_API_KEY (lo añade el dueño en Supabase → Edge Functions → Secrets).
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 
@@ -12,6 +14,8 @@ const MODEL = Deno.env.get('LIMON_AI_MODEL') || 'claude-haiku-5-5';
 const PRICE_IN = 0.10 / 1e6, PRICE_OUT = 0.50 / 1e6;
 const MAX_CALLS_USER_DAY = 30;
 const MAX_USD_DAY = Number(Deno.env.get('LIMON_AI_MAX_USD_DAY') || '1');
+const RESERVE = 0.02;      // lo que se aparta por llamada hasta saber su coste real
+const MAX_PROMPT = 60000;  // caracteres como mucho en el mensaje a la IA
 const cityOf = (c: unknown) => (typeof c === 'string' && /^[a-z0-9-]{2,40}$/.test(c) ? c : 'madrid');
 
 const admin = createClient(URL, SECRET, { auth: { persistSession: false } });
@@ -23,7 +27,27 @@ const CORS = {
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 const fold = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-async function claude(system: string, user: string, tool: Record<string, unknown>, maxTokens = 2000) {
+class Limit extends Error {}
+async function reserve(uid: string) {
+  const { data, error } = await admin.rpc('ai_usage_reserve', { p_user: uid, p_max_calls: MAX_CALLS_USER_DAY, p_max_usd: MAX_USD_DAY, p_reserve: RESERVE });
+  if (error) throw error;
+  if (data === 'persona') throw new Limit('Has llegado al límite de consultas de hoy. Mañana más.');
+  if (data !== 'ok') throw new Limit('Las recomendaciones están en pausa hasta mañana. Vuelve a probar entonces.');
+}
+
+async function claude(uid: string, system: string, user: string, tool: Record<string, unknown>, maxTokens = 2000) {
+  await reserve(uid);
+  let usd = 0;
+  try {
+    const res = await llamar(system, user.slice(0, MAX_PROMPT), tool, maxTokens);
+    usd = res.usd;
+    return res;
+  } finally {
+    await admin.rpc('ai_usage_settle', { p_user: uid, p_usd: usd, p_reserve: RESERVE });
+  }
+}
+
+async function llamar(system: string, user: string, tool: Record<string, unknown>, maxTokens: number) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': AKEY!, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
@@ -43,16 +67,28 @@ async function claude(system: string, user: string, tool: Record<string, unknown
   return { out: blk ? blk.input : null, usd };
 }
 
-async function guard(uid: string) {
-  const day = new Date().toISOString().slice(0, 10);
-  const [{ data: mine }, { data: all }] = await Promise.all([
-    admin.from('ai_usage').select('calls').eq('day', day).eq('user_id', uid).maybeSingle(),
-    admin.from('ai_usage').select('usd').eq('day', day),
-  ]);
-  if (mine && mine.calls >= MAX_CALLS_USER_DAY) return 'Has llegado al límite de consultas de hoy. Mañana más.';
-  const total = (all || []).reduce((s: number, r: { usd: number }) => s + Number(r.usd), 0);
-  if (total >= MAX_USD_DAY) return 'Las recomendaciones están en pausa hasta mañana. Vuelve a probar entonces.';
-  return null;
+// El perfil lo puede escribir su dueño desde el navegador: antes de usarlo (y de mandarlo a la IA) se queda solo con lo
+// que tiene la forma esperada y un tamaño razonable.
+const str = (x: unknown, n: number) => (typeof x === 'string' ? x.slice(0, n) : '');
+const arr = (x: unknown) => (Array.isArray(x) ? x : []);
+type Taste = { at: string; resumen: string; categorias: { id: string; peso: number }[]; temas: string[]; evitar: string[] };
+function cleanTaste(t: unknown): Taste | null {
+  if (!t || typeof t !== 'object') return null;
+  const o = t as Record<string, unknown>;
+  return {
+    at: str(o.at, 40), resumen: str(o.resumen, 600),
+    categorias: arr(o.categorias).filter((c) => c && typeof c.id === 'string' && [1, 2, 3].includes(c.peso)).slice(0, 40).map((c) => ({ id: c.id.slice(0, 60), peso: c.peso })),
+    temas: arr(o.temas).filter((x) => typeof x === 'string' && x.trim().length >= 2).slice(0, 15).map((x) => x.slice(0, 60)),
+    evitar: arr(o.evitar).filter((x) => typeof x === 'string').slice(0, 30).map((x) => x.slice(0, 60)),
+  };
+}
+function cleanLearned(l: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!l || typeof l !== 'object') return out;
+  for (const [k, v] of Object.entries(l as Record<string, unknown>).slice(0, 400)) {
+    if (/^(cat|tema|serie):.{1,80}$/.test(k) && typeof v === 'number' && isFinite(v)) out[k] = Math.max(-50, Math.min(50, v));
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- perfil en lenguaje natural
@@ -87,7 +123,7 @@ async function taste(uid: string, text: string) {
     '(«nada de reguetón», «odio las discotecas»), pon esas categorías en evitar. En temas pon solo nombres concretos que aparecerían ' +
     'tal cual en un evento (personas, obras, épocas, civilizaciones, estilos); nunca frases genéricas como «conferencias de historia» ' +
     'o «planes con perro», que ya cubren las categorías.\n\nTaxonomía (id = nombre (grupo)):\n' + list;
-  const { out, usd } = await claude(system, text.slice(0, 2000), TASTE_TOOL, 1500);
+  const { out, usd } = await claude(uid, system, text.slice(0, 2000), TASTE_TOOL, 1500);
   if (!out) throw new Error('No se ha podido interpretar el texto. Prueba a escribirlo de otra forma.');
   const t = {
     resumen: String(out.resumen || '').slice(0, 600),
@@ -146,8 +182,8 @@ async function recommend(uid: string, when: string, force: boolean, city = 'madr
     admin.from('user_interests').select('category_id,value').eq('user_id', uid),
     admin.from('dismissed_events').select('event_id').eq('user_id', uid),
   ]);
-  const taste = (prof && prof.taste) || null;
-  const learned: Record<string, number> = (prof && prof.learned) || {};
+  const taste = cleanTaste(prof && prof.taste);
+  const learned = cleanLearned(prof && prof.learned);
   const key = (city === 'madrid' ? '' : city + ':') + when + ':' + from;
   const sig = JSON.stringify(['v2', taste && taste.at, ints, learned, (dis || []).length]);
   if (!force) {
@@ -216,7 +252,7 @@ async function recommend(uid: string, when: string, force: boolean, city = 'madr
     'descarta lo que choque con lo que evita. El motivo, de menos de 100 caracteres y sin repetir el título ni la fecha, debe citar ' +
     'el interés concreto (no "porque te gusta la cultura").';
   const user = `Perfil:\n${perfil}\n\nCandidatos (id | cuándo | título | lugar | categorías | temas | descripción):\n${lines}`;
-  const { out, usd } = await claude(system, user, RECO_TOOL, 1500);
+  const { out, usd } = await claude(uid, system, user, RECO_TOOL, 1500);
   const valid = new Set(cand.map((x) => x.e.id));
   const planes = ((out && out.planes) || []).filter((p: { id: number }) => valid.has(p.id)).slice(0, 10)
     .map((p: { id: number; por_que: string }) => ({ id: p.id, por_que: String(p.por_que || '').slice(0, 160) }));
@@ -234,8 +270,6 @@ Deno.serve(async (req) => {
     if (!AKEY) return json({ error: 'Esta función aún no está disponible.' }, 503);
     const uid = u.user.id;
     const body = await req.json().catch(() => ({}));
-    const stop = await guard(uid);
-    if (stop) return json({ error: stop }, 429);
     let res: { usd: number } & Record<string, unknown>;
     if (body.action === 'taste') {
       const text = String(body.text || '').trim();
@@ -244,10 +278,10 @@ Deno.serve(async (req) => {
     } else if (body.action === 'recommend') {
       res = await recommend(uid, ['semana', 'finde', 'mes'].includes(body.when) ? body.when : 'semana', !!body.force, cityOf(body.city));
     } else return json({ error: 'Acción desconocida' }, 400);
-    if (res.usd > 0) await admin.rpc('ai_usage_add', { p_user: uid, p_usd: res.usd });
     const { usd: _u, ...out } = res;
     return json(out);
   } catch (e) {
+    if (e instanceof Limit) return json({ error: e.message }, 429);
     console.error(e);
     return json({ error: 'Algo ha fallado en el servidor. Prueba otra vez en un rato.' }, 500);
   }

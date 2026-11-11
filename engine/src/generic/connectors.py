@@ -507,6 +507,84 @@ def tm_read(cfg):
     return out
 
 
+# ---------- Cataluña · Agenda cultural de la Generalitat (analisi.transparenciacatalunya.cat, «rhpv-yr4f»)
+# Datos abiertos de la Generalitat (licencia abierta de uso con atribución). Un acto con varios espacios viene en
+# varias filas con el mismo «codi»: se queda la primera. No trae ficha propia: se enlaza a la compra o a la web del acto.
+GENCAT = 'https://analisi.transparenciacatalunya.cat/resource/rhpv-yr4f.json'
+GENCAT_IMG = 'https://agenda.cultura.gencat.cat'
+
+
+def _slug(t):
+    return re.sub(r'[^a-z0-9]+', '-', fold(t or '')).strip('-')
+
+
+def gencat_match(city):
+    if city.get('kind') == 'provincia':
+        return None
+    q = urllib.parse.urlencode({'$select': 'municipi, count(*) as n', '$group': 'municipi',
+                                '$where': f"municipi like '%/{_slug(city.get('name'))}'", '$limit': 5})
+    st, _, txt, _ = fetch(f'{GENCAT}?{q}', accept=JSON, ua=UA_API)
+    if st != 200:
+        return None
+    filas = [r for r in json.loads(txt) if r.get('municipi')]
+    return {'method': 'gencat', 'municipi': max(filas, key=lambda r: int(r['n']))['municipi']} if filas else None
+
+
+def _gencat_hora(t):
+    hs = {f'{int(h):02d}:{m or "00"}' for h, m in re.findall(r'\b(\d{1,2})(?:[.:](\d{2}))?\s*h\b', t or '') if int(h) < 24}
+    return next(iter(hs)) if len(hs) == 1 else None
+
+
+def _gencat_precio(e):
+    if (e.get('gratuita') or '').startswith('S'):
+        return 'Gratis', True
+    t = re.sub(r'^\s*Preus?\s*:?\s*', '', _clean(e.get('entrades')))
+    t = re.sub(r'\bdes de\b', 'desde', re.sub(r'\bde (\d[^ ]*) € a\b', r'de \1 a', t))
+    return ((t[:1].upper() + t[1:])[:80] if '€' in t else None), False
+
+
+def gencat_read(cfg, max_pages=10):
+    hoy = dt.date.today().isoformat()
+    out, vistos = [], set()
+    for page in range(max_pages):
+        q = urllib.parse.urlencode({'$where': f"data_fi >= '{hoy}' AND municipi = '{cfg['municipi']}'",
+                                    '$order': 'codi', '$limit': 1000, '$offset': page * 1000})
+        for intento in range(3):
+            st, _, txt, _ = fetch(f'{GENCAT}?{q}', accept=JSON, ua=UA_API)
+            if st == 200:
+                break
+            time.sleep(5 * (intento + 1))
+        if st != 200:
+            print(f'  Generalitat: página {page + 1} sin respuesta ({st})')
+            return out or None
+        recs = json.loads(txt)
+        for e in recs:
+            codi, name = e.get('codi'), _clean(e.get('denominaci'))
+            ini, fin = (e.get('data_inici') or '')[:10], (e.get('data_fi') or e.get('data_inici') or '')[:10]
+            if not codi or codi in vistos or not name or not ini or ini >= '2100' or e.get('modalitat') not in (None, '', 'Presencial'):
+                continue  # «9999-09-09» y la modalidad virtual son recursos en línea, no planes
+            vistos.add(codi)
+            try:
+                lat, lng = float(e['latitud']), float(e['longitud'])
+            except (KeyError, TypeError, ValueError):
+                lat = lng = None
+            img = (e.get('imatges') or '').split(',')[0].strip()
+            precio, gratis = _gencat_precio(e)
+            web = e.get('linkbotoentrades') or e.get('enllac1_url') or e.get('url') or None
+            out.append({
+                'titulo': name[:300], 'descripcion': _clean(e.get('descripcio'))[:600], 'inicio': ini, 'fin': max(ini, fin),
+                'hora': _gencat_hora(e.get('horari')) if ini == fin else None,
+                'lugar': _clean(e.get('espai')) or None, 'direccion': _clean(e.get('adre_a')) or None,
+                'lat': lat, 'lng': lng, 'distrito': None, 'precio': precio, 'gratis': gratis,
+                'imagen': (GENCAT_IMG + img if img.startswith('/') else img) or None,
+                'web_organizador': e.get('url') or web, 'url': web,
+            })
+        if len(recs) < 1000:
+            break
+    print(f'  Generalitat: {len(out)} actos')
+    return out
+
+
 CONNECTORS = {
     'kulturklik': {'name': 'Kulturklik · Agenda cultural de Euskadi', 'url': 'https://www.kulturklik.euskadi.eus/', 'layer': 'regional',
                    'license': 'Open Data Euskadi (CC BY 4.0)', 'match': kk_match, 'read': kk_read},
@@ -520,6 +598,9 @@ CONNECTORS = {
                     'license': 'Enlace a la ficha original', 'match': pasea_match, 'read': pasea_read},
     'ticketmaster': {'name': 'Ticketmaster (grandes conciertos y espectáculos)', 'url': 'https://www.ticketmaster.es/', 'layer': 'recinto',
                      'license': 'Ticketmaster Discovery API (enlace a la compra)', 'match': tm_match, 'read': tm_read},
+    'gencat': {'name': 'Agenda cultural de Catalunya (Generalitat, datos abiertos)', 'url': 'https://agenda.cultura.gencat.cat/',
+               'layer': 'regional', 'license': 'Dades obertes de la Generalitat de Catalunya (llicència oberta, amb atribució)',
+               'match': gencat_match, 'read': gencat_read},
 }
 
 

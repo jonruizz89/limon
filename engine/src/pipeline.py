@@ -292,12 +292,16 @@ def dias_recurrentes(e, ini, fin):
 
 # --------------------------------------------------------------------------- lectores
 def madrid():
-    evs = []
-    for fn in ('300107-0-agenda-actividades-eventos.json', '206974-0-agenda-eventos-culturales-100.json'):
+    evs, vistos = [], set()
+    for fn in ('300107-0-agenda-actividades-eventos.json', '206974-0-agenda-eventos-culturales-100.json',
+               '212504-0-agenda-actividades-deportes.json'):  # el deporte municipal no siempre está en la agenda general
         if not os.path.exists(os.path.join(RAW, fn)):
             print('aviso: falta', fn)
             continue
         for e in json.loads(open(os.path.join(RAW, fn), encoding='utf-8').read(), strict=False)['@graph']:  # a veces trae saltos de línea sin escapar
+            if e.get('id') in vistos:  # el mismo acto en dos ficheros
+                continue
+            vistos.add(e.get('id'))
             tipo = e.get('@type', '').split('/')[-1]
             base = MADRID_TIPO.get(tipo, [])
             org = e.get('organization') or {}

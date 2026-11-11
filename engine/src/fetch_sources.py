@@ -70,6 +70,7 @@ def jsonld_events(path):
 base = 'https://datos.madrid.es/egob/catalogo/'
 curl(base + '300107-0-agenda-actividades-eventos.json', '300107-0-agenda-actividades-eventos.json')
 curl(base + '206974-0-agenda-eventos-culturales-100.json', '206974-0-agenda-eventos-culturales-100.json')
+curl(base + '212504-0-agenda-actividades-deportes.json', '212504-0-agenda-actividades-deportes.json')  # deporte municipal
 if not curl('https://www.esmadrid.com/sitemap.xml', 'sm.xml'):
     raise SystemExit('sin sitemap de esMadrid no se puede seguir')
 for name, url in (('ifema', 'https://www.ifema.es/'), ('rjb', 'https://rjb.csic.es/agenda/')):

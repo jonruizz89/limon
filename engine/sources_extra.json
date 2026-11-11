@@ -29,5 +29,8 @@
    "venue": "Teatro Lara", "address": "Corredera Baja de San Pablo, 15"},
   {"name": "Casa del Libro", "layer": "organizador", "url": "https://www.casadellibro.com/nosotros/eventos",
    "method": "Página de eventos leída con IA", "license": "Enlace a la ficha original", "kind": "llm", "cats": ["libros"],
-   "only_city": "Madrid"}
+   "only_city": "Madrid"},
+  {"name": "Sala Galileo Galilei", "layer": "recinto", "url": "https://salagalileo.es/programacion/",
+   "method": "schema.org Event en la web", "license": "Enlace a la ficha original", "kind": "jsonld", "cats": ["g:musica"],
+   "venue": "Sala Galileo Galilei", "address": "Calle de Galileo, 100"}
 ]

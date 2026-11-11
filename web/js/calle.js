@@ -1,7 +1,7 @@
 // Limón · Calle: cortes, mapa, avisos en cada plan, lluvia y ruta
 
 // ---------- cortes de calle
-const STRIP = /^(calle|c\/|avenida|av\.?|avda\.?|paseo|plaza|pza\.?|glorieta|ronda|carretera|camino|travesia|costanilla|cuesta)( de(l| la| los| las)?)? /;
+const STRIP = /^(calle|c|avenida|av\.?|avda\.?|paseo|plaza|pza\.?|glorieta|ronda|carretera|camino|travesia|costanilla|cuesta)( de(l| la| los| las)?)? /;
 const streetKey = t => (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().replace(STRIP, '').replace(/^(de|del|la|el) /, '');
 const lineKey = t => { const m = String(t || '').toUpperCase().replace(/LÍNEA|LINEA/g, 'L').replace(/\s+/g, '').match(/^(L|ML|C|R|N)?(\d{0,3}[A-Z]?)$/); return m ? (m[1] || '') + m[2] : null; };
 const lineMine = (l, kind) => {

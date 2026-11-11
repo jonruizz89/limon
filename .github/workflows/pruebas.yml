@@ -25,6 +25,8 @@ jobs:
           python-version: "3.12"
       - name: Pruebas del motor
         run: python3 -m unittest discover -s engine/tests/motor -v
+      - name: Limpieza de datos al cargar (calidad.py)
+        run: cd engine && python3 tests/test_calidad.py
 
   app:
     name: App (funciones)

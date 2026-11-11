@@ -63,5 +63,23 @@ class Parecidos(unittest.TestCase):
         self.assertFalse(parecidos('Exposición', 'Concierto'), 'títulos que se quedan vacíos al limpiar')
 
 
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+import calidad as C
+
+
+class AnoYFechas(unittest.TestCase):
+    def test_el_ano_al_final_no_cambia_el_plan(self):
+        self.assertTrue(C.mismo_titulo('Construtec', 'Construtec 2026'))
+        self.assertTrue(C.mismo_titulo('Smart Doors 2026', 'Smart Doors'))
+        self.assertFalse(C.mismo_titulo('Festival de Otoño 2026', 'Festival de Otoño 2027'), 'otra edición')
+
+    def test_fecha_que_no_cuadra_con_el_titulo(self):
+        self.assertTrue(C.fecha_rara({'titulo': 'CONCIERTO DE AÑO NUEVO', 'inicio': '2026-11-12'}))
+        self.assertFalse(C.fecha_rara({'titulo': 'Concierto de Año Nuevo', 'inicio': '2027-01-01'}))
+        self.assertFalse(C.fecha_rara({'titulo': 'Fiesta de Nochevieja', 'inicio': '2026-12-31'}))
+        self.assertFalse(C.fecha_rara({'titulo': 'Año nuevo chino Madrid 2027', 'inicio': '2027-02-04'}))
+
+
 if __name__ == '__main__':
     unittest.main()

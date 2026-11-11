@@ -99,11 +99,26 @@ def claves_titulo(t):
     if ':' in s:
         nuc.add(fold(s.rsplit(':', 1)[1]))
     nuc.add(fold(re.sub(r'\s*\([^()]*\)\s*$', '', s)))
+    nuc.add(fold(re.sub(r'\s*[-–(]?\s*(?:19|20)\d\d\)?\s*$', '', s)))  # «Construtec 2026» es «Construtec»
     f = fold(s)
     m = re.match(_TIPO + r'(?: familiar| musical| infantil)? (.+)$', f)
     if m:
         nuc.add(m.group(1))
     return completo, {x for x in nuc if len(x) >= 5 and x not in _VACIOS}
+
+
+_FECHA_FIJA = re.compile(r'\b(a[nñ]o nuevo|nochevieja|fin de a[nñ]o|cap d any|urte berri|urtezahar)\b')
+_NO_FIJA = re.compile(r'\b(chino|lunar|persa|judio|islamico|hindu|vietnamita|tet)\b')
+
+
+def fecha_rara(e):
+    """Un «Concierto de Año Nuevo» o una «Nochevieja» con fecha de noviembre es la fecha de venta o de la noticia,
+    no la del plan: mejor no enseñarlo que enseñarlo mal."""
+    t = fold(e.get('titulo'))
+    if not _FECHA_FIJA.search(t) or _NO_FIJA.search(t):
+        return False
+    ini = str(e.get('inicio') or '')
+    return len(ini) >= 7 and ini[5:7] not in ('12', '01')
 
 
 def mismo_titulo(a, b):

@@ -74,6 +74,10 @@ for e in evs:  # «Sala X, Calle Mayor 3» → lugar «Sala X» y dirección «C
     e['lugar'], _d = C.lugar_dir(e.get('lugar'), e.get('direccion'))
     if _d:
         e['direccion'] = _d
+_raras = [e for e in evs if C.fecha_rara(e)]
+if _raras:  # p. ej. «Concierto de Año Nuevo» el 12 de noviembre (la fecha de venta)
+    print('fechas que no cuadran con el título, fuera:', len(_raras), '·', '; '.join(f"{e['titulo'][:40]} ({e['inicio']})" for e in _raras[:5]))
+    evs = [e for e in evs if not C.fecha_rara(e)]
 evs, _unidos = C.unir_duplicados(evs)
 if _unidos:
     print('repetidos unidos en esta carga', _unidos)

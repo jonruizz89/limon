@@ -12,8 +12,8 @@ function askPos(quiet) {
     { timeout: 10000, maximumAge: 300000 });
 }
 const nf = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-// hora de inicio en horas decimales: «20:30», «20.30», «20h30», «20 h»; sin hora → null
-const startHour = e => { const t = String(e.hora || ''); const m = t.match(/(\d{1,2})(?:[:.h](\d{2})|\s?h\b)/i) || t.match(/\bde\s+(\d{1,2})\s+a\s+\d{1,2}\b/i); return m && +m[1] < 24 ? +m[1] + (+m[2] || 0) / 60 : null; };
+// hora de inicio en horas decimales: «20:30», «20.30», «20h30», «20 h»; sin hora (o «00:00» a secas) → null
+const startHour = e => { const t = String(e.hora || ''); if (SIN_HORA.test(t)) return null; const m = t.match(/(\d{1,2})(?:[:.h](\d{2})|\s?h\b)/i) || t.match(/\bde\s+(\d{1,2})\s+a\s+\d{1,2}\b/i); return m && +m[1] < 24 ? +m[1] + (+m[2] || 0) / 60 : null; };
 const horaOrden = e => startHour(e) ?? 99;  // dentro del mismo día, por hora; los que no la dicen, al final
 const minPrice = e => { if (e.gratis) return 0; const m = String(e.precio || '').replace(',', '.').match(/(\d+(?:\.\d+)?)\s*(?:€|euros?)/i) || String(e.precio || '').match(/^\D{0,12}(\d+(?:[.,]\d+)?)/); return m ? parseFloat(m[1]) : null; };
 const km = (a, b) => { const R = 6371, r = Math.PI / 180, dLa = (b[0] - a[0]) * r, dLo = (b[1] - a[1]) * r; const h = Math.sin(dLa / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };

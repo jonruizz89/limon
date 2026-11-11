@@ -41,23 +41,38 @@ function pintaTema() {
   const oscuro = document.documentElement.dataset.theme === 'dark' || (document.documentElement.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.content = oscuro ? '#0F1320' : '#FFD43B'; });
 }
+// «00:00» a secas es como la agenda municipal dice «sin hora»: no es medianoche
+const SIN_HORA = /^\s*0?0[:.]00(:00)?\s*h?\s*$/i;
+// horarios con principio y fin: «de 10 a 14», «desde las 10:00 hasta las 20:00», «19:30-21:00», «19:30 a 21:00»
+const RE_RANGO = /(?:de|desde)\s+(?:las\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*h?\s*(?:a|hasta)\s+(?:las\s+)?(\d{1,2})(?:[:.](\d{2}))?|(\d{1,2})[:.](\d{2})\s*h?\s*(?:[-–]|\s(?:a|hasta)\s+(?:las\s+)?)\s*(\d{1,2})[:.](\d{2})/gi;
 function yaPaso(e) {
   const t = String(e.hora || '');
-  if (!t || /todo el d[ií]a|consult|24 ?h/i.test(t)) return false;
-  const rango = t.match(/(?:de|desde)\s+(?:las\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*h?\s*(?:a|hasta)\s+(?:las\s+)?(\d{1,2})(?:[:.](\d{2}))?/i) || t.match(/(\d{1,2})[:.](\d{2})\s*h?\s*[-–]\s*(\d{1,2})[:.](\d{2})/);
+  if (!t || SIN_HORA.test(t) || /todo el d[ií]a|consult|24 ?h/i.test(t)) return false;
+  // todos los tramos que diga («11:00-14:00 + 17:00-20:00», «Turno 1: 18:15-19:45 / Turno 2: 19:45-21:15»)
+  const rangos = [...t.matchAll(RE_RANGO)].map(m => m[5] == null ? [+m[1] + (+m[2] || 0) / 60, +m[3] + (+m[4] || 0) / 60] : [+m[5] + +m[6] / 60, +m[7] + +m[8] / 60]);
+  const rango = rangos[0];
   const horas = [...t.matchAll(/(\d{1,2})[:.](\d{2})|\b(\d{1,2})\s?h\b/gi)].map(m => +(m[1] || m[3]) + (+m[2] || 0) / 60).filter(h => h < 24);
-  const ini = rango ? +rango[1] + (+rango[2] || 0) / 60 : null, fin = rango ? +rango[3] + (+rango[4] || 0) / 60 : null;
-  const cats = e.cats || [], conHora = cats.some(c => ['musica', 'escena', 'cine', 'deporte'].includes(groupOf(c)));  // un teatro de 20:30 a 23:30 sigue siendo «con hora»
-  const libre = cats.some(c => LIBRE.has(c)) || /desde/i.test(t) || (rango && fin - ini >= 3 && !conHora);
+  const ini = rango ? rango[0] : null, fin = rango ? rango[1] : null;
+  const cats = e.cats || [], conHora = cats.some(c => ['musica', 'escena', 'cine', 'deporte'].includes(groupOf(c)));
+  // un horario de 3 h o más es de entrar cuando quieras. Un teatro de 20:30 a 23:30 sigue siendo «con hora», salvo que
+  // diga varios tramos o uno de 6 h o más (eso ya es un horario de apertura)
+  const tramo = rango ? Math.max(...rangos.map(([a, b]) => b - a)) : 0;
+  const libre = cats.some(c => LIBRE.has(c)) || /desde/i.test(t) || (tramo >= 3 && (!conHora || rangos.length > 1 || tramo >= 6));
   let finH;
   if (libre) {
-    if (rango) finH = fin;
+    if (rango) {
+      if (rangos.some(([a, b]) => b < a)) return false;  // pasa de medianoche («23:30 a 06:00»)
+      finH = Math.max(...rangos.map(r => r[1]));          // el último cierre del día
+    }
     else if (horas.length) finH = Math.max(...horas) + (/desde/i.test(t) ? 5 : 3);
     else return false;
     if (finH <= 6 || finH >= 24) return false;  // acaba de madrugada: hoy no se oculta
   } else {
-    const ultima = horas.length ? Math.max(...horas.filter(h => !rango || h !== fin)) : ini;  // la última sesión que empieza hoy
+    // la última sesión que empieza hoy: las horas de fin de un tramo no cuentan, salvo que a esa hora empiece otro
+    const empieza = new Set(rangos.map(r => r[0])), acaba = new Set(rangos.map(r => r[1]));
+    const ultima = horas.length ? Math.max(...horas.filter(h => !acaba.has(h) || empieza.has(h))) : ini;
     if (ultima == null || !isFinite(ultima)) return false;
+    if (ultima < 6) return false;  // de madrugada: es la noche de hoy, no esta mañana
     finH = ultima + 10 / 60;
   }
   const n = new Date();

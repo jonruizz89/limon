@@ -60,7 +60,7 @@ function whenText(e, occ) {
   else if (e.sesiones.length > 1) t += ' · ' + e.sesiones.length + ' sesiones';
   // horario corto tal cual; si es largo, la primera hora que diga (el horario completo va en la ficha); «--» no se enseña
   const sh = startHour(e), hh = sh == null ? '' : Math.floor(sh) + ':' + String(Math.round((sh % 1) * 60)).padStart(2, '0');
-  const h = !e.hora || !/\w/.test(e.hora) || /consult/i.test(e.hora) ? null : e.hora.length < 40 ? e.hora : hh ? 'desde las ' + hh : null;
+  const h = !e.hora || !/\w/.test(e.hora) || SIN_HORA.test(e.hora) || /consult/i.test(e.hora) ? null : e.hora.length < 40 ? e.hora : hh ? 'desde las ' + hh : null;
   return t + (h ? ' · ' + h : '');
 }
 // si la fuente no trae descripción, se muestra lo leído de la ficha original (se pide al abrir la ficha)

@@ -30,6 +30,12 @@ def norm(t):
     return re.sub(r'[^a-z0-9 ]+', ' ', t).strip()
 
 
+def sin_medianoche(t):
+    """La agenda municipal pone «00:00» cuando no sabe la hora: se queda sin hora (si no, la app lo daba por pasado todo el día)."""
+    t = (t or '').strip()
+    return None if re.fullmatch(r'0?0:00(:00)?', t) else t or None
+
+
 def clean(t):
     if isinstance(t, list):
         t = ', '.join(str(x) for x in t if x)
@@ -305,7 +311,7 @@ def madrid():
                 'fuente': 'Agenda municipal de Madrid', 'fuente_id': 'madrid:' + e['id'],
                 'titulo': titulo, 'descripcion': desc,
                 'inicio': ini, 'fin': fin, 'dias': dias_recurrentes(e, ini, fin),
-                'hora': (e.get('time') or '').strip() or None,
+                'hora': sin_medianoche(e.get('time')),
                 'lugar': lugar or lugar_t,
                 'distrito': re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', dist) or dist_t or None,
                 'lat': loc.get('latitude'), 'lng': loc.get('longitude'),
@@ -505,9 +511,15 @@ GENERICOS = {'visitas guiadas', 'visita guiada', 'talleres', 'concierto', 'cuent
              'exposiciones', 'actividades', 'programacion', 'mercado productores'}
 
 
+# palabras que no distinguen un sitio de otro: «Biblioteca Eugenio Trías» y «Biblioteca Iván de Vargas» no son el mismo lugar
+LUGAR_VACIAS = {'de', 'del', 'la', 'el', 'los', 'las', 'centro', 'cultural', 'madrid', 'sala', 'biblioteca', 'bibliotecas', 'museo', 'museos',
+                'teatro', 'teatros', 'auditorio', 'cine', 'cines', 'parque', 'plaza', 'palacio', 'galeria', 'espacio', 'casa',
+                'municipal', 'publica', 'publico'}
+
+
 def mismo_lugar(a, b):
-    la = set(norm(a.get('lugar') or '').split()) - {'de', 'del', 'la', 'el', 'centro', 'cultural', 'madrid', 'sala'}
-    lb = set(norm(b.get('lugar') or '').split()) - {'de', 'del', 'la', 'el', 'centro', 'cultural', 'madrid', 'sala'}
+    la = set(norm(a.get('lugar') or '').split()) - LUGAR_VACIAS
+    lb = set(norm(b.get('lugar') or '').split()) - LUGAR_VACIAS
     return bool(la & lb)
 
 

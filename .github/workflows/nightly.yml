@@ -80,4 +80,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET: ${{ secrets.SUPABASE_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BUREO_CITY: madrid   # solo Madrid: las demás zonas se clasifican en su propia carga (city.yml)
         run: python3 src/classify.py

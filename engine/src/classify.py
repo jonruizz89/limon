@@ -12,6 +12,10 @@ SKEY = os.environ['SUPABASE_SECRET']
 AKEY = os.environ.get('ANTHROPIC_API_KEY')
 MODEL = os.environ.get('BUREO_AI_MODEL', 'claude-haiku-5-5')
 LIMIT = int(os.environ.get('BUREO_AI_LIMIT', '100000'))
+# Cada carga clasifica solo su ciudad (BUREO_CITY): antes cada ejecución descargaba los planes de todas las zonas
+# (13 veces al día) y se gastaba el cupo de transferencia de Supabase. Sin ciudad (flujo manual) se revisan todas.
+CITY = (os.environ.get('BUREO_AI_CITY') or os.environ.get('BUREO_CITY') or '').strip()
+CITY_FLT = f'&city_id=eq.{CITY}' if CITY else ''
 BATCH = 25
 if not AKEY:
     print('Sin ANTHROPIC_API_KEY: no se clasifica con IA esta vez.')
@@ -173,7 +177,7 @@ today = dt.date.today().isoformat()
 pending, offset = [], 0
 cols = 'id,ext_key,city_id,title,description,details,starts_on,ends_on,price_text,ai_hash,venues(name),event_categories(category_id)'
 while True:
-    page = sb('GET', f'events?select={cols}&ends_on=gte.{today}&order=id&limit=1000&offset={offset}')
+    page = sb('GET', f'events?select={cols}&ends_on=gte.{today}{CITY_FLT}&order=id&limit=1000&offset={offset}')
     for e in page:
         e['_hash'] = content_hash(e)
         if e.get('ai_hash') != e['_hash']:
@@ -182,7 +186,7 @@ while True:
         break
     offset += 1000
 pending = pending[:LIMIT]
-print(f'{len(pending)} eventos por clasificar con {MODEL}')
+print(f'{len(pending)} eventos por clasificar con {MODEL}' + (f' ({CITY})' if CITY else ' (todas las zonas)'))
 
 batches = [pending[i:i + BATCH] for i in range(0, len(pending), BATCH)]
 total, usage = 0, {'input_tokens': 0, 'output_tokens': 0, 'cache_read_input_tokens': 0}
@@ -210,7 +214,7 @@ print(f'Clasificados {total}. Llamadas a la API: {SPENT["calls"]}. Tokens: {SPEN
 # centro; esto lo detecta mirando todos los eventos a la vez.
 evs, offset = [], 0
 while True:
-    page = sb('GET', f'events?select=id,title,starts_on,topics,series,venue_id,venues(name),event_categories(categories(group_id))&ends_on=gte.{today}&venue_id=not.is.null&order=id&limit=1000&offset={offset}')
+    page = sb('GET', f'events?select=id,title,starts_on,topics,series,venue_id,venues(name),event_categories(categories(group_id))&ends_on=gte.{today}&venue_id=not.is.null{CITY_FLT}&order=id&limit=1000&offset={offset}')
     evs += page
     if len(page) < 1000:
         break

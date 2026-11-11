@@ -130,6 +130,13 @@ def jsonld_events(blocks, base):
                 'descripcion': clean(e.get('description'), 600) or None, 'imagen': img if isinstance(img, str) else None,
                 'lat': _num(geo.get('latitude')), 'lng': _num(geo.get('longitude')),
             })
+    # webs que publican «sin hora» como la medianoche UTC ya pasada a hora local (01:00 o 02:00): si varias citas de la misma
+    # página empiezan justo a esa hora, no es una hora de verdad (Donostia Kultura)
+    for h in ('01:00', '02:00'):
+        if sum(1 for e in out if e['hora'] == h) >= 3:
+            for e in out:
+                if e['hora'] == h:
+                    e['hora'] = None
     return out
 
 

@@ -240,6 +240,8 @@ def main(cid):
             g = geo.find(e['lugar'], e.get('direccion') if e.get('direccion') != e.get('lugar') else None)
             if g:
                 e['lat'], e['lng'] = g[0], g[1]; placed += 1
+                if len(g) > 3 and g[3] and not e.get('direccion'):
+                    e['direccion'] = g[3]  # la calle que da OpenStreetMap al situar el recinto, si la fuente no la trae
                 if not prov:
                     e['distrito'] = g[2]
             elif prov and e.get('muni_ll'):  # sin el sitio exacto: en el centro del pueblo

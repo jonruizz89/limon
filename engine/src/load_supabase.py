@@ -58,6 +58,15 @@ def chunks(xs, n):
 
 data = json.load(open(os.path.join(os.environ.get('BUREO_OUT', 'out'), 'events.json')))
 evs = data['eventos']
+# el mismo plan repetido dentro de la carga (misma ficha de origen, o el mismo título «envuelto» de otra forma en el mismo
+# sitio y día) se queda en una sola tarjeta; la sobrante que hubiera en la base la retira el paso 4
+for e in evs:  # «Sala X, Calle Mayor 3» → lugar «Sala X» y dirección «Calle Mayor 3»
+    e['lugar'], _d = C.lugar_dir(e.get('lugar'), e.get('direccion'))
+    if _d:
+        e['direccion'] = _d
+evs, _unidos = C.unir_duplicados(evs)
+if _unidos:
+    print('repetidos unidos en esta carga', _unidos)
 sources = {s['name']: s['id'] for s in api('GET', f'sources?select=id,name&city_id=eq.{CITY}')}
 cats_ok = {c['id'] for c in api('GET', 'categories?select=id')}
 
@@ -95,7 +104,7 @@ for e in evs:
     seen.add(k)
     e['_key'] = k
     rows.append({
-        'ext_key': k, 'city_id': CITY, 'title': e['titulo'][:500], 'description': e.get('descripcion') or None,
+        'ext_key': k, 'city_id': CITY, 'title': C.titulo_limpio(e['titulo'])[:500],  # la clave (k) sale del título original 'description': e.get('descripcion') or None,
         'starts_on': e['inicio'], 'ends_on': max(e['inicio'], e['fin']), 'time_text': C.norm_hora(e.get('hora')) or (C.hora_de_texto(e.get('descripcion')) if e['inicio'] == e['fin'] else None),  # la hora de la descripción solo en planes de un día (en una exposición sería la de la inauguración)
         'venue_id': vid.get(norm(e.get('lugar') or '')[:200]), 'district': e.get('distrito'),
         'lat': e.get('lat'), 'lng': e.get('lng'), 'price_text': e.get('precio'), 'is_free': bool(e.get('gratis')),
@@ -110,17 +119,24 @@ for e in evs:
 import datetime as _d0
 desde = (_d0.date.today() - _d0.timedelta(days=2)).isoformat()
 mios = {r['ext_key'] for r in rows}
-prev = {}
+prev, extra, ya_estan, de_fuera = {}, {}, set(), {}
+# fuentes leídas en esta carga: un plan de la base que solo viene de ellas y hoy no aparece es un sobrante (lo retira el paso 4)
+fuentes_hoy = {sources[n] for n in ((data.get('meta') or {}).get('por_fuente') or {f['nombre'] for e in evs for f in e['fuentes']}) if n in sources}
 off = 0
 while True:
-    got = api('GET', f'events?select=id,ext_key,title,starts_on,venue_id,lat,lng&city_id=eq.{CITY}&ends_on=gte.{desde}&order=id&offset={off}&limit=1000')
+    got = api('GET', f'events?select=id,ext_key,title,starts_on,time_text,venue_id,lat,lng,venues(name),event_sources(url,source_id)&city_id=eq.{CITY}&ends_on=gte.{desde}&order=id&offset={off}&limit=1000')
     for r in got:
         if r['ext_key'] not in mios:
             prev.setdefault(r['starts_on'], []).append((norm(r['title']), r['id'], r['ext_key'], r['venue_id'], r['lat'], r['lng']))
+            extra[r['id']] = (r['title'], r.get('time_text'), (r.get('venues') or {}).get('name'),
+                              {u for u in (C.url_ficha(x.get('url')) for x in r.get('event_sources') or []) if u})
+        else:
+            ya_estan.add(r['ext_key'])
+        de_fuera[r['id']] = any(x.get('source_id') not in fuentes_hoy for x in r.get('event_sources') or [])
     if len(got) < 1000:
         break
     off += 1000
-ajenos, ajenos_keys, sin_lugar = {}, [], {}
+ajenos, ajenos_keys, sin_lugar, cambio_clave = {}, [], {}, {}
 import difflib as _dl
 
 def igual(a, b):
@@ -132,6 +148,25 @@ def igual(a, b):
     # las mismas palabras en otro orden (al menos 3 con contenido)
     ta, tb = {w for w in a.split() if len(w) >= 4}, {w for w in b.split() if len(w) >= 4}
     return min(len(ta), len(tb)) >= 3 and (ta <= tb or tb <= ta)
+_ev = {e['_key']: e for e in evs if e.get('_key')}
+_uso = {}
+for e in evs:
+    for u in {C.url_ficha(f.get('url')) for f in e.get('fuentes') or []} - {None}:
+        _uso[u] = _uso.get(u, 0) + 1
+
+
+def mismo_plan(r, pid, la, lo):
+    """El plan r de hoy y el que ya está en la base (pid), que empiezan el mismo día, ¿son el mismo? Misma ficha de origen,
+    o mismo título sin envoltorio en el mismo sitio y sin horas de inicio distintas."""
+    e, (pt, ph, pl, purls) = _ev[r['ext_key']], extra[pid]
+    if purls & {u for u in (C.url_ficha(f.get('url')) for f in e.get('fuentes') or []) if u and _uso.get(u, 0) <= 3}:
+        return True
+    ha, hb = C._hora1(r.get('time_text')), C._hora1(ph)
+    if (ha and hb and ha != hb) or not C.mismo_titulo(r['title'], pt):
+        return False
+    return C.mismo_sitio({'lugar': e.get('lugar'), 'lat': r.get('lat'), 'lng': r.get('lng')}, {'lugar': pl, 'lat': la, 'lng': lo})
+
+
 for r in rows:
     t = norm(r['title'])
     # los títulos cortos se unen solo si además es el mismo sitio; los genéricos («Club de lectura», «Cuentacuentos») con más exigencia
@@ -144,7 +179,17 @@ for r in rows:
             return not generico
         m = 1 if generico else 2.5  # 600 m para títulos genéricos; 1,5 km para el resto (las fuentes sitúan distinto un mismo recinto)
         return abs(la - r['lat']) < 0.0055 * m and abs(lo - r['lng']) < 0.0075 * m
-    hit = next(((i, k, v) for (pt, i, k, v, la, lo) in prev.get(r['starts_on'], []) if igual(t, pt) and (len(t) >= 20 or cerca(v, la, lo))), None)
+    # un plan que ya tiene su fila no se cede a un gemelo que solo viene de las fuentes de hoy (ese gemelo es el sobrante:
+    # se retira en el paso 4); sí a uno de fuera de esta carga (el de un organizador, o el de la otra carga de Madrid)
+    cand = [x for x in prev.get(r['starts_on'], []) if not (r['ext_key'] in ya_estan and not de_fuera.get(x[1]))]
+    hit = next(((i, k, v) for (pt, i, k, v, la, lo) in cand if igual(t, pt) and (len(t) >= 20 or cerca(v, la, lo))), None)
+    if not hit:
+        hit = next(((i, k, v) for (pt, i, k, v, la, lo) in cand if mismo_plan(r, i, la, lo)), None)
+    if hit and r['ext_key'] not in ya_estan and not de_fuera.get(hit[0]) and hit[0] not in cambio_clave:
+        # el mismo plan de las mismas fuentes con otra clave (la fuente ha retocado el título o el nombre del lugar): la fila
+        # de siempre toma la clave nueva y se actualiza como cualquier otra, en vez de quedarse congelada con los datos viejos
+        cambio_clave[hit[0]] = r['ext_key']
+        continue
     if hit:
         ajenos[r['ext_key']] = hit[0]
         ajenos_keys.append(hit[1])
@@ -158,6 +203,10 @@ for v, ids_ in sin_lugar.items():
 if sin_lugar:
     print('lugar añadido a', sum(len(x) for x in sin_lugar.values()), 'eventos que no lo tenían')
 rows = [r for r in rows if r['ext_key'] not in ajenos]
+for _id, _k in cambio_clave.items():
+    api('PATCH', f'events?id=eq.{_id}', {'ext_key': _k}, 'return=minimal')
+if cambio_clave:
+    print('planes que conservan su ficha con la clave nueva', len(cambio_clave))
 
 eid = dict(ajenos)
 for part in chunks(rows, 400):
@@ -216,6 +265,15 @@ print('event_sources', len(srcs))
 leidas = [sources[n] for n in (data.get('meta') or {}).get('por_fuente', {}) if n in sources]
 if PFX and leidas:
     print('retirados', api('POST', 'rpc/retire_stale_events', {'p_city': CITY, 'p_keep': [r['ext_key'] for r in rows] + ajenos_keys, 'p_sources': leidas}))
+elif not PFX and leidas and not (data.get('meta') or {}).get('ventana'):
+    # fuentes de Madrid leídas con el motor genérico (salas, clubes…): antes no se retiraba nada suyo y los planes repetidos
+    # o cancelados se quedaban; se retira con el mismo tope de seguridad que el resto de Madrid (nunca más de un 10 %)
+    args = {'p_city': CITY, 'p_keep': [r['ext_key'] for r in rows] + ajenos_keys, 'p_sources': leidas, 'p_until': '2099-12-31'}
+    n = api('POST', 'rpc/retire_stale_events_window', dict(args, p_dry=True))
+    if n > max(30, 0.1 * len(eid)):
+        print(f'retirar {n} con {len(eid)} planes leídos parece un fallo de lectura: no se retira nada')
+    else:
+        print('retirados', api('POST', 'rpc/retire_stale_events_window', dict(args, p_dry=False)))
 elif not PFX and (data.get('meta') or {}).get('ventana'):
     # Madrid: también se retiran los planes aplazados o cancelados, pero solo dentro de la ventana leída, solo de las fuentes
     # que hoy han traído un número normal de planes, y nunca más de un 10 % de golpe (eso sería un fallo de lectura)

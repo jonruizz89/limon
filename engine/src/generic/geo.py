@@ -90,7 +90,10 @@ class Geocoder:
             {'q': q + ', ' + self.city['name'], 'format': 'jsonv2', 'limit': 1, 'addressdetails': 1, 'countrycodes': 'es',
              'viewbox': ','.join(map(str, self.bbox)), 'bounded': 1}))
         if res:
-            return [float(res[0]['lat']), float(res[0]['lon']), self.district(res[0].get('address') or {})]
+            ad = res[0].get('address') or {}
+            via = ad.get('road') or ad.get('pedestrian') or ad.get('square')
+            calle = ' '.join(x for x in (via, ad.get('house_number')) if x) or None  # la dirección, para los recintos que no la traen
+            return [float(res[0]['lat']), float(res[0]['lon']), self.district(ad), calle]
         return None
 
     def _photon(self, q):

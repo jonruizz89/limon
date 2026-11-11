@@ -28,13 +28,27 @@ Lecturas de Supabase (estimación sin comprimir): publicar la web ~200 MB/día, 
 - [x] 4 · Normalizar la hora
 - [x] 5 · Rellenar la hora vacía desde la descripción
 - [x] 6 · Afinar la clasificación y reclasificar los afectados
-- [ ] 2 · Unir planes con la misma URL de ficha y fecha
-- [ ] 3 · Comparar títulos sin envoltorio y segunda pasada por cercanía
-- [ ] 8 · Clave del plan estable
-- [ ] 9 · Lugares y direcciones
-- [ ] 10 · Limpieza de títulos sin cambiar la clave
+- [x] 2 · Unir planes con la misma URL de ficha y fecha
+- [x] 3 · Comparar títulos sin envoltorio y segunda pasada por cercanía
+- [x] 8 · Clave del plan estable
+- [x] 9 · Lugares y direcciones
+- [x] 10 · Limpieza de títulos sin cambiar la clave
 - [ ] 7 · Publicar la web leyendo solo lo cambiado
 - [ ] Repetir la medición tras una carga completa y anotar el resultado aquí
+
+## Notas de lo aplicado
+
+- Toda la limpieza está en `engine/src/calidad.py` (funciones puras) y se prueba con `python3 engine/tests/test_calidad.py`.
+- Duplicados: `unir_duplicados` une dentro de cada carga (misma ficha de origen, o mismo título sin envoltorio en el mismo
+  sitio y sin horas distintas); el sobrante que hubiera en la base lo retira `retire_stale_events` (no retira planes guardados).
+  Si un plan cambia de clave (título o lugar retocados por la fuente), la fila de siempre toma la clave nueva: conserva id y guardados.
+- Madrid, fuentes leídas con el motor genérico (salas, clubes): ahora también se retiran sus planes sobrantes, con tope del 10 %.
+- Ensayo con los `events.json` reales contra una base simulada: Donostia 685 → 577 planes, Bilbao 683 → 675, Barcelona −29;
+  la tercera carga no cambia nada (estable).
+- Pendiente fuera de este plan: duplicados entre una ciudad y su provincia (cargas distintas); Barcelona sigue usando la
+  calle como lugar cuando el equipamiento no está en el listado municipal (los datos no traen nombre); la dirección de los
+  recintos ya situados (4.703 planes) necesita una pasada aparte por OpenStreetMap: hoy solo se guarda en los recintos nuevos.
+- Los títulos limpios cambian la URL de la ficha (`/evento/id-titulo/`) de unos 470 planes.
 
 ## Reglas
 

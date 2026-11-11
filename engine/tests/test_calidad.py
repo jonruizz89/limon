@@ -33,5 +33,64 @@ for a, b in TEXTOS:
     r = C.hora_de_texto(a)
     if r != b:
         mal += 1; print('hora_de_texto', repr(a), '→', repr(r), 'esperado', repr(b))
+MISMO = [('"Esencia"', 'Esencia'), ('Concert "Frazey Ford"', 'Frazey Ford'), ('Concert "Jacob Banks', 'Jacob Banks'),
+         ('Entradas Jóse Rafael Guzmán: "Cositas bonitas" (11 de noviembre - Bilb', 'Cositas bonitas'),
+         ('Ciclo "Emakume zientzialarien argitan" 2026: "Trantsizio energetikoaz hausnartzen"', 'Trantsizio energetikoaz hausnartzen'),
+         ('Umore 2027: Galder varas: "Esto no es una terapia"', 'Esto no es una terapia'), ('Musikagileak 2026: Quatuor Béla', 'Quatuor Béla'),
+         ('VANTA CLUB', 'Vanta Club'), ('Bateria', 'Batería'), ('Espectacle familiar "El monstre de colors"', 'El monstre de colors'),
+         ("Espectacle Musical 'Germans de sang'", 'Germans de Sang'), ("Taller 'Ganxet' *NOU*", "Taller 'Ganxet'"),
+         ('Exposición Vidas de un mismo tiempo. Fotografía social', 'Vidas de un mismo tiempo. Fotografía social')]
+DISTINTO = [("Taller per a la gent gran 'Sardanes'", "Taller per a la gent gran 'Tai-txi'"), ("Taller 'Cremalleres: Iniciació'", "Taller 'Cremalleres: Avançat'"),
+            ('Curso anual de K-POP', 'Curso anual de teatro'), ("Mojo Workin' 2027: Natty Bo with Dandy Fever", "Mojo Workin' 2027"),
+            ('Circuito Mujeres en escena 2026: "Invita la casa"', 'Circuito Mujeres en escena 2026'), ('Midfulness', 'Yoga y midfulness'),
+            ('Club de lectura para jóvenes (10-13 años): "Pikolo"', 'Club de lectura para jóvenes (14-18 años): "Utzi kontatzen"'),
+            ("Taller 'Ioga relaxació'", "Taller 'Ioga restauratiu'"), ('Concierto: MASKAK', 'Concierto de Navidad: KALAKAN'),
+            ('Tartalo 2026: "Mitología Vasca"', 'Tartalo 2026: "Mesa redonda sobre el mito"')]
+for a, b in MISMO:
+    if not C.mismo_titulo(a, b):
+        mal += 1; print('debería ser el mismo:', a, '|', b)
+for a, b in DISTINTO:
+    if C.mismo_titulo(a, b):
+        mal += 1; print('no debería ser el mismo:', a, '|', b)
+for u, ok in [('https://altxerri.com/', False), ('https://www.tartalogasteiz.com/es/actividades', False), ('https://www.ecartelera.com/peliculas//', False),
+              ('https://auditoriozaragoza.com/programacion/el-lago-de-los-cisnes-11/?o=3', True), ('https://tickets.donostiakultura.eus/selection/event/date?productId=102', True)]:
+    if bool(C.url_ficha(u)) != ok:
+        mal += 1; print('url_ficha', u)
+
+
+def ev(t, lugar, ini, hora=None, url=None, fuente='A', fin=None, **k):
+    return dict({'titulo': t, 'lugar': lugar, 'inicio': ini, 'fin': fin or ini, 'hora': hora, 'fuentes': [{'nombre': fuente, 'url': url}], 'sesiones': []}, **k)
+
+
+casos = [  # (planes, cuántos deben quedar)
+    ([ev('"Esencia"', 'Teatro Principal', '2026-11-13', '19:30', fuente='KK'), ev('Esencia', 'Antzoki Zaharra', '2026-11-13', '19:30', fuente='DK', lat=43.3, lng=-1.98)], 2),
+    ([ev('"Esencia"', 'Teatro Principal', '2026-11-13', '19:30', fuente='KK', lat=43.3001, lng=-1.9801), ev('Esencia', 'Antzoki Zaharra', '2026-11-13', '19:30', fuente='DK', lat=43.3, lng=-1.98)], 1),
+    ([ev('Enperadorearen kondaira', 'Larratxo Kultur Etxea', '2026-11-14', '18:00'), ev('Enperadorearen kondaira', 'Larratxo K.E.', '2026-11-14', '18:00', fuente='B')], 1),
+    ([ev('EL LAGO DE LOS CISNES', 'Auditorio de Zaragoza', '2026-11-23', '20:00', 'https://auditoriozaragoza.com/programacion/el-lago-de-los-cisnes-11/?o=3', fin='2026-12-22'),
+      ev('EL LAGO DE LOS CISNES', 'Sala Mozart', '2026-11-23', '20:00', 'https://auditoriozaragoza.com/programacion/el-lago-de-los-cisnes-11/', fuente='B')], 1),
+    ([ev('Klasikoak 2026: "La amiga"', 'Artium Museoa', '2026-11-18', '19:00', 'https://filmoteka.eus/es/programacion/la-amiga'),
+      ev('La amiga (Jeanine Meerapfel, 1988)', 'Artium Museoa, Museo de Arte Contemporáneo', '2026-11-18', '19:00', 'https://filmoteka.eus/es/programacion/la-amiga', fuente='B')], 1),
+    ([ev('Club de lectura', 'Biblioteca', '2026-12-11', '18:15'), ev('Club de lectura', 'Biblioteca', '2026-12-11', '16:30', fuente='B')], 2),
+    ([ev('Txorinho', 'Altxerri', '2026-11-20', url='https://altxerri.com/'), ev('Pablo Torti 4tet', 'Altxerri', '2026-11-20', url='https://altxerri.com/', fuente='B')], 2),
+    ([ev('Vanta Club', 'Independance Club', '2026-12-24', '23:59 a 07:30'), ev('VANTA CLUB', 'Independance Club, Calle Atocha 127, Madrid', '2026-12-24', '23:59 a 07:30')], 1),
+    ([ev('Curso de cerámica', 'Centro Cívico', '2026-10-01', fin='2026-12-17'), ev('Curso de cerámica', 'Centro Cívico', '2026-10-01', fin='2027-05-27', fuente='B')], 2),
+]
+for lst, n in casos:
+    out, _ = C.unir_duplicados(lst)
+    if len(out) != n:
+        mal += 1; print('unir_duplicados:', [e['titulo'] for e in lst], '→', len(out), 'esperado', n)
+r, _ = C.unir_duplicados([ev('A largo plazo', 'Sala X', '2026-11-20', None, 'https://x.es/eventos/a-largo-plazo-2026', 'F1'), ev('A largo plazo', 'Sala X', '2026-11-20', '20:00', 'https://x.es/eventos/a-largo-plazo-2026', 'F2')])
+if not (len(r) == 1 and r[0]['hora'] == '20:00' and {f['nombre'] for f in r[0]['fuentes']} == {'F1', 'F2'}):
+    mal += 1; print('la unión no hereda hora o fuentes', r)
+for a, b in [('Independance Club, Calle Atocha 127, Madrid', ('Independance Club', 'Calle Atocha 127, Madrid')), ('Sala X (Calle Mayor 3)', ('Sala X', 'Calle Mayor 3')),
+             ('Artium Museoa, Museo de Arte Contemporáneo', ('Artium Museoa, Museo de Arte Contemporáneo', None)), ('Carrer Nou de la Rambla 111', ('Carrer Nou de la Rambla 111', None)),
+             ('Baztartxo Udal Antzokia (Azkoitia)', ('Baztartxo Udal Antzokia (Azkoitia)', None)), ('Teatro Arriaga, Arriaga Plaza, 1', ('Teatro Arriaga', 'Arriaga Plaza, 1'))]:
+    if C.lugar_dir(a) != b:
+        mal += 1; print('lugar_dir', a, '→', C.lugar_dir(a))
+for a, b in [("Taller 'Ganxet' *NOU*", "Taller 'Ganxet'"), ('Entradas La Mare (29 de enero - Donostia/San Sebastián)', 'La Mare'), ('EL LAGO DE LOS CISNES', 'El Lago de los Cisnes'),
+             ('KTULU', 'KTULU'), ('DJ SET: XIV ANIVERSARIO DE LA SALA', 'DJ Set: XIV Aniversario de la Sala'), ('Negufest 2027: LOS ENEMIGOS', 'Negufest 2027: LOS ENEMIGOS'),
+             ('Entradas Hard GZ (10 y 11 de diciembre - Bilbao)', 'Hard GZ'), ('Concert "Frazey Ford"', 'Concert "Frazey Ford"')]:
+    if C.titulo_limpio(a) != b:
+        mal += 1; print('titulo_limpio', a, '→', C.titulo_limpio(a))
 print('fallos:', mal)
 sys.exit(1 if mal else 0)

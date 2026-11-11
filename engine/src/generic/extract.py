@@ -123,6 +123,12 @@ def fuzzy_merge(eventos):
     return [e for e in eventos if id(e) not in gone]
 
 
+def caida(antes, ahora, dias):
+    """¿Ha caído de golpe una fuente? Solía traer 3 eventos o más y hoy trae menos del 30 %. Mientras dure menos de 3 días
+    se toma por un fallo (no se retiran sus planes de antes); a partir del tercero se acepta como real."""
+    return antes >= 3 and ahora < 0.3 * antes and dias < 3
+
+
 def main(cid):
     city = load_city(cid)
     prov = city.get('kind') == 'provincia'
@@ -160,7 +166,7 @@ def main(cid):
         antes = s.get('events_last') or 0
         m0 = re.match(r'Solo \d+ eventos el (\d{4}-\d\d-\d\d)', s.get('notes') or '')
         hace = (HOY - dt.date.fromisoformat(m0.group(1))).days if m0 else 0  # si la caída dura 3 días, es de verdad: se acepta
-        if antes >= 3 and len(keep) < 0.3 * antes and hace < 3:
+        if caida(antes, len(keep), hace):
             # de golpe casi nada (la IA no respondió, se acabó el presupuesto, la web cambió…): se cargan los que haya,
             # pero no cuenta como «leída» y no se retiran sus planes de antes; el parte diario lo avisa por la nota
             if not m0:  # se guarda la fecha de la primera caída

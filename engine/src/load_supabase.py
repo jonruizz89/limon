@@ -19,6 +19,16 @@ def http_only(u):
     return 'https://' + u if re.match(r'(?i)^[a-z0-9-]+(\.[a-z0-9-]+)+(/\S*)?$', u) else None
 
 
+def fuente_floja(n, antes):
+    """Madrid: una fuente que solía traer 3 planes o más y hoy trae menos del 70 % no se da por leída (no se retira nada suyo)."""
+    return antes >= 3 and n < 0.7 * antes
+
+
+def retirada_sospechosa(n, total):
+    """Retirar de golpe más de 30 planes y más del 10 % de los que hay parece un fallo de lectura: no se retira nada."""
+    return n > max(30, 0.1 * total)
+
+
 import os
 import calidad as C  # limpieza común de hora, título, lugar y dirección
 env = dict(l.strip().split('=', 1) for l in open(sys.argv[1]) if '=' in l) if len(sys.argv) > 1 else os.environ
@@ -285,7 +295,7 @@ elif not PFX and (data.get('meta') or {}).get('ventana'):
     ok_ids = []
     for s_ in api('GET', 'sources?select=id,name,events_last&city_id=eq.madrid&id=in.(' + ','.join(str(sources[n]) for n in cuenta if n in sources) + ')') if any(n in sources for n in cuenta) else []:
         n, antes = cuenta.get(s_['name'], 0), s_.get('events_last') or 0
-        if antes >= 3 and n < 0.7 * antes:
+        if fuente_floja(n, antes):
             print(f"  {s_['name']}: solo {n} planes (antes {antes}): no se retira nada suyo hoy")
             continue
         ok_ids.append(s_['id'])
@@ -294,7 +304,7 @@ elif not PFX and (data.get('meta') or {}).get('ventana'):
         args = {'p_city': CITY, 'p_keep': [r['ext_key'] for r in rows] + ajenos_keys, 'p_sources': ok_ids, 'p_until': hasta}
         n = api('POST', 'rpc/retire_stale_events_window', dict(args, p_dry=True))
         total = len(eid) + sum(len(v) for v in prev.values())
-        if n > max(30, 0.1 * total):
+        if retirada_sospechosa(n, total):
             print(f'retirar {n} de {total} parece un fallo de lectura: no se retira nada')
         else:
             print('retirados', api('POST', 'rpc/retire_stale_events_window', dict(args, p_dry=False)))

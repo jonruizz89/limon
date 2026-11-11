@@ -1,0 +1,58 @@
+name: Batería de pruebas
+
+# Avisa si un cambio rompe algo. Corre en cada push y se puede lanzar a mano.
+# No usa la base de datos ni claves: las funciones se prueban sueltas y la app, con planes de prueba y el reloj parado.
+#  - motor: funciones del motor (enlaces, duplicados, callejero, filtro de Ticketmaster, caídas de una fuente)
+#  - app: funciones de la app (planes de hoy que ya han pasado, orden por hora, calles, fechas, temporadas, direcciones de las páginas)
+#  - flujos: la app en un navegador, en móvil y en escritorio (zona, agenda, calendario, enlace de un plan, Navidad, consola)
+# La «Prueba de la app» (humo.yml) sigue aparte: esa abre la app con los datos de producción de cada día.
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  motor:
+    name: Motor (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pruebas del motor
+        run: python3 -m unittest discover -s engine/tests/motor -v
+
+  app:
+    name: App (funciones)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Pruebas de la app
+        run: node --test engine/tests/app/*.test.mjs
+
+  flujos:
+    name: App (navegador)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Playwright
+        run: |
+          cd engine/tests && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Flujos en móvil y escritorio
+        run: |
+          (cd web && python3 -m http.server 8080 >/dev/null 2>&1 &)
+          sleep 1
+          cd engine/tests && node flujos.mjs http://localhost:8080

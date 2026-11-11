@@ -48,6 +48,21 @@ recintos se guarda lo mínimo para mostrar el evento y siempre se enlaza a la fi
 - Base de datos: la misma para las dos webs (los datos, los correos y los avisos son reales). Los cambios de base de datos solo añaden (tablas, columnas, funciones nuevas), nunca quitan ni renombran, para que la versión publicada siga funcionando.
 - Funciones del servidor: lo que se sube a `pruebas` se publica como `limon-…-pruebas`; la web de pruebas las usa si existen y, si no, usa las normales.
 
+## Batería de pruebas
+
+Corre sola en cada push (`.github/workflows/pruebas.yml`) y no necesita claves ni la base de datos.
+
+| Qué | Dónde | Cómo lanzarla a mano |
+|---|---|---|
+| Motor: enlaces (`http_only`), duplicados (`igual`, `parecidos`), callejero (`con_tipo_via`), filtro de Ticketmaster, caídas de una fuente | `engine/tests/motor/` | `python3 -m unittest discover -s engine/tests/motor` |
+| App, funciones: planes de hoy que ya han pasado (`yaPaso`), orden por hora, `mismaCalle`, fechas (`range`, `cuandoTxt`), temporadas, direcciones de las páginas de evento (iguales que en `site.py`) | `engine/tests/app/` | `node --test engine/tests/app/*.test.mjs` |
+| App, en navegador (móvil y escritorio): cambio de zona, agenda, calendario, enlace de un plan y botón atrás, botón Navidad, consola sin errores | `engine/tests/flujos.mjs` (planes de prueba en `datos.mjs`, reloj parado) | servir `web/` en el puerto 8080 y `node engine/tests/flujos.mjs` (con Playwright instalado en `engine/tests`) |
+| Prueba de humo con los datos de producción del día | `engine/tests/humo.mjs` (`humo.yml`) | `node engine/tests/humo.mjs` con `web/datos` descargado |
+
+- Las pruebas de funciones cargan el código tal cual está (`web/js/*.js` y los scripts de `engine/src`), sin copiarlo: si cambias una
+  función, la prueba ve el cambio. Si renombras una, la prueba falla diciendo cuál falta.
+- Al arreglar un fallo, añade antes el caso que lo reproduce (con el texto real del plan o de la calle).
+
 ## Seguridad
 
 - **Revisión semanal** (`security.yml`): pide a Supabase sus avisos de seguridad y falla si aparece uno nuevo. Los revisados y aceptados están en `.github/security/aceptados.txt`, cada uno con el porqué.

@@ -16,3 +16,8 @@ web/datos/
 .claude/settings.local.json
 .claude/*.local.*
 .mcp.json
+
+# lo que instala la prueba de la app (Playwright) al ejecutarla
+node_modules
+engine/tests/package.json
+engine/tests/package-lock.json

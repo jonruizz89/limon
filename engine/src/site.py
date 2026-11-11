@@ -20,6 +20,7 @@ SB_KEY = re.search(r"supabaseKey:\s*'([^']+)'", cfg).group(1)
 HOY = dt.date.today()
 HASTA_LISTA = HOY + dt.timedelta(days=45)    # lo que sale en las páginas de zona
 HASTA_FICHA = HOY + dt.timedelta(days=370)   # eventos con página propia (los grandes conciertos se anuncian con un año)
+MIN_ZONA = 40  # planes que necesita una zona para tener páginas «hoy», «mañana», «gratis» y «con niños»
 DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
 MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 ABIERTAS = re.compile(r'CC BY|Open Data|datos abiertos|dominio público', re.I)  # fuentes cuya descripción se puede reproducir entera
@@ -387,6 +388,12 @@ for z in zonas:
     fb = ''
     if sum(1 for e in lista if d(e['starts_on']) <= dom0 and d(e['ends_on']) >= vie0) >= 3:
         fb += f'<a href="/planes/{z["path"]}/este-finde/">Este finde</a>'
+    if n >= MIN_ZONA and not z.get('distrito'):  # las mismas condiciones que las páginas por intención (más abajo)
+        fb += f'<a href="/planes/{z["path"]}/hoy/">Hoy</a><a href="/planes/{z["path"]}/manana/">Mañana</a>'
+        if sum(1 for e in lista if e.get('is_free') and d(e['starts_on']) <= HASTA_LISTA and not e.get('prof')) >= 5:
+            fb += f'<a href="/planes/{z["path"]}/gratis/">Gratis</a>'
+        if sum(1 for e in lista if 'familia' in e['grupos'] and d(e['starts_on']) <= HASTA_LISTA) >= 5:
+            fb += f'<a href="/planes/{z["path"]}/con-ninos/">Con niños</a>'
     if gl:
         fb += '<details name="f"><summary>Categorías</summary><div class="chips">' + ''.join(f'<a href="/planes/{z["path"]}/{g}/">{esc(groups[g])} ({len(l)})</a>' for g, l in gl) + '</div></details>'
     if z['kids']:
@@ -444,6 +451,91 @@ for z in zonas:
 json.dump(FINDE, open(os.path.join(WEB, 'planes', 'finde.json'), 'w', encoding='utf-8'), ensure_ascii=False)
 print(len(FINDE), 'páginas de «este finde»')
 
+# ---------- Páginas por intención: lo que más se busca («qué hacer hoy en …», «planes gratis en …», «con niños»)
+# Solo en zonas con agenda suficiente (ciudades, provincias y municipios grandes, no distritos). «Hoy» y «mañana» cambian
+# cada día; si un día hay pocos planes, la página lo dice y manda a la semana, pero no se ofrece a Google (noindex).
+INTENTOS = defaultdict(dict)  # zona → {intención: ruta}, para enlazarlas desde la página de la zona
+
+
+def _hoy_o(dia, lista):
+    """Planes de ese día: primero los que empiezan ese día (por hora), luego los que están en curso."""
+    dd = dia.isoformat()
+    un = [e for e in lista if e['starts_on'] <= dd <= e['ends_on'] and not e['largo'] and not e.get('prof')]
+    curso = [e for e in lista if e['starts_on'] <= dd <= e['ends_on'] and e['largo']]
+    un.sort(key=lambda e: (e['starts_on'] != dd, e.get('time_text') or '99', e['title']))
+    curso.sort(key=lambda e: (e['ends_on'], e['title']))
+    return un, curso
+
+
+def _ld_lista(nombre, sel):
+    return {'@context': 'https://schema.org', '@type': 'ItemList', 'name': nombre,
+            'itemListElement': [{'@type': 'ListItem', 'position': i + 1, 'url': BASE + e['url'], 'name': e['title']} for i, e in enumerate(sel[:40])]}
+
+
+def _intencion(z, tipo, h1, title, desc, lead, bloques, total, minimo=3):
+    path = f"/planes/{z['path']}/{tipo}/"
+    body = f"<h1>{esc(h1)}</h1><p class='lead'>{esc(lead)}</p>"
+    for t, l, n in bloques:
+        if l:
+            body += (f'<h2>{esc(t)}</h2>' if t else '') + '<ul class="ev">' + ''.join(li(e, z) for e in l[:n]) + '</ul>' + \
+                    (f'<p class="q">Y {len(l) - n} más en la app.</p>' if len(l) > n else '')
+    if total < minimo:
+        body += f"<p>Hoy hay pocos planes con fecha aquí. Mira <a href='/planes/{z['path']}/'>toda la agenda de {esc(z['name'])}</a>" + \
+                (f" o <a href='{FINDE[z['path']]}'>lo mejor del fin de semana</a>" if z['path'] in FINDE else '') + '.</p>'
+    body += f'<p><a href="/planes/{z["path"]}/">Toda la agenda de {esc(z["name"])}</a> · <a class="cta" href="{esc(zone_app(z))}">Ver en Limón</a></p>'
+    sel = [e for _, l, _ in bloques for e in l]
+    page(path, title, desc, body, crumbs_of(z) + [(z['name'], f"/planes/{z['path']}/")], app=zone_app(z),
+         ld=[_ld_lista(h1, sel)] if sel else None, noindex=total < minimo,
+         clave=json.dumps([title, [e['id'] for e in sel[:40]]]))
+    INTENTOS[z['path']][tipo] = path
+
+
+manana = HOY + dt.timedelta(days=1)
+n_int = 0
+for z in zonas:
+    lista = z['evs']
+    if len(lista) < MIN_ZONA or z.get('distrito'):
+        continue
+    nom = z['name']
+    for tipo, dia, rotulo in (('hoy', HOY, 'hoy'), ('manana', manana, 'mañana')):
+        un, curso = _hoy_o(dia, lista)
+        cuando_ = fecha(dia)
+        _intencion(z, tipo, f"Qué hacer {rotulo} en {nom}", f"Qué hacer {rotulo} en {nom}, {cuando_} · Limón",
+                   f"Planes para {rotulo}, {cuando_}, en {nom}: " + (', '.join(e['title'] for e in un[:4]) + ' y más.' if un else 'conciertos, teatro, exposiciones y actividades.'),
+                   f"{len(un)} planes con fecha {rotulo}, {cuando_}, por orden de hora" + (f", y {len(curso)} exposiciones y ciclos en curso." if curso else '.'),
+                   [('', un, 80), ('En curso: exposiciones, ciclos y cursos', curso, 30)], len(un))
+        n_int += 1
+    grat = [e for e in lista if e.get('is_free') and d(e['starts_on']) <= HASTA_LISTA and not e.get('prof')]
+    if len(grat) >= 5:
+        vie_, dom_ = finde()
+        g1 = [e for e in grat if not e['largo'] and d(e['starts_on']) <= HOY + dt.timedelta(days=7)]
+        g2 = [e for e in grat if not e['largo'] and e not in g1]
+        g3 = [e for e in grat if e['largo']]
+        _intencion(z, 'gratis', f"Planes gratis en {nom}", f"Planes gratis en {nom}: qué hacer sin gastar · Limón",
+                   f"{len(grat)} planes gratis en {nom} en las próximas semanas: conciertos, exposiciones, visitas, talleres y actividades de entrada libre.",
+                   f"{len(grat)} planes gratis o de entrada libre en {nom}, por orden de fecha. Algunos piden inscripción: compruébalo en la ficha.",
+                   [('Esta semana', g1, 60), ('Más adelante', g2, 40), ('Exposiciones y ciclos gratis', g3, 30)], len(grat), 5)
+        n_int += 1
+        fg = [e for e in picks(grat, vie_, dom_, n=20)]
+        if len(fg) >= 3:
+            _intencion(z, 'este-finde/gratis', f"Planes gratis este finde en {nom}", f"Planes gratis este fin de semana en {nom} · Limón",
+                       f"Planes gratis para este fin de semana en {nom}: " + ', '.join(e['title'] for e in fg[:4]) + ' y más.',
+                       f"Del {fecha(vie_, False)} al {fecha(dom_, False)}: {len(fg)} planes sin gastar un euro.", [('', fg, 20)], len(fg))
+            n_int += 1
+    nin = [e for e in lista if 'familia' in e['grupos'] and d(e['starts_on']) <= HASTA_LISTA]
+    if len(nin) >= 5:
+        vie_, dom_ = finde()
+        n1 = [e for e in nin if not e['largo'] and d(e['starts_on']) <= dom_ and d(e['ends_on']) >= vie_]
+        n2 = [e for e in nin if not e['largo'] and e not in n1]
+        n3 = [e for e in nin if e['largo']]
+        ngr = sum(1 for e in nin if e.get('is_free'))
+        _intencion(z, 'con-ninos', f"Planes con niños en {nom}", f"Planes con niños en {nom} este finde y próximos días · Limón",
+                   f"{len(nin)} planes para ir con niños en {nom}: teatro infantil, cuentacuentos, talleres, cine y actividades en familia" + (f", {ngr} gratis." if ngr else '.'),
+                   f"{len(nin)} planes para ir con niños en {nom}" + (f", {ngr} de ellos gratis" if ngr else '') + ". Por orden de fecha.",
+                   [('Este fin de semana', n1, 40), ('Próximos días', n2, 40), ('En curso', n3, 20)], len(nin), 5)
+        n_int += 1
+print(n_int, 'páginas por intención (hoy, mañana, gratis, con niños)')
+
 # índice de zonas
 tops = [z for z in zonas if not z.get('parent') and z['evs']]
 body = "<h1>Planes por zona</h1><p class='lead'>Agenda de eventos, conciertos, teatro, exposiciones y actividades, actualizada cada día.</p>"
@@ -491,6 +583,34 @@ for tid, tnom, tv, tre, tdesc in TEMPORADAS:
                             'title': f"{tnom} en {z['name']} {anyo}: todos los planes",
                             'lead': f"{tdesc} en {z['name']}, por orden de fecha, con horarios, lugares y precios. Se actualiza cada día.",
                             'unidad': 'planes'})
+# Navidad por lo que se busca: «mercadillos navideños», «belenes», «luces», «cabalgata», «Nochevieja», «puente de diciembre»
+_anyo_nav = HOY.year if HOY.month >= 6 else HOY.year - 1
+NAVIDAD_TEMAS = [
+    ('mercadillos-navidenos', 'Mercadillos navideños', r'^(?=.*(mercad|mercat|\bfira\b|\bferia\b|market|azoka))(?=.*(navid|navide|nadal|christmas|xmas|gabon|santa ll[uú]cia))',
+     'Todos los mercadillos de Navidad: artesanía, figuras de belén, regalos y puestos de comida, con fechas, horarios y lugares.', 'mercadillos'),
+    ('belenes', 'Belenes', r'\bbelenes\b|\bbel[eé]n (de|del|monumental|napolitano|viviente|municipal|navide|tradicional|artesan)|pesebre|pessebre|jaiotza',
+     'Belenes monumentales, napolitanos y vivientes para visitar estas Navidades, con horarios y precios.', 'belenes'),
+    ('luces-de-navidad', 'Luces de Navidad', r'luces de navidad|encendido (de )?(las |del )?(luces|alumbrado)|alumbrado navide|iluminaci[oó]n navide|llums de nadal|gabonetako argi',
+     'El encendido de las luces y las iluminaciones de Navidad: fechas, horarios y recorridos.', 'planes'),
+    ('cabalgata-de-reyes', 'Cabalgatas de Reyes', r'cabalgata|reyes magos|errege magoak|olentzero|mari domingi|\bpaje real\b|cartero real',
+     'Cabalgatas de Reyes y de Olentzero, visitas de los Reyes Magos y carteros reales, con recorridos y horarios.', 'planes'),
+    ('nochevieja', 'Nochevieja', r'nochevieja|fin de a[nñ]o|campanadas|cotill[oó]n|san silvestre|urtezahar|cap d.any',
+     'Fiestas de Nochevieja, campanadas, carreras de San Silvestre y conciertos de fin de año.', 'planes'),
+]
+_puente = (dt.date(_anyo_nav, 12, 5), dt.date(_anyo_nav, 12, 8))
+if _en_ventana(TEMPORADAS[0][2], _md) or _en_ventana(TEMPORADAS[0][2], HOY.strftime('%m-%d')):
+    for z in zonas:
+        if z.get('parent'):
+            continue
+        for tid, tnom, tre, tlead, uni in NAVIDAD_TEMAS:
+            COLECCIONES.append({'zona': z['path'], 'path': tid, 'titulo': tre, 'nombre': f"{tnom} en {z['name']}",
+                                'title': f"{tnom} en {z['name']} {_anyo_nav}", 'lead': f"{tlead} En {z['name']}, por orden de fecha. Se actualiza cada día.",
+                                'unidad': uni, 'gratis': True})
+        if HOY <= _puente[1]:
+            COLECCIONES.append({'zona': z['path'], 'path': 'puente-de-diciembre', 'ventana': _puente, 'nombre': f"Puente de diciembre en {z['name']}",
+                                'title': f"Qué hacer en el puente de diciembre en {z['name']} ({_puente[0].day}–{_puente[1].day} de diciembre)",
+                                'lead': f"Planes con fecha entre el {fecha(_puente[0])} y el {fecha(_puente[1])} en {z['name']}: conciertos, teatro, mercadillos, actividades en familia y más.",
+                                'unidad': 'planes', 'gratis': True})
 # ciclos y festivales que ya vienen marcados en la fuente (Kulturklik, Zaragoza…): «Literaktum 2026», «Blues Hotsak 2026»…
 def _serie(t):
     return re.sub(r'\s+', ' ', re.sub(r'\b(19|20)\d\d(\s?[-/]\s?(19|20)?\d\d)?\b', '', t or '')).strip(' -–·.')
@@ -503,7 +623,7 @@ for z in zonas:
         if e.get('series') and len(_serie(e['series'])) >= 4:
             grupos_s[slug(_serie(e['series']))].append(e)
     for k, l in grupos_s.items():
-        if len(l) < 4 or k in used or f"{z['path']}/{k}" in used or k in groups or k in ('este-finde',) or k in _ya:
+        if len(l) < 4 or k in used or f"{z['path']}/{k}" in used or k in groups or k in ('este-finde', 'hoy', 'manana', 'gratis', 'con-ninos') or k in _ya:
             continue
         nombres = defaultdict(int)
         for e in l:
@@ -512,27 +632,44 @@ for z in zonas:
         COLECCIONES.append({'zona': z['path'], 'path': k, 'serie': k, 'nombre': nombre, 'title': f"{nombre}: programa completo en {z['name']}",
                             'lead': f"Todas las actividades de {nombre} en {z['name']}, por orden de fecha, con horarios, lugares y precios.", 'unidad': 'planes'})
 EN_COLECCION = {}
+
+
+def _dentro(c, e):
+    if c.get('fuente'):
+        return any(c['fuente'] in ((s.get('sources') or {}).get('name') or '') for s in e.get('event_sources') or [])
+    if c.get('serie'):
+        return bool(e.get('series')) and slug(_serie(e['series'])) == c['serie']
+    if c.get('ventana'):  # puente de diciembre: lo que tiene fecha esos días (sin las exposiciones que duran meses)
+        a, b = c['ventana']
+        return not e['largo'] and not e.get('prof') and d(e['starts_on']) <= b and d(e['ends_on']) >= a
+    if c.get('titulo'):  # temporadas: por el título y el ciclo, no por la descripción
+        return bool(re.search(c['titulo'], f"{e['title']} · {e.get('series') or ''}", re.I))
+    return bool(re.search(c['texto'], f"{e['title']} {e.get('description') or ''}", re.I))
+
+
+_sel_col = []
 for c in COLECCIONES:
     z = next((x for x in zonas if x['path'] == c['zona']), None)
-    def dentro(e):
-        if c.get('fuente'):
-            return any(c['fuente'] in ((s.get('sources') or {}).get('name') or '') for s in e.get('event_sources') or [])
-        if c.get('serie'):
-            return bool(e.get('series')) and slug(_serie(e['series'])) == c['serie']
-        if c.get('titulo'):  # temporadas: por el título y el ciclo, no por la descripción
-            return bool(re.search(c['titulo'], f"{e['title']} · {e.get('series') or ''}", re.I))
-        return bool(re.search(c['texto'], f"{e['title']} {e.get('description') or ''}", re.I))
-    sel = sorted((e for e in (z['evs'] if z else []) if dentro(e)), key=lambda e: (e['largo'], e['starts_on'], e.get('time_text') or '', e['title']))
-    if len(sel) < 3:
-        continue
+    sel = sorted((e for e in (z['evs'] if z else []) if _dentro(c, e)), key=lambda e: (e['largo'], e['starts_on'], e.get('time_text') or '', e['title']))
+    if len(sel) >= 3:
+        _sel_col.append((c, z, sel))
+_hechas = {f"{z['path']}/{c['path']}": c for c, z, _ in _sel_col}
+for c, z, sel in _sel_col:
     path = f"/planes/{z['path']}/{c['path']}/"
     for e in sel:
         EN_COLECCION.setdefault(e['id'], (c['nombre'], path))
     ini, fin = min(e['starts_on'] for e in sel), max(e['ends_on'] for e in sel)
+    ngr = sum(1 for e in sel if e.get('is_free'))
+    temas = ''
+    if c['path'] == 'navidad':  # desde la página de Navidad, a cada búsqueda concreta
+        subs = [(t[1], f"/planes/{z['path']}/{t[0]}/") for t in NAVIDAD_TEMAS + [('puente-de-diciembre', 'Puente de diciembre')] if f"{z['path']}/{t[0]}" in _hechas]
+        if subs:
+            temas = '<div class="chips">' + ''.join(f'<a href="{u}">{esc(t)}</a>' for t, u in subs) + '</div>'
     body = (f"<h1>{esc(c['title'])}</h1><p class='lead'>{esc(c['lead'])}</p>"
-            f"<p class='m'>{len(sel)} {c['unidad']} · del {esc(fecha(d(ini), False))} al {esc(fecha(d(fin), False))}{' · ' + c['extra'] if c.get('extra') else ''}</p>"
-            + (f"<p><a class='cta' href='{esc(c['reservas'])}' rel='nofollow noopener' target='_blank'>Ir a la central de reservas ↗</a></p>" if c.get('reservas') else '') +
+            f"<p class='m'>{len(sel)} {c['unidad']}{f', {ngr} gratis' if c.get('gratis') and ngr else ''} · del {esc(fecha(d(ini), False))} al {esc(fecha(d(fin), False))}{' · ' + c['extra'] if c.get('extra') else ''}</p>"
+            + temas + (f"<p><a class='cta' href='{esc(c['reservas'])}' rel='nofollow noopener' target='_blank'>Ir a la central de reservas ↗</a></p>" if c.get('reservas') else '') +
             '<ul class="ev">' + ''.join(li(e, z) for e in sel) + '</ul>'
+            + (f'<p><a href="/planes/{z["path"]}/navidad/">Toda la Navidad en {esc(z["name"])}</a></p>' if c['path'] != 'navidad' and f"{z['path']}/navidad" in _hechas and any(c['path'] == t[0] for t in NAVIDAD_TEMAS + [('puente-de-diciembre',)]) else '') +
             f'<p><a href="/planes/{z["path"]}/">Toda la agenda de {esc(z["name"])}</a></p>')
     ld = {'@context': 'https://schema.org', '@type': 'ItemList', 'name': c['title'],
           'itemListElement': [{'@type': 'ListItem', 'position': i + 1, 'url': BASE + e['url'], 'name': e['title']} for i, e in enumerate(sel)]}

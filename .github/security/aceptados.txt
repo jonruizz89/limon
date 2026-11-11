@@ -74,3 +74,6 @@ rls_enabled_no_policy:ig_stats
 
 # pg_net viene instalada así en el proyecto y no se puede cambiar de esquema sin reinstalarla; sus funciones no están en la API
 extension_in_public:pg_net
+
+# Protección de contraseñas filtradas: solo está en el plan Pro de Supabase (comprobado el 11-11-2026). Quitar esta línea al cambiar de plan y activarla
+auth_leaked_password_protection:Auth

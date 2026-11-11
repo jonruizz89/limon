@@ -15,7 +15,8 @@ Nació en 2013 como **Everent**, un proyecto fin de carrera.
     funciones y valores fijos, así que no importa su orden. Todo lo que se ejecuta al arrancar (estado que se lee del
     dispositivo o de los datos, eventos de interfaz, primer pintado) va en `js/inicio.js`, que `js/app.js` carga cuando
     `data.js` tiene los planes. Al añadir algo: las funciones, a su tema; lo que se ejecuta, a `inicio.js`.
-  - Al tocar `css/` o `js/`, sube el `?v=` de `index.html` (el mismo en todos). Si añades un archivo, ponlo también
+  - Al tocar `css/` o `js/`, sube el `?v=` de `index.html` (el mismo en todos). Las tres precargas del principio (`config.js`, `data.js`, `js/app.js`)
+    llevan la misma dirección que sus etiquetas `<script>`: si cambias una, cambia la otra. Si añades un archivo, ponlo también
     en la lista `SHELL` de `sw.js` y sube su `VERSION`.
 - `engine/`: el motor de datos en Python, sin dependencias externas.
   1. `src/fetch_sources.py` descarga la agenda municipal, el sitemap de esMadrid e IFEMA y el Real Jardín Botánico.

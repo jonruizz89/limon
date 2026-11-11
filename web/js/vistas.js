@@ -216,7 +216,7 @@ function iniciaPagina() {
   tabs = ['parati', 'calle', 'unicos', 'explorar', 'agenda', 'intereses', 'fuentes'].filter(t => t !== 'calle' || HAS_CALLE);
   // nombre de la ciudad en textos fijos; sin datos de cortes, la pestaña Calle no aparece
   document.querySelectorAll('.cityname').forEach(x => { x.textContent = CITY.name; });
-  document.title = (window.LIMON_STAGING ? '[Pruebas] ' : '') + 'Limón · ' + CITY.name;
+  document.title = (window.LIMON_STAGING ? '[Pruebas] ' : '') + 'Planes en ' + CITY.name + ' hoy y este finde · Limón';
   // redes de la zona (cities.features.instagram / .x): solo se enseñan las que existen, como iconos
   { const f = CITY.features || {}, ok = v => v && /^[a-z0-9._]{1,30}$/i.test(v);
     const svg = (n, d) => `<svg width="${n}" height="${n}" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;

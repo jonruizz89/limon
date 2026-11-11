@@ -115,6 +115,7 @@ function card(e, opt) {
           ${(occ && (occ.ongoing || +occ.date <= +today)) || went.includes(e.id) ? `<button class="act" data-went="${e.id}" aria-pressed="${went.includes(e.id)}">${went.includes(e.id) ? '✓ Fui' : 'Ya fui'}</button>` : ''}
           ${occ && parse(e.fin) >= today ? `<button class="act" data-invite="${e.id}">Proponer plan</button>` : ''}
           ${e.lat ? `<button class="act" data-route="${e.id}">¿Cortes en el camino?</button>` : ''}
+          ${parse(e.fin) >= today ? `<button class="act" data-ics="${e.id}">📅 Añadir a mi calendario</button>` : ''}
           <button class="act" data-addlist="${e.id}">Añadir a lista</button>
           ${e.lugar ? topicBtn('sala', e.lugar, 'la sala') : ''}${e.serie ? topicBtn('ciclo', e.serie, 'el ciclo') : ''}
         </div>
@@ -134,6 +135,7 @@ function card(e, opt) {
         </div></div>
       <div class="tags">${NEW.has(e.id) ? '<span class="tag nuevo">Nuevo</span>' : ''}${price}${e.unico && !esProf(e) ? '<span class="tag uni">Único</span>' : ''}${temas.map(t => `<button class="tag tema link" data-f-tema="${esc(t)}" aria-label="Más planes sobre ${esc(t)}">${esc(t)}</button>`).join('')}${cats3.map(c => `<button class="tag link" data-f-cat="${esc(c)}" aria-label="Más planes de ${esc(labelOf(c))}">${esc(labelOf(c))}</button>`).join('')}</div>
       ${why}${more}
+      ${open ? '' : `<button class="shr" data-sharev="${e.id}" aria-label="Compartir este plan">${SHARE_ICO}</button>`}
       <button class="save" data-save="${e.id}" aria-pressed="${isSaved}" aria-label="${isSaved ? 'Quitar de mi agenda' : 'Guardar en mi agenda'}">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
       </button>

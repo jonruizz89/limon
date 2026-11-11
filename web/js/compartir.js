@@ -138,6 +138,38 @@ function clicSharev(ev) {
   const shv = ev.target.closest('[data-sharev]'); if (shv && BYID[shv.dataset.sharev]) { shareEv(BYID[shv.dataset.sharev]); return true; }
   return false;
 }
+// «Añadir a mi calendario»: un .ics hecho en el navegador, sin cuenta ni servidor. Con hora, dos horas; sin hora, el día entero.
+function icsDe(e) {
+  const occ = occurs(e, today, addDays(today, 400)) || { date: parse(e.inicio) };
+  const d0 = occ.ongoing ? today : occ.date, p2 = n => String(n).padStart(2, '0');
+  const ymd = d => d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate());
+  const txt = t => String(t || '').replace(/\\/g, '\\\\').replace(/[,;]/g, m => '\\' + m).replace(/\r?\n/g, '\\n');
+  const sh = (+parse(e.inicio) === +parse(e.fin) || e.sesiones.length > 1) ? startHour(e) : null;
+  let cuando;
+  if (sh != null) {
+    const h = Math.floor(sh), m = Math.round((sh % 1) * 60), fin = new Date(d0); fin.setHours(h + 2, m);
+    cuando = [`DTSTART:${ymd(d0)}T${p2(h)}${p2(m)}00`, `DTEND:${ymd(fin)}T${p2(fin.getHours())}${p2(fin.getMinutes())}00`];
+  } else {
+    const fin = occ.ongoing || e.sesiones.length > 1 ? addDays(d0, 1) : addDays(parse(e.fin), 1);
+    cuando = [`DTSTART;VALUE=DATE:${ymd(d0)}`, `DTEND;VALUE=DATE:${ymd(fin)}`];
+  }
+  const url = location.origin + '/?c=' + encodeURIComponent(C_ZONA) + '&ev=' + e.id;
+  const sello = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Limón//limonplanes.com//ES', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+    `UID:${e.id}-${ymd(d0)}@limonplanes.com`, `DTSTAMP:${sello}`, ...cuando, `SUMMARY:${txt(e.titulo)}`,
+    e.lugar || e.direccion ? `LOCATION:${txt([e.lugar, e.direccion].filter(Boolean).join(', '))}` : '',
+    `DESCRIPTION:${txt((e.hora ? e.hora + '\n' : '') + 'Más información: ' + url)}`, `URL:${url}`, 'END:VEVENT', 'END:VCALENDAR']
+    .filter(Boolean).join('\r\n') + '\r\n';
+}
+function clicIcs(ev) {
+  const b = ev.target.closest('[data-ics]'); if (!b || !BYID[b.dataset.ics]) return false;
+  const e = BYID[b.dataset.ics];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([icsDe(e)], { type: 'text/calendar;charset=utf-8' }));
+  a.download = (e.titulo.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'plan') + '.ics';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  return true;
+}
 function clicShareFinde(ev) {
   if (ev.target.closest('[data-share-finde]')) { shareFinde(ev.target.closest('[data-share-finde]').dataset.shareFinde); return true; }
   return false;

@@ -624,12 +624,12 @@ async function weeklyAvisos() {
 // cada mañana, a la campana de quien tiene cuenta: planes nuevos de las salas y ciclos que sigue (por correo, con el mismo email)
 async function avisosCuenta() {
   const { data: subs } = await admin.from('newsletter_subs').select('email,tipo,objetivo,nombre').eq('status', 'activa').in('tipo', ['lugar', 'ciclo']).limit(5000);
-  if (!subs || !subs.length) return { subs: 0, avisos: 0 };
+  let avisos = await avisosSeguidos();
+  if (!subs || !subs.length) return { subs: 0, avisos };
   const emails = [...new Set(subs.map((x) => x.email.toLowerCase()))];
   const { data: profs } = await admin.from('profiles').select('id,email').in('email', emails);
   const por = new Map((profs || []).map((p) => [String(p.email).toLowerCase(), p.id]));
   const desde = new Date(Date.now() - 864e5).toISOString(), hoy = ymd(madridToday());
-  let avisos = 0;
   for (const s of subs) {
     const uid = por.get(s.email.toLowerCase());
     if (!uid) continue;
@@ -643,6 +643,36 @@ async function avisosCuenta() {
     avisos++;
   }
   return { subs: subs.length, avisos };
+}
+
+// «+ Seguir la sala / el ciclo» desde la ficha (topic_follows, con cuenta): sus planes nuevos del último día, a la campana
+async function avisosSeguidos() {
+  const { data: tf } = await admin.from('topic_follows').select('user_id,kind,value').in('kind', ['sala', 'ciclo']).limit(10000);
+  if (!tf || !tf.length) return 0;
+  const desde = new Date(Date.now() - 864e5).toISOString(), hoy = ymd(madridToday());
+  const cache: Record<string, { id: number; title: string }[]> = {};
+  let n = 0;
+  for (const t of tf) {
+    const key = t.kind + ':' + t.value;
+    if (!cache[key]) {
+      let ids: number[] | null = null;
+      if (t.kind === 'sala') {
+        const { data: vs } = await admin.from('venues').select('id').ilike('name', String(t.value).replace(/[%_\\]/g, '\\$&')).limit(20);
+        ids = (vs || []).map((v) => v.id);
+      }
+      if (ids && !ids.length) { cache[key] = []; continue; }
+      let q = admin.from('events').select('id,title').gte('first_seen_at', desde).gte('ends_on', hoy).order('starts_on').limit(5);
+      q = ids ? q.in('venue_id', ids) : q.eq('series', t.value);
+      const { data } = await q;
+      cache[key] = (data || []) as { id: number; title: string }[];
+    }
+    const evs = cache[key];
+    if (!evs.length) continue;
+    await bandeja(t.user_id, 'novedades', `${key}:${hoy}`, { title: evs.length === 1 ? `Plan nuevo en ${t.value}` : `${evs.length} planes nuevos en ${t.value}`,
+      body: evs.map((e) => e.title).join(' · '), url: evUrl(evs[0].id) }).catch(() => {});
+    n++;
+  }
+  return n;
 }
 
 async function unsub(t: string, k: string) {

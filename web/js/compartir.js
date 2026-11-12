@@ -136,7 +136,23 @@ function iniciaQuedada() {
 
 // ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
 function clicSharev(ev) {
-  const shv = ev.target.closest('[data-sharev]'); if (shv && BYID[shv.dataset.sharev]) { shareEv(BYID[shv.dataset.sharev]); return true; }
+  const shv = ev.target.closest('[data-sharev]');
+  if (!shv || !BYID[shv.dataset.sharev]) return false;
+  const e = BYID[shv.dataset.sharev];
+  // desde la ficha abierta: compartir el plan o proponerlo a amigos (enlace donde contestan si van); el icono de la tarjeta comparte directo
+  if (shv.closest('.acts') && parse(e.fin) >= today) {
+    openSheet(`<div class="sheethead"><h2>Compartir</h2><button class="x" data-sheet-close aria-label="Cerrar">✕</button></div>
+      <p class="note" style="margin:0">${esc(e.titulo)}</p>
+      <button class="btn" data-share-ya="${e.id}">${SHARE_ICO} Compartir el plan</button>
+      <button class="btn ghost" data-invite="${e.id}">🙋 Proponer a amigos</button>
+      <p class="note" style="margin:0">Al proponerlo, tus amigos contestan si van (sin cuenta) y te avisamos de sus respuestas.</p>`);
+    return true;
+  }
+  shareEv(e); return true;
+}
+function clicShareYa(ev) {
+  const b = ev.target.closest('[data-share-ya]');
+  if (b && BYID[b.dataset.shareYa]) { closeSheets(); shareEv(BYID[b.dataset.shareYa]); return true; }
   return false;
 }
 // «Añadir a mi calendario»: un .ics hecho en el navegador, sin cuenta ni servidor. Con hora, dos horas; sin hora, el día entero.
@@ -207,8 +223,11 @@ function clicShareFinde(ev) {
 function clicInvite(ev) {
   const ib = ev.target.closest('[data-invite]');
   if (ib) {
+    closeSheets();
     if (!logged) { toast('Entra con tu cuenta (en Perfil) para proponer planes y ver quién se apunta.'); return true; }
-    state.inviting = state.inviting === ib.dataset.invite ? null : ib.dataset.invite; renderAll(); return true;
+    state.inviting = state.inviting === ib.dataset.invite ? null : ib.dataset.invite; renderAll();
+    const f = document.querySelector(`[data-invite-form="${ib.dataset.invite}"]`); if (f) f.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    return true;
   }
   return false;
 }

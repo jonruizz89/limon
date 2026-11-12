@@ -103,13 +103,13 @@ async function toggleTopic(kind, value) {
     if (on) await sb.from('topic_follows').upsert({ user_id: id, kind, value }, { ignoreDuplicates: true });
     else await sb.from('topic_follows').delete().eq('user_id', id).eq('kind', kind).eq('value', value);
   }
-  toast(on ? `Sigues «${value}». Lo nuevo te saldrá antes en Para ti${logged ? ' y en el resumen semanal' : ''}.` : `Ya no sigues «${value}».`);
+  toast(on ? `Sigues «${value}». Lo nuevo te saldrá antes en Para ti${logged ? ' y te avisaremos en la campana 🔔' : ''}.` : `Ya no sigues «${value}».`);
   renderSeguir(); renderAll();
 }
 function renderSeguir() {
   const box = $('seguir'); if (!box) return;
   box.innerHTML = `<h2 style="margin:0">Lo que sigues</h2>
-      <p class="note" style="margin:0">Salas, ciclos, temas o artistas. Lo nuevo te sale antes en Para ti${logged ? ' y en el resumen semanal (si lo tienes activado)' : ''}. Desde cada evento puedes seguir su sala o su ciclo.</p>
+      <p class="note" style="margin:0">Salas, ciclos, temas o artistas. Lo nuevo te sale antes en Para ti${logged ? ', te avisamos en la campana 🔔 de los planes nuevos de salas y ciclos, y sale en el resumen semanal (si lo tienes activado)' : ''}. Desde cada evento puedes seguir su sala o su ciclo.</p>
       <div class="seg">${TOPICS.map(t => `<button class="filterchip" data-topic-kind="${t.kind}" data-topic="${esc(t.value)}" aria-label="Dejar de seguir ${esc(t.value)}">${esc(t.value)} <span aria-hidden="true">✕</span></button>`).join('') || '<span class="note">Aún no sigues nada.</span>'}</div>
       <form class="seg" id="seguir-form"><input class="search" name="v" maxlength="80" placeholder="Artista, compañía o tema (ej.: Rosalía, flamenco)" style="flex:1;min-width:200px"><button class="btn" type="submit">Seguir</button></form>`;
 }

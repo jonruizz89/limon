@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="190" height="40" viewBox="0 0 190 40" role="img" aria-label="Nuestra programación, en Limón">
+<rect width="190" height="40" rx="20" fill="#FFD43B"/>
+<circle cx="22" cy="20" r="11" fill="#9BCB3C"/><circle cx="22" cy="20" r="7.5" fill="#E9F5C9"/>
+<path d="M22 12.5v15M14.5 20h15M16.7 14.7l10.6 10.6M27.3 14.7 16.7 25.3" stroke="#9BCB3C" stroke-width="1.2"/>
+<text x="40" y="17" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="10" fill="#231D02">Nuestra programación, en</text>
+<text x="40" y="31" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="14" font-weight="700" fill="#231D02">limón</text>
+</svg>

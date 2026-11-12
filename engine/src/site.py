@@ -187,7 +187,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding-top
 .brand{display:flex;align-items:center;gap:8px;text-decoration:none;font:italic 700 24px 'Space Grotesk',system-ui,sans-serif}
 .cta{display:inline-block;background:var(--a);color:var(--ai);font-weight:600;text-decoration:none;border-radius:10px;padding:10px 16px}
 h1{font:700 30px/1.2 'Space Grotesk',system-ui,sans-serif;margin:10px 0 8px}h2{font:600 20px 'Space Grotesk',system-ui,sans-serif;margin:28px 0 8px}
-.aviso{background:var(--s);border:1px solid var(--l);border-radius:12px;padding:12px 14px;margin:12px 0}.aviso label{font-weight:600;display:block;margin-bottom:8px}.aviso div{display:flex;gap:8px;flex-wrap:wrap}.aviso input{flex:1 1 180px;min-height:42px;border:1px solid var(--l);border-radius:10px;padding:0 10px;font:inherit}.aviso button{min-height:42px;border:0;border-radius:999px;background:var(--a);color:var(--ai);font-weight:700;padding:0 18px;font:inherit;font-weight:700;cursor:pointer}.aviso .q{font-size:13px;margin:8px 0 0}.lead,.q{color:var(--q)}.intro{line-height:1.55;margin:10px 0 14px}.crumbs{font-size:14px;color:var(--q);margin-top:6px}.crumbs a{color:var(--q)}
+.aviso{background:var(--s);border:1px solid var(--l);border-radius:12px;padding:12px 14px;margin:12px 0}.aviso label{font-weight:600;display:block;margin-bottom:8px}.aviso div{display:flex;gap:8px;flex-wrap:wrap}.aviso input{flex:1 1 180px;min-height:42px;border:1px solid var(--l);border-radius:10px;padding:0 10px;font:inherit}.aviso button{min-height:42px;border:0;border-radius:999px;background:var(--a);color:var(--ai);font-weight:700;padding:0 18px;font:inherit;font-weight:700;cursor:pointer}.aviso .q{font-size:13px;margin:8px 0 0}.cod{white-space:pre-wrap;word-break:break-all;background:var(--s);border:1px solid var(--l);border-radius:10px;padding:10px;font-size:12px}iframe{max-width:100%}.lead,.q{color:var(--q)}.intro{line-height:1.55;margin:10px 0 14px}.crumbs{font-size:14px;color:var(--q);margin-top:6px}.crumbs a{color:var(--q)}
 ul.ev{list-style:none;padding:0;margin:0}ul.ev li{background:var(--s);border:1px solid var(--l);border-radius:14px;margin:10px 0;overflow:hidden}
 ul.ev li>a{display:flex;gap:12px;padding:10px;text-decoration:none}ul.ev li>a:hover .tt{text-decoration:underline}
 .th{flex:0 0 84px;height:84px;align-self:flex-start;border-radius:10px;overflow:hidden;background:#FFF3BF;display:grid;place-items:center;font-size:34px}
@@ -259,7 +259,7 @@ def page(path, title, desc, body, crumbs=(), ld=None, app='/', img=None, noindex
 <main>{f'<nav class="crumbs" aria-label="Estás en">{bc}</nav>' if bc else ''}{body}</main>
 <footer>Limón reúne los planes de tu zona de agendas públicas y webs de organizadores; comprueba siempre la información en la fuente.
 Datos de la agenda municipal de Madrid (datos.madrid.es) de Kulturklik (Open Data Euskadi, CC BY 4.0) y de la agenda del Ayuntamiento de Zaragoza, entre otros.
-{sig}<br><a href="/planes/">Todas las zonas</a> · <a href="/privacidad.html">Privacidad</a> · <a href="/condiciones.html">Condiciones</a></footer>
+{sig}<br><a href="/planes/">Todas las zonas</a> · <a href="/para-salas/">Para salas</a> · <a href="/privacidad.html">Privacidad</a> · <a href="/condiciones.html">Condiciones</a></footer>
 @@LIMON_BEACON@@</body></html>""".replace('@@LIMON_BEACON@@', BEACON)
     out = os.path.join(WEB, path.strip('/'), 'index.html')
     os.makedirs(os.path.dirname(out), exist_ok=True)
@@ -304,6 +304,28 @@ def etiqueta(e):
         h = e.get('time_text') if e.get('time_text') and len(e['time_text']) <= 12 else ''
         return ('Hoy' if a == HOY else 'Mañana' if a == HOY + dt.timedelta(days=1) else DIAS[a.weekday()][:3].capitalize() + ' ' + m(a)) + (' · ' + h if h else '')
     return f'{m(a)} – {m(b)}'
+
+
+# ---------- P7 · para salas: un widget por lugar (iframe sin JavaScript, fuera del mapa del sitio) y la página que lo explica
+WCSS = (":root{--bg:#fff;--ink:#12182B;--q:#4B5366;--l:#DDE1E8;--a:#FFD43B}@media(prefers-color-scheme:dark){:root{--bg:#181E2E;--ink:#E8EBF2;--q:#A3ABBD;--l:#2A3247}}"
+        "*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}"
+        "ul{list-style:none;margin:0;padding:0}li{border-bottom:1px solid var(--l)}a{color:inherit;text-decoration:none;display:block;padding:8px 12px}"
+        "a:hover .t{text-decoration:underline}.d{color:var(--q);font-size:12px}.t{font-weight:600}.g{background:#E3F6E8;color:#10652A;border-radius:6px;padding:0 5px;font-size:11px;margin-left:4px}"
+        "footer{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;font-size:12px;color:var(--q)}footer a{display:inline;padding:0}"
+        "footer b{background:var(--a);color:#231D02;border-radius:999px;padding:2px 8px}")
+
+
+def widget(v, l):
+    prox = [e for e in l if not e['largo']][:6] or l[:6]
+    lis = ''.join(f'<li><a href="{BASE}{e["url"]}" target="_blank" rel="noopener"><div class="d">{esc(etiqueta(e))}</div>'
+                  f'<div class="t">{esc(e["title"])}{"<span class=g>Gratis</span>" if e.get("is_free") else ""}</div></a></li>' for e in prox)
+    doc = (f'<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="robots" content="noindex">'
+           f'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">'
+           f'<meta name="viewport" content="width=device-width, initial-scale=1"><title>Próximos planes · {esc(v["name"])}</title><base target="_blank">'
+           f'<style>{WCSS}</style></head><body><ul>{lis}</ul><footer><span>Agenda en</span><a href="{BASE}{v["url"]}" rel="noopener"><b>🍋 limón</b></a></footer></body></html>')
+    out = os.path.join(WEB, 'widget', str(v['id']), 'index.html')
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    open(out, 'w', encoding='utf-8').write(doc)
 
 
 def li(e, z=None):
@@ -789,7 +811,8 @@ for v in LUGARES.values():
             + (aviso_form('lugar', v['id'], l[0]['city_id'], v['name']) if v.get('id') and l else '')
             + (f"<p class='m'>📍 {esc(cerca)}" + (f' · <a href="{esc(mapa)}" rel="nofollow noopener" target="_blank">Cómo llegar ↗</a>' if mapa else '') + '</p>' if cerca or mapa else '')
             + '<ul class="ev">' + ''.join(li(e, z) for e in l[:80]) + '</ul>'
-            + (f'<p><a href="/planes/{z["path"]}/">Toda la agenda de {esc(z["name"])}</a></p>' if z else ''))
+            + (f'<p><a href="/planes/{z["path"]}/">Toda la agenda de {esc(z["name"])}</a></p>' if z else '')
+            + f'<p class="q">¿Gestionas {esc(v["name"])}? <a href="/para-salas/">Pon su programación en tu web gratis</a> (código: <code>{v["id"]}</code>).</p>')
     pl = {'@context': 'https://schema.org', '@type': 'Place', 'name': v['name'], 'url': BASE + v['url'],
           'event': [{'@type': 'Event', 'name': e['title'], 'startDate': e['starts_on'], 'endDate': e['ends_on'], 'url': BASE + e['url'],
                      'eventAttendanceMode': 'https://schema.org/OfflineEventAttendanceMode', 'location': {'@type': 'Place', 'name': v['name']}} for e in l[:20]]}
@@ -802,6 +825,33 @@ for v in LUGARES.values():
          f"Programación de {v['name']}{' (' + z['name'] + ')' if z else ''}: {len(l)} planes próximos. " + ', '.join(e['title'] for e in l[:4]) + ' y más.',
          body, cr, ld=[pl], app=zone_app(z) if z else '/', clave=json.dumps([v['name'], v.get('address'), [e['id'] for e in l]]),
          grupo='lugares-' + (zt['path'] if zt else 'otras'))
+    widget(v, l)
+
+# ---------- P7 · para salas (el widget de cada lugar está definido arriba)
+def para_salas():
+    ej = next(iter(sorted(LUGARES.values(), key=lambda v: -len(v['evs']))), None)
+    vid = ej['id'] if ej else 123
+    cod_w = f'<iframe src="{BASE}/widget/{vid}/" title="Próximos planes" width="100%" height="420" style="border:1px solid #DDE1E8;border-radius:12px" loading="lazy"></iframe>'
+    cod_b = f'<a href="{BASE}{ej["url"] if ej else "/"}"><img src="{BASE}/insignia.svg" alt="Nuestra programación, en Limón" width="190" height="40"></a>'
+    body = ("<h1>Para salas y organizadores</h1><p class='lead'>Limón reúne cada día los planes de tu ciudad. Que tu programación esté bien en Limón es gratis, "
+            "y hay tres formas de ayudarnos a que llegue a más gente.</p>"
+            "<h2>1. Publica tus eventos</h2><p>Crea una cuenta en la app y, desde tu perfil, pide acceso de organizador. Una vez aprobado, "
+            "<b>pega el enlace de tu evento</b> y rellenamos los datos por ti: tú los revisas y lo envías. Cada evento pasa una revisión antes de salir. "
+            "Si tu web ya publica la programación con datos estructurados (schema.org/Event), la leemos sola cada noche.</p>"
+            "<p><a class='cta' href='/'>Abrir la app</a></p>"
+            "<h2 id='widget'>2. Pon tu programación en tu web</h2><p>Si tu sala tiene página en Limón, puedes mostrar sus próximos planes en tu web con este código "
+            "(se actualiza solo cada día, no lleva JavaScript ni cookies). Cambia el número por el de tu sala: es el código que aparece al final de su página en Limón.</p>"
+            f"<pre class='cod'>{esc(cod_w)}</pre>"
+            + (f"<p>Así se ve, con {esc(ej['name'])}:</p>" + cod_w.replace(BASE + '/widget/', '/widget/') if ej else '')
+            + "<h2>3. Pon la insignia</h2><p>Un enlace a tu página en Limón para que tu público vea toda la programación junta:</p>"
+            f"<p><img src='/insignia.svg' alt='Nuestra programación, en Limón' width='190' height='40'></p><pre class='cod'>{esc(cod_b)}</pre>"
+            "<h2>¿Algo no está bien?</h2><p>Si un plan de tu sala sale con datos incorrectos o no quieres aparecer, escríbenos desde la app (Perfil → Ideas) y lo corregimos.</p>")
+    page('/para-salas/', 'Para salas y organizadores: publica gratis tu programación · Limón',
+         'Publica gratis los eventos de tu sala en Limón: pega el enlace y los rellenamos, pon un widget con tu programación en tu web y la insignia de Limón.',
+         body, [('Planes', '/planes/')])
+
+
+para_salas()
 
 # eventos
 for e in evs:

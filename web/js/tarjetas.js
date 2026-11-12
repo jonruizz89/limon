@@ -148,6 +148,7 @@ function clicSave(ev) {
   if (s) {
     const id = s.dataset.save, on = !saved.includes(id);
     ponSaved(on ? saved.concat(id) : saved.filter(x => x !== id)); store.set('saved', saved);
+    if (on && window.limonContar) window.limonContar('guardar');
     if (BYID[id]) learn(BYID[id], on ? 'save' : 'unsave');
     // al repintar, la lista puede reordenarse (aprende de lo guardado): la tarjeta tocada se queda donde estaba en pantalla
     const art = s.closest('article'), y0 = art ? art.getBoundingClientRect().top : null, vista = art && art.closest('section, .view, [id^="v-"]');
@@ -192,6 +193,6 @@ function clicTarjeta(ev) {
     const c = ev.target.closest('.card');
     if (c && !ev.target.closest('a, button, .more')) o = c.querySelector('[data-open]');
   }
-  if (o) { const id = o.dataset.open; state.open[id] = !state.open[id]; fichaHistoria(id, state.open[id]); if (state.open[id]) { store.set('abiertos', store.get('abiertos', 0) + 1); const all = [...document.querySelectorAll('#v-' + state.tab + ' [data-open]')].map(x => x.dataset.open); track('abrir', id, { pos: all.indexOf(id) + 1 || null }); } renderAll(); const el = document.querySelector(`[data-open="${id}"]`); if (el) el.focus(); return true; }
+  if (o) { const id = o.dataset.open; state.open[id] = !state.open[id]; fichaHistoria(id, state.open[id]); if (state.open[id]) { store.set('abiertos', store.get('abiertos', 0) + 1); const all = [...document.querySelectorAll('#v-' + state.tab + ' [data-open]')].map(x => x.dataset.open); track('abrir', id, { pos: all.indexOf(id) + 1 || null }); window.limonContar && window.limonContar('ficha'); } renderAll(); const el = document.querySelector(`[data-open="${id}"]`); if (el) el.focus(); return true; }
   return false;
 }

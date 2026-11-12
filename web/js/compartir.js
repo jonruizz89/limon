@@ -3,7 +3,7 @@
 // ---------- enlace propio de cada plan: abrir la ficha cambia la dirección (?ev=) y «atrás» la cierra
 const SLUG_MAP = { á: 'a', à: 'a', ä: 'a', â: 'a', é: 'e', è: 'e', ë: 'e', ê: 'e', í: 'i', ì: 'i', ï: 'i', î: 'i', ó: 'o', ò: 'o', ö: 'o', ô: 'o', ú: 'u', ù: 'u', ü: 'u', û: 'u', ñ: 'n', ç: 'c' };
 const slugEv = t => (String(t || '').toLowerCase().replace(/[áàäâéèëêíìïîóòöôúùüûñç]/g, c => SLUG_MAP[c]).replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '').slice(0, 70)) || 'x';
-const appEvUrl = e => location.origin + '/?c=' + encodeURIComponent(window.limonCity.zone().split('|')[0]) + '&ev=' + e.id;
+const appEvUrl = e => location.origin + '/?c=' + encodeURIComponent(window.limonCity.zone().split('|')[0]) + '&ev=' + e.id + '&o=c';
 // para compartir: la página del plan (con su foto en WhatsApp y en buscadores) si ya existe; si es de hoy, la app
 function shareEvUrl(e) {
   const dias = (parse(e.inicio) - today) / 864e5, alta = e.alta ? Date.now() - Date.parse(e.alta) : 0;
@@ -24,7 +24,7 @@ function fichaHistoria(id, abierta) {
 async function shareEv(e) {
   const url = shareEvUrl(e), occ = occurs(e, today, addDays(today, 400));
   const text = `${e.titulo} · ${whenText(e, occ)}${e.lugar ? ' · ' + e.lugar : ''}`;
-  track('compartir', e.id);
+  track('compartir', e.id); window.limonContar && window.limonContar('compartir');
   if (navigator.share) { try { await navigator.share({ title: e.titulo, text, url }); return; } catch (x) { if (x && x.name === 'AbortError') return; } }
   try { await navigator.clipboard.writeText(text + ' ' + url); toast('Enlace copiado: pégalo en WhatsApp o donde quieras.'); }
   catch (x) { prompt('Copia este enlace:', url); }
@@ -164,6 +164,7 @@ function icsDe(e) {
 function clicIcs(ev) {
   const b = ev.target.closest('[data-ics]'); if (!b || !BYID[b.dataset.ics]) return false;
   const e = BYID[b.dataset.ics];
+  window.limonContar && window.limonContar('calendario');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([icsDe(e)], { type: 'text/calendar;charset=utf-8' }));
   a.download = (e.titulo.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'plan') + '.ics';

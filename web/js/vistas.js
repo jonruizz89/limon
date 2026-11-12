@@ -355,7 +355,7 @@ function clicQgrp(ev) {
   return false;
 }
 function clicQver(ev) {
-  if (ev.target.closest('[data-qver]')) { closeSheets(); state.ptShown = 20; go('parati'); window.scrollTo(0, 0); renderAll(); return true; }
+  if (ev.target.closest('[data-qver]')) { window.limonContar && window.limonContar('intereses'); closeSheets(); state.ptShown = 20; go('parati'); window.scrollTo(0, 0); renderAll(); return true; }
   return false;
 }
 function clicQmas(ev) {

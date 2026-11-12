@@ -188,6 +188,31 @@
   }
 
   const toDbId = (id) => Number(String(id).replace(/^e/, ''));
+  // ---------- contadores anónimos (solo números por día y zona: de dónde llega la visita y qué hace; sin persona ni dispositivo)
+  window.limonContar = function (que) {
+    if (location.hostname !== 'limonplanes.com' || !sb) return;
+    aTiempo(sb.rpc('contar', { p_city: C.city, p_que: que }), 4000).catch(() => { });
+  };
+  // de dónde llega la visita, una vez por sesión: ?o= de nuestros enlaces (ig, x, wa, tg, fb, c = compartido) o la web anterior
+  function origenVisita() {
+    try { if (sessionStorage.getItem('limon.origen')) return null; sessionStorage.setItem('limon.origen', '1'); } catch (e) { }
+    const sp = new URLSearchParams(location.search), q = sp.get('o');
+    if (q) { sp.delete('o'); try { history.replaceState(history.state, '', location.pathname + (sp.toString() ? '?' + sp : '') + location.hash); } catch (e) { } }
+    const M = { ig: 'instagram', x: 'x', wa: 'whatsapp', tg: 'telegram', fb: 'facebook', c: 'compartido' };
+    if (M[q]) return M[q];
+    let h = '', ruta = '';
+    try { const u = new URL(document.referrer); h = u.hostname.replace(/^www\./, ''); ruta = u.pathname; } catch (e) { }
+    if (!h) return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone ? 'app' : 'directo';
+    if (h === location.hostname) return /^\/(planes|evento|lugar)\//.test(ruta) ? 'paginas' : null;
+    if (/(^|\.)google\./.test(h)) return 'google';
+    if (/(^|\.)(bing\.com|duckduckgo\.com|ecosia\.org|yahoo\.com|qwant\.com)$/.test(h)) return 'bing';
+    if (/(^|\.)instagram\.com$/.test(h)) return 'instagram';
+    if (/^(t\.co|x\.com|twitter\.com|mobile\.twitter\.com)$/.test(h)) return 'x';
+    if (/(^|\.)(facebook\.com|fb\.me)$/.test(h)) return 'facebook';
+    if (/whatsapp/.test(h)) return 'whatsapp';
+    if (/(^|\.)(t\.me|telegram\.org)$/.test(h)) return 'telegram';
+    return 'otra_web';
+  }
   // ---------- estadísticas de uso: solo con permiso (bureo.analytics = '1'), sin datos de contacto
   const TQ = []; let tTimer = null;
   const consent = () => { try { return localStorage.getItem('bureo.analytics'); } catch (e) { return null; } };
@@ -419,7 +444,7 @@
       else if (mode === 'reset') r = await sb.auth.resetPasswordForEmail(email, { redirectTo: back, captchaToken });
       else r = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: back, captchaToken } });
       if (r.error) { msg(ES(r.error.message)); return; }
-      if (mode === 'signup') window.limonFn('limon-mail', { body: { action: 'flush' } }).catch(() => { });  // aviso al admin de un registro nuevo
+      if (mode === 'signup') { window.limonFn('limon-mail', { body: { action: 'flush' } }).catch(() => { }); window.limonContar('registro'); }  // aviso al admin de un registro nuevo
       $('acc-pass').value = '';
       if (mode === 'login') msg('');
       else if (mode === 'signup') {
@@ -643,6 +668,8 @@
       sp(0.3);
       // contador anónimo de aperturas por ciudad y día (solo un número: sin datos de la persona ni del dispositivo)
       if (location.hostname === 'limonplanes.com') aTiempo(sb.rpc('contar_apertura', { p_city: C.city }), 4000).catch(() => { });
+      const og = origenVisita();
+      if (og) window.limonContar('origen:' + og);
       const [tax, evs, srcs, cuts] = await Promise.all([loadTaxonomy(), loadEvents(), loadSources(), loadClosures()]);
       window.limonAudit = () => loadAudit().catch(() => null);  // auditoría de cobertura: solo se pide al abrir «Fuentes»
       centerOn(evs);

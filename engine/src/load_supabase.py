@@ -92,21 +92,25 @@ for e in evs:
         if k and k not in venues:
             venues[k] = {'city_id': CITY, 'name': e['lugar'], 'name_key': k, 'district': e.get('distrito'),
                          'lat': e.get('lat'), 'lng': e.get('lng')}
+        elif k and not venues[k].get('district') and e.get('distrito'):
+            venues[k]['district'] = e['distrito']
         d = (e.get('direccion') or '').strip()[:200]
         if k and d and not venues[k].get('address') and norm(d) != k:
             venues[k]['address'] = d
-vid = {}
+vid, vdist = {}, {}
 # los recintos sin coordenadas (o sin dirección) no borran las que ya tenía la base (p. ej. corregidas a mano):
 # se mandan en grupos con las mismas columnas
 grupos = {}
 for v in venues.values():
-    cols = ('city_id', 'name', 'name_key') + (('district', 'lat', 'lng') if v.get('lat') is not None else ()) + (('address',) if v.get('address') else ())
+    # el barrio vacío tampoco borra el que ya tenía (antes se perdía cada noche si el plan no lo traía)
+    cols = (('city_id', 'name', 'name_key') + (('lat', 'lng') if v.get('lat') is not None else ())
+            + (('district',) if v.get('lat') is not None and v.get('district') else ()) + (('address',) if v.get('address') else ()))
     grupos.setdefault(cols, []).append({c: v.get(c) for c in cols})
 for group in grupos.values():
     for part in chunks(group, 500):
-        for r in api('POST', 'venues?on_conflict=city_id,name_key&select=id,name_key', part,
+        for r in api('POST', 'venues?on_conflict=city_id,name_key&select=id,name_key,district', part,
                      'resolution=merge-duplicates,return=representation'):
-            vid[r['name_key']] = r['id']
+            vid[r['name_key']] = r['id']; vdist[r['name_key']] = r.get('district')
 print('recintos', len(vid))
 
 # 2) eventos
@@ -120,7 +124,7 @@ for e in evs:
     rows.append({
         'ext_key': k, 'city_id': CITY, 'title': C.titulo_limpio(e['titulo'])[:500],  # la clave (k) sale del título original 'description': e.get('descripcion') or None,
         'starts_on': e['inicio'], 'ends_on': max(e['inicio'], e['fin']), 'time_text': C.norm_hora(e.get('hora')) or (C.hora_de_texto(e.get('descripcion')) if e['inicio'] == e['fin'] else None),  # la hora de la descripción solo en planes de un día (en una exposición sería la de la inauguración)
-        'venue_id': vid.get(norm(e.get('lugar') or '')[:200]), 'district': e.get('distrito'),
+        'venue_id': vid.get(norm(e.get('lugar') or '')[:200]), 'district': e.get('distrito') or vdist.get(norm(e.get('lugar') or '')[:200]),
         'lat': e.get('lat'), 'lng': e.get('lng'), 'price_text': e.get('precio'), 'is_free': bool(e.get('gratis')),
         'image_url': http_only(e.get('imagen')), 'organizer_url': http_only(e.get('web_organizador')),
         'is_unique': bool(e.get('unico')), 'is_featured': bool(e.get('destacado')),

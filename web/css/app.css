@@ -351,3 +351,6 @@ table.cov td.n, table.cov th.n { text-align: right }
 :root[data-theme="dark"] #splash { background: var(--bg); color: var(--ink) }
 :root[data-theme="dark"] #splash .sp-bar { background: rgba(255,255,255,.12) } :root[data-theme="dark"] #splash .sp-bar i { background: var(--accent) }
 @media (prefers-reduced-motion: reduce) { #splash .sp-lemon, #splash .sp-shadow { animation: none } }
+/* P13: rellenar el evento desde un enlace */
+.form .leer{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;padding:10px 12px;border:1px dashed var(--line, #ccc);border-radius:12px}
+.form .leer label{flex:1 1 220px}

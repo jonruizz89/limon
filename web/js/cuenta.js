@@ -25,6 +25,7 @@ const ST = { publicado: 'Publicado', revision: 'En revisión', rechazado: 'Recha
 function subForm(x) {
   x = x || {};
   return `<form class="form" id="org-form" data-id="${x.id || ''}">
+      ${x.id ? '' : `<div class="full leer"><label>¿Tienes la página del evento? Pega el enlace y lo rellenamos por ti<input class="search" type="url" id="org-leer" maxlength="500" placeholder="https://"></label><button class="btn ghost" type="button" data-org-leer>Rellenar</button></div>`}
       <label class="full">Título<input class="search" name="title" required minlength="3" maxlength="200" value="${esc(x.title || '')}"></label>
       <label>Desde<input class="search" type="date" name="starts_on" required value="${esc(x.starts_on || '')}"></label>
       <label>Hasta (si dura varios días)<input class="search" type="date" name="ends_on" value="${esc(x.ends_on && x.ends_on !== x.starts_on ? x.ends_on : '')}"></label>
@@ -255,6 +256,20 @@ async function onAccountClick(ev) {
   }
   if (t.closest('[data-org-new]')) { orgEdit = 'nuevo'; renderAccountExtras(); return true; }
   const ed = t.closest('[data-org-edit]'); if (ed) { orgEdit = +ed.dataset.orgEdit; renderAccountExtras(); $('org').scrollIntoView({ behavior: 'smooth' }); return true; }
+  if (t.closest('[data-org-leer]')) {  // P13: la IA lee la página y rellena; el organizador revisa antes de enviar
+    const url = ($('org-leer').value || '').trim(), msg = $('org-msg'), f = $('org-form');
+    if (!/^https?:\/\/\S+\.\S+/.test(url)) { msg.textContent = 'Pega el enlace completo, empezando por https://'; return true; }
+    msg.textContent = 'Leyendo la página…';
+    const res = await window.limonDB.fn('limon-org', { action: 'leer', url });
+    if (!res || res.error || !res.datos) { msg.textContent = (res && res.error) || 'No se ha podido leer. Rellena los datos a mano.'; return true; }
+    for (const [k, v] of Object.entries(res.datos)) {
+      const el = f.elements[k]; if (!el) continue;
+      if (el.type === 'checkbox') el.checked = !!v; else if (v) el.value = v;
+    }
+    if (!f.elements.url.value) f.elements.url.value = url;
+    msg.textContent = 'Listo: revisa los datos (sobre todo fecha, hora y precio) y envíalo.';
+    return true;
+  }
   if (t.closest('[data-org-cancel]')) { orgEdit = null; renderAccountExtras(); return true; }
   const rt = t.closest('[data-org-retire]');
   if (rt) { await db.sb.from('submitted_events').update({ status: 'borrador' }).eq('id', +rt.dataset.orgRetire); toast('Retirado: deja de salir en Limón.'); loadMe(); return true; }
@@ -314,7 +329,7 @@ function iniciaVersion() {
 
 // ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
 function clicCuenta(ev) {
-  if (ev.target.closest('#org, #adm, #ag-cal, #mail') && ev.target.closest('button, a[data-copy]')) { onAccountClick(ev).then(done => { if (done) ev.preventDefault(); }); if (ev.target.closest('[data-org-new],[data-org-edit],[data-org-cancel],[data-org-retire],[data-adm-ed],[data-adm-pub],[data-adm-idea],[data-copy],[data-mail-test]')) return true; }
+  if (ev.target.closest('#org, #adm, #ag-cal, #mail') && ev.target.closest('button, a[data-copy]')) { onAccountClick(ev).then(done => { if (done) ev.preventDefault(); }); if (ev.target.closest('[data-org-new],[data-org-edit],[data-org-leer],[data-org-cancel],[data-org-retire],[data-adm-ed],[data-adm-pub],[data-adm-idea],[data-copy],[data-mail-test]')) return true; }
   return false;
 }
 function clicInstalarNo(ev) {

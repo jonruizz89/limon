@@ -83,7 +83,7 @@ for f in filas:
     for g in ('total', grupo(url)):
         s = suma[(dia, g)]
         s[0] += f['clicks']; s[1] += f['impressions']; s[2] += f['position'] * f['impressions']
-ahora = dt.datetime.utcnow().isoformat() + 'Z'
+ahora = dt.datetime.now(dt.timezone.utc).isoformat()
 diarias = [{'day': d, 'grupo': g, 'clicks': int(c), 'impressions': int(i), 'position': round(p / i, 2) if i else None, 'updated_at': ahora}
            for (d, g), (c, i, p) in sorted(suma.items())]
 

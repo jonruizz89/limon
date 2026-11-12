@@ -75,7 +75,7 @@ for cuenta, uid in IG_ID.items():
                 fila[col] = None; sin.append(f'{m} ({error(e)})')
         upsert([fila])
         if sin and all('(#10)' in x for x in sin) and len(sin) == len(METRICAS):
-            print(f'{cuenta} {dia}: el token no tiene permiso de estadísticas (instagram_manage_insights); solo foto diaria')
+            print(f'{cuenta} {dia}: el token no tiene permiso de estadísticas (instagram_business_manage_insights); solo foto diaria · Meta: {sin[0][:200]}')
         else:
             print(f'{cuenta} {dia}: {len(METRICAS) - len(sin)}/{len(METRICAS)} métricas guardadas' + (' · sin: ' + '; '.join(sin) if sin else ''))
         if len(sin) == len(METRICAS) and not all('(#10)' in x for x in sin):

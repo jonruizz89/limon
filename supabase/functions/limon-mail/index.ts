@@ -95,6 +95,12 @@ const wants = (p: Prof, k: string) => !!p.email && (OPT_IN.includes(k) ? (p.noti
 // avisos en el móvil: solo los tipos que la persona activa en «En este móvil» (notify.push)
 const wantsPush = (p: Prof, k: string) => !!((p.notify || {}) as Record<string, unknown>).push && ((p.notify as unknown as { push: Record<string, boolean> }).push[k] === true);
 // el aviso push sale del mismo correo: asunto, primera frase y botón
+// la campana de la app: cada aviso queda en la bandeja de la persona (30 días), le llegue o no al móvil o al correo
+async function bandeja(userId: string, kind: string, ref: string, m: { title: string; body?: string; url?: string }) {
+  await admin.from('notifications').upsert({ user_id: userId, kind, ref, title: m.title.slice(0, 160), body: (m.body || '').slice(0, 300) || null,
+    url: (m.url || '').startsWith(APP) ? (m.url || '').slice(APP.length) || '/' : m.url || null }, { onConflict: 'user_id,kind,ref', ignoreDuplicates: true });
+}
+
 function pushOf(subject: string, html: string, tag: string) {
   const intro = (html.match(/color:#3D3517">([\s\S]*?)<\/p>/) || [])[1] || '';
   const url = ((html.match(/<p style="margin:24px 0 0"><a href="([^"]+)"/) || [])[1] || APP).replace(/&amp;/g, '&');
@@ -171,6 +177,7 @@ async function flush() {
       }
     }
     if (!mail || !p) { await admin.from('mail_outbox').update({ sent_at: new Date().toISOString(), error: 'omitido' }).eq('id', m.id); skipped++; continue; }
+    await bandeja(p.id, m.kind, String(m.id), pushOf(mail.subject, mail.html, m.kind)).catch(() => {});
     const viaPush = wantsPush(p, k) ? await pushTo(admin, p.id, pushOf(mail.subject, mail.html, m.kind)).catch(() => 0) : 0;
     if (!wants(p, k)) { await admin.from('mail_outbox').update({ sent_at: new Date().toISOString(), error: viaPush ? 'solo push' : 'omitido' }).eq('id', m.id); viaPush ? sent++ : skipped++; continue; }
     try { await send(p, mail.subject, mail.html, k); await admin.from('mail_outbox').update({ sent_at: new Date().toISOString(), error: null }).eq('id', m.id); sent++; }
@@ -310,6 +317,8 @@ async function daily() {
       cta: onlyRain ? { label: 'Ver mis planes', url: APP + '?tab=agenda' } : { label: 'Ver el mapa de cortes', url: APP + '?tab=calle' },
       footer: footer(p, kk, `Recibes este aviso porque activaste los avisos de ${onlyRain ? 'lluvia' : 'cortes de calle'} en Limón. Puedes cambiar qué avisos recibes en tu perfil.`) });
     const subject = planItems.length ? `Cortes cerca de tus planes: ${planItems[0].title}` : rainItems.length ? `Puede llover: ${rainItems[0].title}` : 'Cortes en tus calles hoy y mañana';
+    { const first = sections[0].items[0];
+      await bandeja(p.id, kk, ymd(today), { title: subject, body: [first.meta, first.note].filter(Boolean).join(' · '), url: onlyRain ? APP + '?tab=agenda' : APP + '?tab=calle' }).catch(() => {}); }
     if (wantsPush(p, kk)) {
       const first = sections[0].items[0];
       await pushTo(admin, p.id, { title: subject, body: [first.meta, first.note].filter(Boolean).join(' · '), url: onlyRain ? APP + '?tab=agenda' : APP + '?tab=calle', tag: kk }).catch(() => 0);
@@ -335,6 +344,7 @@ async function fuiste() {
     if (!hit) continue;
     const { data: ins } = await admin.from('mail_outbox').insert({ user_id: p.id, kind: 'fuiste', ref: ayer, payload: { event_id: hit.id }, sent_at: new Date().toISOString(), error: 'push' }).select('id');
     if (!ins || !ins.length) continue;  // ya se preguntó
+    await bandeja(p.id, 'fuiste', ayer, { title: '¿Al final fuiste?', body: `A «${hit.title}», que tenías guardado para ayer.`, url: `${APP}?fui=e${hit.id}` }).catch(() => {});
     sent += await pushTo(admin, p.id, { title: '¿Al final fuiste?', body: `A «${hit.title}», que tenías guardado para ayer. Cuéntanos y lo apuntamos en tu diario.`, url: `${APP}?fui=e${hit.id}`, tag: 'fuiste' }).catch(() => 0);
   }
   return { users: (profs || []).length, sent };
@@ -605,6 +615,30 @@ async function weeklyAvisos() {
   return { subs: subs.length, sent };
 }
 
+// cada mañana, a la campana de quien tiene cuenta: planes nuevos de las salas y ciclos que sigue (por correo, con el mismo email)
+async function avisosCuenta() {
+  const { data: subs } = await admin.from('newsletter_subs').select('email,tipo,objetivo,nombre').eq('status', 'activa').in('tipo', ['lugar', 'ciclo']).limit(5000);
+  if (!subs || !subs.length) return { subs: 0, avisos: 0 };
+  const emails = [...new Set(subs.map((x) => x.email.toLowerCase()))];
+  const { data: profs } = await admin.from('profiles').select('id,email').in('email', emails);
+  const por = new Map((profs || []).map((p) => [String(p.email).toLowerCase(), p.id]));
+  const desde = new Date(Date.now() - 864e5).toISOString(), hoy = ymd(madridToday());
+  let avisos = 0;
+  for (const s of subs) {
+    const uid = por.get(s.email.toLowerCase());
+    if (!uid) continue;
+    let q = admin.from('events').select('id,title').gte('first_seen_at', desde).gte('ends_on', hoy).order('starts_on').limit(5);
+    q = s.tipo === 'lugar' ? q.eq('venue_id', Number(s.objetivo)) : q.eq('series', s.objetivo);
+    const { data } = await q;
+    if (!data || !data.length) continue;
+    const nombre = s.nombre || s.objetivo;
+    await bandeja(uid, 'novedades', `${s.tipo}:${s.objetivo}:${hoy}`, { title: data.length === 1 ? `Plan nuevo en ${nombre}` : `${data.length} planes nuevos en ${nombre}`,
+      body: data.map((e) => e.title).join(' · '), url: evUrl(data[0].id) }).catch(() => {});
+    avisos++;
+  }
+  return { subs: subs.length, avisos };
+}
+
 async function unsub(t: string, k: string) {
   if (!/^[0-9a-f-]{36}$/i.test(t || '') || !KINDS.includes(k)) return { ok: false };
   const { data: p } = await admin.from('profiles').select('id,notify').eq('mail_token', t).maybeSingle();
@@ -642,7 +676,7 @@ Deno.serve(async (req) => {
         const out: Record<string, unknown> = { flush: await flush() };
         out[action] = action === 'weekly' ? await weekly() : await daily();
         if (action === 'weekly') out.sin_cuenta = await weeklySubs();
-        if (action === 'daily') out.fuiste = await fuiste();
+        if (action === 'daily') { out.fuiste = await fuiste(); out.campana = await avisosCuenta(); }
         return json(out);
       }
       // un usuario puede pedirse una prueba de su propio resumen

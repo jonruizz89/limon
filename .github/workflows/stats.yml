@@ -34,6 +34,16 @@ jobs:
             -H "apikey: $SUPABASE_SECRET" -H "Authorization: Bearer $SUPABASE_SECRET" -H "Prefer: return=minimal")
           echo "anterior a $limit: $code"
           test "$code" = "204"
+      - name: Borrar los avisos de la campana de hace más de 30 días
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET: ${{ secrets.SUPABASE_SECRET }}
+        run: |
+          limit=$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE "$SUPABASE_URL/rest/v1/notifications?created_at=lt.$limit" \
+            -H "apikey: $SUPABASE_SECRET" -H "Authorization: Bearer $SUPABASE_SECRET" -H "Prefer: return=minimal")
+          echo "avisos anteriores a $limit: $code"
+          test "$code" = "204"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - name: Visitas a la web (Cloudflare Web Analytics; solo si hay token)
         env:

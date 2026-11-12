@@ -170,7 +170,7 @@ function entregaApp() {
   // lo que usa data.js para sincronizar la cuenta
   window.LIMON_INICIO.listo({
     get: () => ({ prefs, opts, saved, streets, dismissed, went, nofui, learned, taste }),
-    setUser(v) { logged = v; Object.keys(aiReco).forEach(k => delete aiReco[k]); renderAll(); loadMe(); loadInvites(); loadSocial(); loadIdeas(); loadPast(); },
+    setUser(v) { logged = v; Object.keys(aiReco).forEach(k => delete aiReco[k]); renderAll(); loadMe(); if (typeof loadNotis === "function") loadNotis(true); loadInvites(); loadSocial(); loadIdeas(); loadPast(); },
     set(p) {
       if (p.prefs) prefs = p.prefs; if (p.opts) opts = Object.assign({}, opts, p.opts, { dist: opts.dist });  // la distancia es de cada dispositivo: la cuenta no la pisa
       if (p.saved) saved = p.saved; if (p.streets) streets = p.streets;

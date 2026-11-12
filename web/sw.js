@@ -4,7 +4,7 @@
 const VERSION = 'limon-v6';  // v6: el estilo y el código de la app van en archivos aparte (css/ y js/); borra las copias anteriores
 const SHELL = ['./', 'index.html', 'data.js', 'config.js', 'limon.svg', 'limon-180.png', 'limon-192.png', 'manifest.webmanifest',
   'css/app.css', 'js/base.js', 'js/calendario.js', 'js/filtros.js', 'js/temporadas.js', 'js/tarjetas.js', 'js/compartir.js', 'js/calle.js',
-  'js/social.js', 'js/cuenta.js', 'js/parati.js', 'js/vistas.js', 'js/app.js', 'js/inicio.js'];
+  'js/social.js', 'js/cuenta.js', 'js/campana.js', 'js/parati.js', 'js/vistas.js', 'js/app.js', 'js/inicio.js'];
 const CDN = /^https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)\//;
 
 self.addEventListener('install', (e) => {

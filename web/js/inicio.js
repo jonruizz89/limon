@@ -38,7 +38,7 @@ iniciaAviso();              // base.js: botones del aviso (deshacer y cerrar)
 // Clics: cada tema atiende los suyos, con las funciones clic… de su archivo. Se prueban EN ESTE ORDEN y gana la
 // primera que lo reconoce (devuelve algo distinto de false). No reordenar: hay controles dentro de otros.
 const CLICS = [
-  clicEnlaceDeLaApp, clicCuenta, clicCakind, clicCaday, clicCadayGo, clicRmtema, clicRmtcat, clicAiRefresh, clicFtoggle, clicFset,
+  clicEnlaceDeLaApp, clicCampana, clicCuenta, clicCakind, clicCaday, clicCadayGo, clicRmtema, clicRmtcat, clicAiRefresh, clicFtoggle, clicFset,
   clicFclear, clicCutmap, clicCutgo, clicRmstreet, clicFiltroDeTarjeta, clicExClear, clicGoto, clicSave, clicDismiss, clicWent,
   clicSheetClose, clicCityBtn, clicNuevosVer, clicInteresesRapido, clicTema, clicCuando, clicCalq, clicCalm, clicCald, clicCalok,
   clicInstalarNo, clicInstalar, clicQgrp, clicQfr, clicQver, clicQmas, clicSharev, clicIcs, clicResumenNo, clicShareFinde, clicZoneWider, clicZoneLocate, clicZoneHintX,
@@ -50,6 +50,7 @@ document.addEventListener('click', ev => { for (const f of CLICS) if (f(ev)) ret
 
 iniciaPrimeraVista();       // vistas.js: la pestaña o el plan con el que se abre la app
 iniciaCuentaVisible();      // cuenta.js: bloques de la cuenta y bajas de avisos desde un correo
+iniciaCampana();            // campana.js: avisos de la cuenta
 iniciaQuedada();            // compartir.js: enlace de una quedada
 iniciaPlegables();          // vistas.js: secciones plegables de Perfil
 iniciaEnlacesExternos();    // base.js: clics en enlaces a las webs de los planes

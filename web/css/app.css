@@ -129,10 +129,10 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
 .card.nuevo { box-shadow: inset 4px 0 0 var(--accent) }
 .save { position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; border: 0; border-radius: 10px; background: none; cursor: pointer; color: var(--quiet); display: flex; align-items: center; justify-content: center }
 .save[aria-pressed="true"] { color: var(--accent-text) }
-.shr { position: absolute; top: 52px; right: 8px; width: 44px; height: 44px; border: 0; border-radius: 10px; background: none; cursor: pointer; color: var(--quiet); display: flex; align-items: center; justify-content: center }
+.shr { position: absolute; bottom: 4px; right: 6px; width: 44px; height: 44px; border: 0; border-radius: 10px; background: none; cursor: pointer; color: var(--quiet); display: flex; align-items: center; justify-content: center }
 .shr svg { width: 20px; height: 20px }
-.card .row1 .body { padding-right: 38px }
-.card .row1 .title { padding-right: 0 }
+.card:not(.abierta) .tags, .card:not(.abierta) > .why { padding-right: 40px }
+.card:not(.abierta) { padding-bottom: 16px }
 .more { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 14px }
 .more p { margin: 0 }
 .fpanel { gap: 14px }

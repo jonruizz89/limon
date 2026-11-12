@@ -133,7 +133,7 @@ function renderZoneHint() {
   if (window.__limonNoZone) { window.__limonNoZone = false; store.set('zoneAsked', 1); toast('Aún no estamos en tu zona: te enseñamos Madrid. Puedes cambiar de zona arriba.'); }
   const show = !window.limonCity.chosen() && !store.get('zoneAsked', 0) && 'geolocation' in navigator;
   box.hidden = !show; if (!show) return;
-  box.innerHTML = `<p class="note" role="region" aria-label="Tu zona" style="margin:0 0 10px">¿No estás en ${esc(CITY.name)}? <button class="btnlink" data-zone-locate title="Tu ubicación no sale de tu móvil">📍 Ver los de donde estoy</button> · <button class="btnlink" data-zone-pick>Elegir zona</button> · <button class="btnlink" data-zone-hint-x>Ocultar</button></p>`;
+  box.innerHTML = `<p class="note" role="region" aria-label="Tu zona" style="margin:0 0 10px">¿No estás en ${esc(CITY.name)}? <button class="btnlink" data-zone-locate title="Tu ubicación no sale de tu móvil">📍 Usar mi ubicación</button> · <button class="btnlink" data-zone-pick>Elegir zona</button> · <button class="btnlink" data-zone-hint-x>Ocultar</button></p>`;
 }
 function openZone() {
   const groups = zoneGroups(), zone = window.limonCity.zone();

@@ -29,10 +29,11 @@ jobs:
       SUFFIX: ${{ github.ref_name == 'pruebas' && '-pruebas' || '' }}
       ONLY: ${{ inputs.only }}
       EVENT: ${{ github.event_name }}
+      BEFORE: ${{ github.event.before }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb  # v1.7.3
         with:
           version: latest
@@ -41,7 +42,9 @@ jobs:
           if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then echo "Falta el secreto SUPABASE_ACCESS_TOKEN: no se publica nada."; exit 0; fi
           if [ -n "$ONLY" ]; then fns="$ONLY";
           elif [ "$EVENT" = "push" ]; then
-            fns=$(git diff --name-only HEAD~1 HEAD -- supabase/functions | cut -d/ -f3 | sort -u)
+            # todos los commits del push (al publicar en main llegan varios a la vez), no solo el último
+            base="$BEFORE"; git cat-file -e "$base^{commit}" 2>/dev/null || base=HEAD~1
+            fns=$(git diff --name-only "$base" HEAD -- supabase/functions | cut -d/ -f3 | sort -u)
             # si cambia el código compartido, se publican todas las que lo usan
             if echo "$fns" | grep -qx "_shared"; then fns="$fns $(grep -l '_shared/' supabase/functions/*/index.ts | cut -d/ -f3)"; fi
           else fns=$(ls supabase/functions); fi

@@ -8,7 +8,7 @@ Uso: python3 src/site.py ../web   (lee la URL y la clave pública de web/config.
 """
 import gzip
 import datetime as dt, hashlib, html, json, math, os, re, sys, time, urllib.error, urllib.parse, urllib.request
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 WEB = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else '../web')
 # imágenes solo de fuentes oficiales o de datos abiertos (las publican para difundir los eventos); las de salas y promotores no se muestran
@@ -187,7 +187,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding-top
 .brand{display:flex;align-items:center;gap:8px;text-decoration:none;font:italic 700 24px 'Space Grotesk',system-ui,sans-serif}
 .cta{display:inline-block;background:var(--a);color:var(--ai);font-weight:600;text-decoration:none;border-radius:10px;padding:10px 16px}
 h1{font:700 30px/1.2 'Space Grotesk',system-ui,sans-serif;margin:10px 0 8px}h2{font:600 20px 'Space Grotesk',system-ui,sans-serif;margin:28px 0 8px}
-.lead,.q{color:var(--q)}.intro{line-height:1.55;margin:10px 0 14px}.crumbs{font-size:14px;color:var(--q);margin-top:6px}.crumbs a{color:var(--q)}
+.aviso{background:var(--s);border:1px solid var(--l);border-radius:12px;padding:12px 14px;margin:12px 0}.aviso label{font-weight:600;display:block;margin-bottom:8px}.aviso div{display:flex;gap:8px;flex-wrap:wrap}.aviso input{flex:1 1 180px;min-height:42px;border:1px solid var(--l);border-radius:10px;padding:0 10px;font:inherit}.aviso button{min-height:42px;border:0;border-radius:999px;background:var(--a);color:var(--ai);font-weight:700;padding:0 18px;font:inherit;font-weight:700;cursor:pointer}.aviso .q{font-size:13px;margin:8px 0 0}.lead,.q{color:var(--q)}.intro{line-height:1.55;margin:10px 0 14px}.crumbs{font-size:14px;color:var(--q);margin-top:6px}.crumbs a{color:var(--q)}
 ul.ev{list-style:none;padding:0;margin:0}ul.ev li{background:var(--s);border:1px solid var(--l);border-radius:14px;margin:10px 0;overflow:hidden}
 ul.ev li>a{display:flex;gap:12px;padding:10px;text-decoration:none}ul.ev li>a:hover .tt{text-decoration:underline}
 .th{flex:0 0 84px;height:84px;align-self:flex-start;border-radius:10px;overflow:hidden;background:#FFF3BF;display:grid;place-items:center;font-size:34px}
@@ -215,7 +215,17 @@ footer{color:var(--q);font-size:13px;padding-top:30px;padding-bottom:40px}"""
 BEACON = '<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon=\'{"token": "279d742c8af84146b16f4ef30d20adcc"}\'></script>'
 CSP = ("default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
        "font-src https://fonts.gstatic.com; script-src https://static.cloudflareinsights.com; connect-src https://cloudflareinsights.com; "
-       "object-src 'none'; base-uri 'self'; form-action 'none'")
+       f"object-src 'none'; base-uri 'self'; form-action {SB_URL}")
+
+
+def aviso_form(tipo, objetivo, city, nombre):
+    """P12 · «Avísame de lo nuevo» sin cuenta: formulario sin JavaScript que va a la función limon-mail (doble confirmación
+    por correo; como mucho un aviso a la semana y solo si hay planes nuevos)."""
+    return (f'<form class="aviso" method="post" action="{SB_URL}/functions/v1/limon-mail?action=suscribir">'
+            f'<input type="hidden" name="tipo" value="{esc(tipo)}"><input type="hidden" name="objetivo" value="{esc(objetivo)}">'
+            f'<input type="hidden" name="city" value="{esc(city)}"><label for="av-mail">🔔 Avísame por correo de los planes nuevos de {esc(nombre)}</label>'
+            f'<div><input id="av-mail" type="email" name="email" required placeholder="tu@correo.com" autocomplete="email"><button type="submit">Avísame</button></div>'
+            f'<p class="q">Como mucho un correo a la semana. Sin cuenta; te das de baja con un clic.</p></form>')
 
 
 OG_GRUPOS = {f[:-4] for f in os.listdir(os.path.join(WEB, 'og'))} if os.path.isdir(os.path.join(WEB, 'og')) else set()
@@ -737,7 +747,8 @@ for c, z, sel in _sel_col:
             temas = '<div class="chips">' + ''.join(f'<a href="{u}">{esc(t)}</a>' for t, u in subs) + '</div>'
     body = (f"<h1>{esc(c['title'])}</h1><p class='lead'>{esc(c['lead'])}</p>"
             f"<p class='m'>{len(sel)} {c['unidad']}{f', {ngr} gratis' if c.get('gratis') and ngr else ''} · del {esc(fecha(d(ini), False))} al {esc(fecha(d(fin), False))}{' · ' + c['extra'] if c.get('extra') else ''}</p>"
-            + temas + (f"<p><a class='cta' href='{esc(c['reservas'])}' rel='nofollow noopener' target='_blank'>Ir a la central de reservas ↗</a></p>" if c.get('reservas') else '') +
+            + temas + (aviso_form('ciclo', Counter(e['series'] for e in sel).most_common(1)[0][0], sel[0]['city_id'], c['nombre']) if c.get('serie') else '')
+            + (f"<p><a class='cta' href='{esc(c['reservas'])}' rel='nofollow noopener' target='_blank'>Ir a la central de reservas ↗</a></p>" if c.get('reservas') else '') +
             '<ul class="ev">' + ''.join(li(e, z) for e in sel) + '</ul>'
             + (f'<p><a href="/planes/{z["path"]}/navidad/">Toda la Navidad en {esc(z["name"])}</a></p>' if c['path'] != 'navidad' and f"{z['path']}/navidad" in _hechas and any(c['path'] == t[0] for t in NAVIDAD_TEMAS + [('puente-de-diciembre',)]) else '') +
             f'<p><a href="/planes/{z["path"]}/">Toda la agenda de {esc(z["name"])}</a></p>')
@@ -775,6 +786,7 @@ for v in LUGARES.values():
         res += f" El próximo es «{prox['title']}», el {fecha(d(prox['starts_on']))}{', a las ' + prox['time_text'] if prox.get('time_text') and len(prox['time_text']) <= 8 else ''}."
     body = (f"<h1>{esc(v['name'])}</h1><p class='lead'>Programación y próximos planes: {len(l)} en las próximas semanas, actualizados cada día.</p>"
             + (f"<p>{esc(res.strip())}</p>" if res else '')
+            + (aviso_form('lugar', v['id'], l[0]['city_id'], v['name']) if v.get('id') and l else '')
             + (f"<p class='m'>📍 {esc(cerca)}" + (f' · <a href="{esc(mapa)}" rel="nofollow noopener" target="_blank">Cómo llegar ↗</a>' if mapa else '') + '</p>' if cerca or mapa else '')
             + '<ul class="ev">' + ''.join(li(e, z) for e in l[:80]) + '</ul>'
             + (f'<p><a href="/planes/{z["path"]}/">Toda la agenda de {esc(z["name"])}</a></p>' if z else ''))

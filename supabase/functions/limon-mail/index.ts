@@ -480,11 +480,25 @@ async function huella(req: Request) {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('limon-resumen:' + ip + ':' + ymd(madridToday())));
   return [...new Uint8Array(d)].slice(0, 12).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
-async function suscribir(req: Request, email: string, city: string) {
+async function suscribir(req: Request, email: string, city: string, tipo = 'finde', objetivo = '') {
   email = String(email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(email) || email.length > 254) return { ok: false, error: 'Revisa el correo.' };
   const { data: c } = await admin.from('cities').select('id,name,status').eq('id', city).maybeSingle();
   if (!c || c.status !== 'publicada') return { ok: false, error: 'Elige una zona.' };
+  // P12: avisos de una sala (objetivo = id del lugar) o de un ciclo (objetivo = nombre del ciclo)
+  if (!['finde', 'lugar', 'ciclo'].includes(tipo)) return { ok: false, error: 'Petición no válida.' };
+  let nombre = c.name;
+  objetivo = String(objetivo || '').trim().slice(0, 120);
+  if (tipo === 'lugar') {
+    if (!/^\d{1,9}$/.test(objetivo)) return { ok: false, error: 'Petición no válida.' };
+    const { data: v } = await admin.from('venues').select('id,name').eq('id', Number(objetivo)).maybeSingle();
+    if (!v) return { ok: false, error: 'Ese lugar no existe.' };
+    nombre = v.name;
+  } else if (tipo === 'ciclo') {
+    const { count } = await admin.from('events').select('id', { count: 'exact', head: true }).eq('series', objetivo).limit(1);
+    if (!objetivo || !count) return { ok: false, error: 'Ese ciclo no existe.' };
+    nombre = objetivo;
+  } else objetivo = '';
   // frenos: 5 intentos por origen y día; 60 correos de confirmación por hora en total; uno por correo cada 24 h
   const h = await huella(req), hora = new Date(Date.now() - 3600e3).toISOString(), dia = new Date(Date.now() - 864e5).toISOString();
   const [{ count: mios }, { count: todos }] = await Promise.all([
@@ -492,18 +506,19 @@ async function suscribir(req: Request, email: string, city: string) {
     admin.from('newsletter_subs').select('id', { count: 'exact', head: true }).gte('confirm_sent_at', hora)]);
   if ((mios || 0) >= 5 || (todos || 0) >= 60) return { ok: false, error: 'Demasiados intentos. Prueba más tarde.' };
   await admin.from('newsletter_attempts').insert({ origin_hash: h });
-  const { data: prev } = await admin.from('newsletter_subs').select('id,status,token,confirm_sent_at').eq('email', email).eq('city_id', city).maybeSingle();
+  const { data: prev } = await admin.from('newsletter_subs').select('id,status,token,confirm_sent_at').eq('email', email).eq('city_id', city).eq('tipo', tipo).eq('objetivo', objetivo).maybeSingle();
   if (prev && prev.status === 'activa') return { ok: true, ya: true };
   if (prev && prev.confirm_sent_at && Date.now() - Date.parse(prev.confirm_sent_at) < 864e5) return { ok: true };  // ya se le mandó: no repetir
   const row = prev
     ? (await admin.from('newsletter_subs').update({ status: 'pendiente', confirm_sent_at: new Date().toISOString() }).eq('id', prev.id).select('token').single()).data
-    : (await admin.from('newsletter_subs').insert({ email, city_id: city, confirm_sent_at: new Date().toISOString() }).select('token').single()).data;
+    : (await admin.from('newsletter_subs').insert({ email, city_id: city, tipo, objetivo, nombre, confirm_sent_at: new Date().toISOString() }).select('token').single()).data;
   if (!row) return { ok: false, error: 'No se ha podido guardar. Prueba más tarde.' };
   const link = `${FN}?action=confirmar&t=${row.token}`;
-  const html = layout({ title: `Confirma tu resumen de ${c.name}`, intro: `Alguien (seguramente tú) ha pedido recibir cada jueves lo mejor del fin de semana en <b>${esc(c.name)}</b>. Para empezar, confirma tu correo. Si no has sido tú, ignora este mensaje: no te escribiremos más.`,
-    cta: { label: 'Confirmar mi correo', url: link }, footer: `Solo guardamos tu correo y la zona. <a href="${esc(APP)}privacidad.html" style="color:#9A8F66">Privacidad</a>` });
+  const que = tipo === 'finde' ? `recibir cada jueves lo mejor del fin de semana en <b>${esc(c.name)}</b>` : `que te avisemos, como mucho una vez por semana, de los planes nuevos de <b>${esc(nombre)}</b>`;
+  const html = layout({ title: tipo === 'finde' ? `Confirma tu resumen de ${c.name}` : `Confirma tus avisos de ${nombre}`, intro: `Alguien (seguramente tú) ha pedido ${que}. Para empezar, confirma tu correo. Si no has sido tú, ignora este mensaje: no te escribiremos más.`,
+    cta: { label: 'Confirmar mi correo', url: link }, footer: `Solo guardamos tu correo y lo que pediste. <a href="${esc(APP)}privacidad.html" style="color:#9A8F66">Privacidad</a>` });
   const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: FROM, to: [email], subject: `Confirma tu resumen de ${c.name} en Limón`, html, text: textOf(html) }) });
+    body: JSON.stringify({ from: FROM, to: [email], subject: tipo === 'finde' ? `Confirma tu resumen de ${c.name} en Limón` : `Confirma tus avisos de ${nombre} en Limón`, html, text: textOf(html) }) });
   if (!r.ok) return { ok: false, error: 'No hemos podido enviar el correo. Prueba más tarde.' };
   return { ok: true };
 }
@@ -517,7 +532,7 @@ async function porToken(t: string, status: 'activa' | 'baja') {
 const redir = (to: string) => new Response(null, { status: 302, headers: { ...CORS, Location: to } });
 
 async function weeklySubs() {
-  const { data: subs } = await admin.from('newsletter_subs').select('id,email,city_id,token').eq('status', 'activa').limit(5000);
+  const { data: subs } = await admin.from('newsletter_subs').select('id,email,city_id,token').eq('status', 'activa').eq('tipo', 'finde').limit(5000);
   if (!subs || !subs.length) return { subs: 0, sent: 0 };
   const today = madridToday(), from = ymd(today), to = ymd(addDays(today, 7));
   // viernes a domingo de esta semana: lo del finde va primero
@@ -556,6 +571,37 @@ async function weeklySubs() {
       if (r.ok) { sent++; await admin.from('newsletter_subs').update({ last_sent_at: new Date().toISOString() }).eq('id', s.id); }
     } catch (_) { /* sigue con el siguiente */ }
   }
+  return { subs: subs.length, sent, avisos: await weeklyAvisos() };
+}
+// P12: planes nuevos de una sala o un ciclo (vistos por primera vez en los últimos 7 días); si no hay, no se escribe
+async function weeklyAvisos() {
+  const { data: subs } = await admin.from('newsletter_subs').select('id,email,city_id,token,tipo,objetivo,nombre').eq('status', 'activa').in('tipo', ['lugar', 'ciclo']).limit(5000);
+  if (!subs || !subs.length) return { subs: 0, sent: 0 };
+  const desde = new Date(Date.now() - 7 * 864e5).toISOString(), hoy = ymd(madridToday());
+  const cache: Record<string, Item[]> = {};
+  let sent = 0;
+  for (const s of subs) {
+    const k = s.tipo + ':' + s.objetivo;
+    if (!cache[k]) {
+      let q = admin.from('events').select('id,title,starts_on,time_text,is_free,price_text,venues(name)').gte('first_seen_at', desde).gte('ends_on', hoy).order('starts_on').limit(12);
+      q = s.tipo === 'lugar' ? q.eq('venue_id', Number(s.objetivo)) : q.eq('series', s.objetivo);
+      const { data } = await q;
+      cache[k] = ((data || []) as unknown as Ev[]).map((e) => ({ title: e.title, url: evUrl(e.id),
+        meta: [human(e.starts_on), e.time_text, s.tipo === 'ciclo' ? e.venues?.name : null, e.is_free ? 'Gratis' : e.price_text].filter(Boolean).join(' · ') }));
+    }
+    const items = cache[k];
+    if (!items.length) continue;
+    const baja = `${FN}?action=baja_resumen&t=${s.token}`, nombre = s.nombre || s.objetivo;
+    const html = layout({ title: `Novedades en ${nombre}`, intro: `${items.length === 1 ? 'Hay un plan nuevo' : `Hay ${items.length} planes nuevos`} desde la semana pasada.`, items,
+      cta: { label: 'Ver en Limón', url: APP }, footer: `Recibes este aviso porque lo pediste en Limón. <a href="${esc(baja)}" style="color:#9A8F66">Dejar de recibirlo</a> · <a href="${esc(APP)}privacidad.html" style="color:#9A8F66">Privacidad</a>` });
+    try {
+      const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: FROM, to: [s.email], subject: `Novedades en ${nombre}: ${items[0].title}`, html, text: textOf(html),
+          headers: { 'List-Unsubscribe': `<${baja}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } }) });
+      await sleep(550);
+      if (r.ok) { sent++; await admin.from('newsletter_subs').update({ last_sent_at: new Date().toISOString() }).eq('id', s.id); }
+    } catch (_) { /* sigue */ }
+  }
   return { subs: subs.length, sent };
 }
 
@@ -571,11 +617,19 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
     const u = new globalThis.URL(req.url);
-    const body = req.method === 'POST' && (req.headers.get('content-type') || '').includes('json') ? await req.json().catch(() => ({})) : {};
+    const ct = req.headers.get('content-type') || '';
+    const esForm = req.method === 'POST' && ct.includes('application/x-www-form-urlencoded');
+    const body = req.method === 'POST' && ct.includes('json') ? await req.json().catch(() => ({}))
+      : esForm ? Object.fromEntries(new URLSearchParams(await req.text())) : {};
     const action = body.action || u.searchParams.get('action');
     if (action === 'unsub') return json(await unsub(body.t || u.searchParams.get('t'), body.k || u.searchParams.get('k')));
     if (action === 'flush') return json(await flush());
-    if (action === 'suscribir') return json(await suscribir(req, body.email, body.city));
+    if (action === 'suscribir') {
+      const r = await suscribir(req, body.email, body.city, body.tipo, body.objetivo);
+      // desde una página de la web (formulario sin JavaScript): vuelve a una página de aviso
+      if (esForm) return redir(APP + (r.ok ? 'aviso-enviado.html' : 'aviso-error.html'));
+      return json(r);
+    }
     if (action === 'confirmar') return redir(APP + ((await porToken(u.searchParams.get('t') || body.t, 'activa')) ? '?resumen=confirmado' : '?resumen=caducado'));
     if (action === 'baja_resumen') {
       const ok = await porToken(u.searchParams.get('t') || body.t, 'baja');

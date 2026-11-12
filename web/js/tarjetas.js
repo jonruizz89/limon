@@ -110,11 +110,10 @@ function card(e, opt) {
         ${e.web_organizador ? `<a href="${ext(e.web_organizador)}" target="_blank" rel="noopener">Web del organizador ↗</a>` : ''}
         ${e.lat ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=transit" target="_blank" rel="noopener">Cómo llegar ↗</a>` : ''}</div>
         <p class="note">Fuentes: ${e.fuentes.map(f => esc(f.nombre)).join(', ')}</p>
-        <div class="acts">
+        <div class="acts">${'' /* «Ya fui» y «Proponer plan» ocultos para no saturar la ficha: el «fui» llega por el aviso «¿Al final fuiste?» y las quedadas, con Compartir */}
           <button class="act ico" data-sharev="${e.id}">${SHARE_ICO}Compartir</button>
           <button class="act" data-dismiss="${e.id}" aria-pressed="${isDismissed(e)}">${isDismissed(e) ? 'Volver a mostrar' : 'No me interesa'}</button>
-          ${(occ && (occ.ongoing || +occ.date <= +today)) || went.includes(e.id) ? `<button class="act" data-went="${e.id}" aria-pressed="${went.includes(e.id)}">${went.includes(e.id) ? '✓ Fui' : 'Ya fui'}</button>` : ''}
-          ${occ && parse(e.fin) >= today ? `<button class="act" data-invite="${e.id}">Proponer plan</button>` : ''}
+          ${went.includes(e.id) ? `<button class="act" data-went="${e.id}" aria-pressed="true">✓ Fui</button>` : ''}
           ${e.lat ? `<button class="act" data-route="${e.id}">¿Cortes en el camino?</button>` : ''}
           ${parse(e.fin) >= today ? `<button class="act" data-ics="${e.id}">📅 Añadir a mi calendario</button>` : ''}
           <button class="act" data-addlist="${e.id}">Añadir a lista</button>

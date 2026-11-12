@@ -148,6 +148,7 @@ function renderParaTi() {
     $('pt-list').innerHTML = instalarCard() + avisoHoy() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) +
       // se eligen los más destacados y se enseñan por orden de día y hora (en un municipio, primero los suyos)
       franjaIntereses() + conSeccion(ZONE ? items.slice(0, state.ptShown) : items.slice(0, state.ptShown).sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || (x.occ.date - y.occ.date) || (horaOrden(x.e) - horaOrden(y.e)) || (y.s - x.s)), x => card(x.e, { occ: x.occ }));
+    $('pt-list').insertAdjacentHTML('beforeend', resumenCard());
     $('pt-more').hidden = items.length <= state.ptShown;
     document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));
     return;
@@ -171,6 +172,7 @@ function renderParaTi() {
     (going.length ? SEC_LARGOS + going.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '');
   logList(top.map(x => x.e.id));
   $('pt-list').innerHTML = instalarCard() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) + (state.franja ? franjaIntereses() : '') + aiBlock() + (html ? '<h2>Todo lo que encaja</h2>' + html.replace('<h2>Con fecha</h2>', '') : '<div class="empty">No hay eventos que encajen con tus intereses en estas fechas.</div>');
+  $('pt-list').insertAdjacentHTML('beforeend', resumenCard());
   $('pt-more').hidden = items.length <= state.ptShown;
   document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));
 }

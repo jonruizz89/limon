@@ -171,6 +171,34 @@ function clicIcs(ev) {
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   return true;
 }
+// P5 · el resumen del finde por correo, sin cuenta (doble confirmación por correo; baja en un clic en cada envío)
+function resumenCard() {
+  if (logged || store.get('resumenOk') || store.get('resumenNo')) return '';
+  return `<form class="card resumen" id="resumen-form" autocomplete="on"><h3>📬 Lo mejor del finde, cada jueves en tu correo</h3>
+    <p class="note">Solo tu correo y la zona (${esc(CITY.name)}). Sin cuenta, y te das de baja con un clic.</p>
+    <div class="seg"><input type="email" name="email" required placeholder="tu@correo.com" aria-label="Tu correo" autocomplete="email">
+    <button class="btn" type="submit">Recibirlo</button><button class="btnlink" type="button" data-resumen-no>Ahora no</button></div>
+    <p class="note" id="resumen-msg" role="status"></p></form>`;
+}
+function envioResumen(ev) {
+  if (ev.target.id !== 'resumen-form') return false;
+  ev.preventDefault();
+  const f = ev.target, msg = f.querySelector('#resumen-msg'), email = f.email.value.trim();
+  msg.textContent = 'Enviando…';
+  return (async () => {
+    try {
+      const { data, error } = await window.limonFn('limon-mail', { body: { action: 'suscribir', email, city: window.limonCity.zone().split('|')[0] } });
+      if (error || !data || !data.ok) { msg.textContent = (data && data.error) || 'No se ha podido. Prueba más tarde.'; return; }
+      store.set('resumenOk', 1); if (window.limonContar) window.limonContar('resumen_alta');
+      msg.textContent = data.ya ? 'Ya lo recibes. ¡Buen finde!' : 'Te hemos enviado un correo: confírmalo para empezar a recibirlo.';
+      f.querySelector('.seg').hidden = true;
+    } catch (x) { msg.textContent = 'No se ha podido. Prueba más tarde.'; }
+  })();
+}
+function clicResumenNo(ev) {
+  if (!ev.target.closest('[data-resumen-no]')) return false;
+  store.set('resumenNo', 1); const f = $('resumen-form'); if (f) f.remove(); return true;
+}
 function clicShareFinde(ev) {
   if (ev.target.closest('[data-share-finde]')) { shareFinde(ev.target.closest('[data-share-finde]').dataset.shareFinde); return true; }
   return false;

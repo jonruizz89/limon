@@ -5,6 +5,8 @@
 //            (requiere la clave secreta).
 //  - weekly: resumen de la semana según tus gustos, lo que sigues y tus amigos (requiere la clave secreta).
 //  - unsub:  darse de baja de un tipo de aviso con el enlace del correo (también One-Click, RFC 8058).
+//  - suscribir / confirmar / baja_resumen: resumen del finde por correo SIN cuenta (solo correo y zona, doble confirmación).
+//            El resumen sale con «weekly», junto al de las cuentas.
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { pushTo } from '../_shared/push.ts';
 
@@ -470,6 +472,93 @@ async function weekly(only?: string) {
   return { users: profs.length, sent };
 }
 
+// ---------- resumen sin cuenta (P5)
+const FN = `${URL}/functions/v1/limon-mail`;
+const EMAIL_RE = /^[^\s@<>"']{1,64}@[^\s@<>"']{1,190}\.[a-z]{2,}$/i;
+async function huella(req: Request) {
+  const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'sin-ip';
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('limon-resumen:' + ip + ':' + ymd(madridToday())));
+  return [...new Uint8Array(d)].slice(0, 12).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+async function suscribir(req: Request, email: string, city: string) {
+  email = String(email || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(email) || email.length > 254) return { ok: false, error: 'Revisa el correo.' };
+  const { data: c } = await admin.from('cities').select('id,name,status').eq('id', city).maybeSingle();
+  if (!c || c.status !== 'publicada') return { ok: false, error: 'Elige una zona.' };
+  // frenos: 5 intentos por origen y día; 60 correos de confirmación por hora en total; uno por correo cada 24 h
+  const h = await huella(req), hora = new Date(Date.now() - 3600e3).toISOString(), dia = new Date(Date.now() - 864e5).toISOString();
+  const [{ count: mios }, { count: todos }] = await Promise.all([
+    admin.from('newsletter_attempts').select('id', { count: 'exact', head: true }).eq('origin_hash', h).gte('created_at', dia),
+    admin.from('newsletter_subs').select('id', { count: 'exact', head: true }).gte('confirm_sent_at', hora)]);
+  if ((mios || 0) >= 5 || (todos || 0) >= 60) return { ok: false, error: 'Demasiados intentos. Prueba más tarde.' };
+  await admin.from('newsletter_attempts').insert({ origin_hash: h });
+  const { data: prev } = await admin.from('newsletter_subs').select('id,status,token,confirm_sent_at').eq('email', email).eq('city_id', city).maybeSingle();
+  if (prev && prev.status === 'activa') return { ok: true, ya: true };
+  if (prev && prev.confirm_sent_at && Date.now() - Date.parse(prev.confirm_sent_at) < 864e5) return { ok: true };  // ya se le mandó: no repetir
+  const row = prev
+    ? (await admin.from('newsletter_subs').update({ status: 'pendiente', confirm_sent_at: new Date().toISOString() }).eq('id', prev.id).select('token').single()).data
+    : (await admin.from('newsletter_subs').insert({ email, city_id: city, confirm_sent_at: new Date().toISOString() }).select('token').single()).data;
+  if (!row) return { ok: false, error: 'No se ha podido guardar. Prueba más tarde.' };
+  const link = `${FN}?action=confirmar&t=${row.token}`;
+  const html = layout({ title: `Confirma tu resumen de ${c.name}`, intro: `Alguien (seguramente tú) ha pedido recibir cada jueves lo mejor del fin de semana en <b>${esc(c.name)}</b>. Para empezar, confirma tu correo. Si no has sido tú, ignora este mensaje: no te escribiremos más.`,
+    cta: { label: 'Confirmar mi correo', url: link }, footer: `Solo guardamos tu correo y la zona. <a href="${esc(APP)}privacidad.html" style="color:#9A8F66">Privacidad</a>` });
+  const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: FROM, to: [email], subject: `Confirma tu resumen de ${c.name} en Limón`, html, text: textOf(html) }) });
+  if (!r.ok) return { ok: false, error: 'No hemos podido enviar el correo. Prueba más tarde.' };
+  return { ok: true };
+}
+async function porToken(t: string, status: 'activa' | 'baja') {
+  if (!/^[0-9a-f-]{36}$/i.test(t || '')) return false;
+  const upd: Record<string, unknown> = { status };
+  if (status === 'activa') upd.confirmed_at = new Date().toISOString();
+  const { data } = await admin.from('newsletter_subs').update(upd).eq('token', t).neq('status', status === 'activa' ? 'baja' : 'x').select('id');
+  return !!(data && data.length);
+}
+const redir = (to: string) => new Response(null, { status: 302, headers: { ...CORS, Location: to } });
+
+async function weeklySubs() {
+  const { data: subs } = await admin.from('newsletter_subs').select('id,email,city_id,token').eq('status', 'activa').limit(5000);
+  if (!subs || !subs.length) return { subs: 0, sent: 0 };
+  const today = madridToday(), from = ymd(today), to = ymd(addDays(today, 7));
+  // viernes a domingo de esta semana: lo del finde va primero
+  const vie = ymd(addDays(today, (5 - isoDow(today) + 7) % 7)), dom = ymd(addDays(today, (7 - isoDow(today) + 7) % 7));
+  const cities = await loadCities();
+  const porZona: Record<string, Item[]> = {};
+  let sent = 0;
+  for (const s of subs) {
+    if (!porZona[s.city_id]) {
+      const zonas = [s.city_id, ...Object.values(cities).filter((c) => (c as { parent?: string }).parent === s.city_id).map((c) => c.id)];
+      const { data } = await admin.from('events').select('id,title,starts_on,ends_on,time_text,is_free,price_text,is_unique,is_featured,venues(name),event_sessions(on_date)')
+        .in('city_id', zonas).lte('starts_on', dom).gte('ends_on', vie).or('is_unique.eq.true,is_featured.eq.true').limit(400);
+      const evs = ((data || []) as unknown as Ev[]).map((e) => {
+        const ss = (e.event_sessions || []).map((x) => x.on_date).filter((d) => d >= vie && d <= dom).sort();
+        const d = ss[0] || (e.starts_on >= vie ? e.starts_on : null);
+        return { e, d, s: (e.is_unique ? 2 : 0) + (e.is_featured ? 1.5 : 0) + (d ? 1 : -1) + (e.is_free ? 0.3 : 0) };
+      }).sort((a, b) => b.s - a.s);
+      const vistos = new Map<string, number>(), pick: typeof evs = [];
+      for (const x of evs) { const v = x.e.venues?.name || ''; if (v && (vistos.get(v) || 0) >= 2) continue; if (v) vistos.set(v, (vistos.get(v) || 0) + 1); pick.push(x); if (pick.length >= 10) break; }
+      pick.sort((a, b) => (a.d || '9999').localeCompare(b.d || '9999'));
+      porZona[s.city_id] = pick.map((x) => ({ title: x.e.title, url: evUrl(x.e.id),
+        meta: [x.d ? human(x.d) : 'Todo el finde', x.e.time_text, x.e.venues?.name, x.e.is_free ? 'Gratis' : x.e.price_text].filter(Boolean).join(' · ') }));
+    }
+    const items = porZona[s.city_id];
+    if (!items.length) continue;
+    const nombre = (cities[s.city_id] || { name: 'tu zona' }).name;
+    const baja = `${FN}?action=baja_resumen&t=${s.token}`;
+    const html = layout({ title: `Este finde en ${nombre}`, intro: `Lo más destacado del ${human(vie)} al ${human(dom)}. Con una cuenta gratis en Limón te lo elegimos según tus gustos.`,
+      items, cta: { label: `Ver todos los planes de ${nombre}`, url: `${APP}planes/${s.city_id}/este-finde/` },
+      footer: `Recibes este correo porque lo pediste en Limón. <a href="${esc(baja)}" style="color:#9A8F66">Darme de baja</a> · <a href="${esc(APP)}privacidad.html" style="color:#9A8F66">Privacidad</a>` });
+    try {
+      const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: FROM, to: [s.email], subject: `Este finde en ${nombre}: ${items[0].title} y más`, html, text: textOf(html),
+          headers: { 'List-Unsubscribe': `<${baja}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } }) });
+      await sleep(550);
+      if (r.ok) { sent++; await admin.from('newsletter_subs').update({ last_sent_at: new Date().toISOString() }).eq('id', s.id); }
+    } catch (_) { /* sigue con el siguiente */ }
+  }
+  return { subs: subs.length, sent };
+}
+
 async function unsub(t: string, k: string) {
   if (!/^[0-9a-f-]{36}$/i.test(t || '') || !KINDS.includes(k)) return { ok: false };
   const { data: p } = await admin.from('profiles').select('id,notify').eq('mail_token', t).maybeSingle();
@@ -486,12 +575,19 @@ Deno.serve(async (req) => {
     const action = body.action || u.searchParams.get('action');
     if (action === 'unsub') return json(await unsub(body.t || u.searchParams.get('t'), body.k || u.searchParams.get('k')));
     if (action === 'flush') return json(await flush());
+    if (action === 'suscribir') return json(await suscribir(req, body.email, body.city));
+    if (action === 'confirmar') return redir(APP + ((await porToken(u.searchParams.get('t') || body.t, 'activa')) ? '?resumen=confirmado' : '?resumen=caducado'));
+    if (action === 'baja_resumen') {
+      const ok = await porToken(u.searchParams.get('t') || body.t, 'baja');
+      return req.method === 'POST' ? json({ ok }) : redir(APP + '?resumen=baja');
+    }
     const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
     const isService = !!token && (KEYS.includes(token) || token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
     if (action === 'weekly' || action === 'daily') {
       if (isService) {
         const out: Record<string, unknown> = { flush: await flush() };
         out[action] = action === 'weekly' ? await weekly() : await daily();
+        if (action === 'weekly') out.sin_cuenta = await weeklySubs();
         if (action === 'daily') out.fuiste = await fuiste();
         return json(out);
       }

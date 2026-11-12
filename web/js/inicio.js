@@ -22,7 +22,7 @@ document.addEventListener('change', ev => { for (const f of CAMBIOS) if (f(ev)) 
 // primera que lo reconoce (devuelve algo distinto de false). No reordenar: hay controles dentro de otros.
 const ENVIOS = [
   envioIdea, envioIdeaAdmin, envioPerfil, envioBuscarGente, envioSeguirTema, envioListaNueva, envioNota, envioInvitar, envioQuedada,
-  envioPerfilCuenta, envioOrganizador
+  envioPerfilCuenta, envioOrganizador, envioResumen
 ];
 document.addEventListener('submit', ev => { for (const f of ENVIOS) if (f(ev)) return; });
 
@@ -41,7 +41,7 @@ const CLICS = [
   clicEnlaceDeLaApp, clicCuenta, clicCakind, clicCaday, clicCadayGo, clicRmtema, clicRmtcat, clicAiRefresh, clicFtoggle, clicFset,
   clicFclear, clicCutmap, clicCutgo, clicRmstreet, clicFiltroDeTarjeta, clicExClear, clicGoto, clicSave, clicDismiss, clicWent,
   clicSheetClose, clicCityBtn, clicNuevosVer, clicInteresesRapido, clicTema, clicCuando, clicCalq, clicCalm, clicCald, clicCalok,
-  clicInstalarNo, clicInstalar, clicQgrp, clicQfr, clicQver, clicQmas, clicSharev, clicIcs, clicShareFinde, clicZoneWider, clicZoneLocate, clicZoneHintX,
+  clicInstalarNo, clicInstalar, clicQgrp, clicQfr, clicQver, clicQmas, clicSharev, clicIcs, clicResumenNo, clicShareFinde, clicZoneWider, clicZoneLocate, clicZoneHintX,
   clicCity, clicIdeas, clicProf, clicList, clicSocial, clicTopic, clicAddlist, clicRate, clicSocEdit, clicSocCancel, clicSocShare,
   clicSocContacts, clicYear, clicYearShare, clicListPub, clicListShare, clicListDel, clicListFollow, clicGoev, clicRoute, clicInvite,
   clicInviteCancel, clicReshare, clicFui, clicStatsDays, clicGotoEv, clicConsent, clicTarjeta, clicGrp, clicCat

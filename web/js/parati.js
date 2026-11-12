@@ -73,7 +73,20 @@ function fuiNext() {
   const open = Object.values(PAST).filter(x => !went.includes(x.id) && !nofui.includes(x.id) && !dismissed.includes(x.id) && !(fuiSnooze[x.id] && fuiSnooze[x.id] > ymd(today)));
   return open.find(x => x.id === fuiFocus) || open.sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
 }
+let fuiRate = null;  // el plan al que acabas de decir «Sí, fui»: la misma tarjeta pide la nota
+function fuiValorado(id, n) {
+  if (fuiRate !== id) return;
+  fuiRate = null;
+  toast(n >= 4 ? '¡Apuntado! Te recomendaremos más planes así.' : n <= 2 ? 'Apuntado. No te recomendaremos más planes como este.' : 'Apuntado en tu diario.');
+}
 function fuiCard() {
+  if (fuiRate && PAST[fuiRate]) {
+    const r = PAST[fuiRate];
+    return `<div class="consent" role="region" aria-label="Valora el plan">
+      <p style="margin:0"><b>¿Qué tal «${esc(r.titulo)}»?</b> Tu nota nos ayuda a recomendarte mejor (solo la ves tú, salvo que tu perfil sea público).</p>
+      <div class="seg" style="align-items:center"><span class="stars" role="group" aria-label="Tu valoración">${[1, 2, 3, 4, 5].map(n => `<button class="star" data-rate="${r.id}" data-n="${n}" aria-label="${n} de 5">☆</button>`).join('')}</span>
+      <button class="btn ghost" data-fui="saltar" data-id="${r.id}">Ahora no</button></div></div>`;
+  }
   const x = fuiNext(); if (!x) return '';
   const d = parse(x.fecha), dias = Math.round((today - d) / 864e5);
   const cuando = dias === 1 ? 'ayer' : `el ${DIA[d.getDay()]} ${d.getDate()} de ${MES[d.getMonth()]}`;
@@ -82,9 +95,10 @@ function fuiCard() {
       <div class="seg"><button class="btn" data-fui="si" data-id="${x.id}">Sí, fui</button><button class="btn ghost" data-fui="no" data-id="${x.id}">No pude ir</button><button class="btn ghost" data-fui="luego" data-id="${x.id}">Ahora no</button></div></div>`;
 }
 function fuiAnswer(id, a) {
+  if (a === 'saltar') { fuiRate = null; renderParaTi(); return; }
   const x = PAST[id]; if (!x) return;
   if (fuiFocus === id) fuiFocus = null;
-  if (a === 'si') { ponWent(went.concat(id)); store.set('went', went); BYID[id] = BYID[id] || Object.assign({ inicio: x.fecha, fin: x.fecha, sesiones: [], fuentes: [] }, x); learn(x, 'went'); toast('¡Apuntado en tu diario! Ponle nota en Agenda → Mi diario.'); }
+  if (a === 'si') { ponWent(went.concat(id)); store.set('went', went); BYID[id] = BYID[id] || Object.assign({ inicio: x.fecha, fin: x.fecha, sesiones: [], fuentes: [] }, x); learn(x, 'went'); fuiRate = id; }
   else if (a === 'no') { ponNofui(nofui.concat(id)); store.set('nofui', nofui); track('novoy', id); toast('Entendido. No cambia tus recomendaciones.'); }
   else { fuiSnooze[id] = ymd(addDays(today, 2)); store.set('fui_snooze', fuiSnooze); }
   renderParaTi();

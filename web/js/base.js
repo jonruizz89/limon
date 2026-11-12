@@ -100,6 +100,26 @@ const SIGNAL = { save: [0.5, 1], unsave: [-0.5, -1], dismiss: [-0.6, -1.2], undi
 // estadísticas de uso (solo si la persona ha dado permiso; ver data.js)
 const track = (kind, id, ctx) => { try { if (window.limonTrack) window.limonTrack(kind, id, Object.assign({ tab: state.tab }, ctx || {})); } catch (x) { } };
 const TRACK_KIND = { save: 'guardar', unsave: 'quitar', dismiss: 'descartar', undismiss: 'recuperar', went: 'voy', unwent: 'novoy' };
+// la nota de un plan al que fuiste: 4-5 ★ suben lo parecido (categoría, tema, ciclo y sala); 1-2 ★ lo bajan y ese mismo
+// evento (sus repeticiones, con el mismo título) no se vuelve a recomendar. Al cambiar la nota se deshace la anterior.
+const NOTA = { 1: [-1, -2], 2: [-0.6, -1.2], 3: [0, 0], 4: [0.6, 1.2], 5: [1, 2] };
+function notaAprende(e, antes, ahora) {
+  if (!e || antes === ahora) return;
+  const aplica = (n, sg) => {
+    const [wc, wt] = NOTA[n] || [0, 0]; if (!wc && !wt) return;
+    (e.cats || []).filter(c => c !== 'sin_categoria').forEach(c => { learned['cat:' + c] = +(((learned['cat:' + c] || 0) + sg * wc).toFixed(2)); });
+    (e.temas || []).forEach(t => { learned['tema:' + t] = +(((learned['tema:' + t] || 0) + sg * wt).toFixed(2)); });
+    if (e.serie) learned['serie:' + e.serie] = +(((learned['serie:' + e.serie] || 0) + sg * wt).toFixed(2));
+    if (e.lugar) learned['sala:' + nf(e.lugar)] = +(((learned['sala:' + nf(e.lugar)] || 0) + sg * wc).toFixed(2));
+  };
+  if (antes) aplica(antes, -1);
+  if (ahora) aplica(ahora, 1);
+  const k = 'titulo:' + nf(e.titulo || '');
+  if (ahora && ahora <= 2) learned[k] = -4; else delete learned[k];
+  Object.keys(learned).forEach(k => { if (Math.abs(learned[k]) < 0.05) delete learned[k]; else learned[k] = Math.max(-4, Math.min(4, learned[k])); });
+  store.set('learned', learned);
+  track('valorar', e.id, { n: ahora || null });
+}
 function learn(e, kind) {
   track(TRACK_KIND[kind], e.id);
   const [wc, wt] = SIGNAL[kind];

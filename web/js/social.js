@@ -351,7 +351,13 @@ function clicAddlist(ev) {
   return false;
 }
 function clicRate(ev) {
-  const rate = ev.target.closest('[data-rate]'); if (rate) { saveDiary(rate.dataset.rate, { rating: +rate.dataset.n }).then(() => { renderAll(); }); return true; }
+  const rate = ev.target.closest('[data-rate]');
+  if (rate) {
+    const id = rate.dataset.rate, antes = (DIARY[id] || {}).rating || null, ahora = +rate.dataset.n;
+    notaAprende(BYID[id], antes, ahora);
+    saveDiary(id, { rating: ahora }).then(() => { if (typeof fuiValorado === 'function') fuiValorado(id, ahora); renderAll(); });
+    return true;
+  }
   return false;
 }
 function clicSocEdit(ev) {

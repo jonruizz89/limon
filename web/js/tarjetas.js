@@ -16,7 +16,10 @@ function score(e) {
   }
   for (const c of e.cats) { const w = learned['cat:' + c]; if (w) s += w * 0.6; }
   for (const t of e.temas || []) { const w = learned['tema:' + t]; if (w) { s += w; if (w >= 1) hits.push(t + ' (por lo que guardas)'); } }
+  if (learned['titulo:' + nf(e.titulo)] <= -3) return { s: -1, hits: [] };  // lo valoraste mal: no se repite
   if (e.serie && learned['serie:' + e.serie] >= 1) { s += learned['serie:' + e.serie]; hits.push('sigues este ciclo'); }
+  else if (e.serie && learned['serie:' + e.serie] <= -1) s += learned['serie:' + e.serie];
+  if (e.lugar) { const w = learned['sala:' + nf(e.lugar)]; if (w) { s += w * 0.6; if (w >= 1) hits.push('te gustó ' + e.lugar); } }
   const likedGroups = new Set(Object.keys(prefs).filter(k => prefs[k] === 1).map(k => GROUP_OF[k]));
   for (const c of e.cats) {
     if (prefs[c] === 2) return { s: -1, hits: [] };

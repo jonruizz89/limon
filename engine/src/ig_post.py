@@ -69,8 +69,8 @@ if modo == 'yo' and IG_ID.get(cuenta) and not tok.startswith('IG'):
             print('Límite de publicación (24 h):', json.dumps(lim.get('data', lim), ensure_ascii=False)[:200])
             try:  # qué permisos lleva el token (nombres de permisos, no el token)
                 API = 'https://graph.facebook.com/v21.0'
-                dbg = get('debug_token', input_token=tok).get('data', {})
-                print('Permisos del token:', ', '.join(dbg.get('scopes') or []) or '—', '· caduca:', dbg.get('expires_at') or 'nunca')
+                per = get('me/permissions').get('data', [])
+                print('Permisos del token:', ', '.join(f"{p['permission']}" + ('' if p.get('status') == 'granted' else f" ({p.get('status')})") for p in per) or '—')
             except SystemExit as e2:
                 print('debug_token:', str(e2)[:160])
             sys.exit(0)

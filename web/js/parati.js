@@ -185,8 +185,9 @@ function aiBlock() {
   if (!r) { loadAI(w, false); return `<div class="ai"><h2>Eligiendo tus planes…</h2></div>`; }
   if (r.loading) return `<div class="ai"><h2>Eligiendo tus planes…</h2></div>`;
   if (r.error) return `<div class="ai"><h2>Elegidos para ti</h2><p class="note" style="margin:0">${esc(r.error)}</p></div>`;
-  const list = (r.planes || []).map(p => ({ e: BYID['e' + p.id], why: p.por_que })).filter(x => x.e && !isDismissed(x.e) && passF(x.e, occurs(x.e, ...range(w))))
-    .map(x => ({ ...x, occ: occurs(x.e, ...range(w)) }));
+  // la selección se guarda unos días: un plan que ya no cae en estas fechas (o ya pasó) se quita, no rompe la lista
+  const list = (r.planes || []).map(p => ({ e: BYID['e' + p.id], why: p.por_que })).filter(x => x.e && !isDismissed(x.e))
+    .map(x => ({ ...x, occ: occurs(x.e, ...range(w)) })).filter(x => x.occ && passF(x.e, x.occ));
   if (!list.length) return '';
   // primero lo que tiene día concreto (por fecha y hora); las exposiciones y ciclos largos, al final
   list.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || (largo(x.e, x.occ) ? parse(x.e.fin) - parse(y.e.fin) : (x.occ.date - y.occ.date) || ((startHour(x.e) ?? 99) - (startHour(y.e) ?? 99))));

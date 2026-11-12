@@ -130,7 +130,7 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
 .save { position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; border: 0; border-radius: 10px; background: none; cursor: pointer; color: var(--quiet); display: flex; align-items: center; justify-content: center }
 .save[aria-pressed="true"] { color: var(--accent-text) }
 .shr { position: absolute; bottom: 4px; right: 6px; width: 44px; height: 44px; border: 0; border-radius: 10px; background: none; cursor: pointer; color: var(--quiet); display: flex; align-items: center; justify-content: center }
-.shr svg { width: 20px; height: 20px }
+.shr svg { width: 22px; height: 22px }
 .card:not(.abierta) .tags, .card:not(.abierta) > .why { padding-right: 40px }
 .card:not(.abierta) { padding-bottom: 16px }
 .more { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 14px }

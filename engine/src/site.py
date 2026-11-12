@@ -218,6 +218,15 @@ CSP = ("default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsaf
        "object-src 'none'; base-uri 'self'; form-action 'none'")
 
 
+OG_GRUPOS = {f[:-4] for f in os.listdir(os.path.join(WEB, 'og'))} if os.path.isdir(os.path.join(WEB, 'og')) else set()
+
+
+def og_grupo(e):
+    """Vista previa al compartir de una ficha sin foto oficial: la imagen de su tipo de plan (web/og/<grupo>.png)."""
+    g = next((g for g in e['grupos'] if g in OG_GRUPOS), None)
+    return f"{BASE}/og/{g}.png" if g else None
+
+
 def page(path, title, desc, body, crumbs=(), ld=None, app='/', img=None, noindex=False, mapa=True, clave=None, grupo=None):
     bc = ' › '.join(f'<a href="{esc(u)}">{esc(t)}</a>' for t, u in crumbs)
     raiz = path.strip('/').split('/')[1] if path.startswith('/planes/') and path.count('/') > 2 else None
@@ -232,7 +241,7 @@ def page(path, title, desc, body, crumbs=(), ld=None, app='/', img=None, noindex
 <meta name="description" content="{esc(desc[:300])}"><link rel="canonical" href="{BASE}{path}">
 <meta property="og:title" content="{esc(title)}"><meta property="og:description" content="{esc(desc[:300])}"><meta property="og:url" content="{BASE}{path}">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Limón"><meta property="og:locale" content="es_ES">
-{f'<meta property="og:image" content="{esc(img)}">' if img else f'<meta property="og:image" content="{BASE}/og.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">'}<meta name="twitter:card" content="summary_large_image">
+{f'<meta property="og:image" content="{esc(img)}">' + ('<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">' if '/og/' in img else '') if img else f'<meta property="og:image" content="{BASE}/og.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">'}<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/limon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/limon-180.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=IBM+Plex+Sans:wght@400;600&display=swap">
 <style>{CSS}</style>{ldj}</head><body>
@@ -844,7 +853,7 @@ for e in evs:
     desc = f"{cuando(e)}{' en ' + sitio if sitio else ''}. " + (txt or f"{e['title']}: fecha, horario, lugar y precio.")
     cr = (crumbs_of(z) + [(z['name'], f"/planes/{z['path']}/")]) if z else [('Planes', '/planes/')]
     zt = top_de(e)
-    page(e['url'], f"{e['title']} · {cuando(e)}{' · ' + z['name'] if z else ''}", desc, body, cr, ld=[ld], app=app_link(e), img=e['img'] or None,
+    page(e['url'], f"{e['title']} · {cuando(e)}{' · ' + z['name'] if z else ''}", desc, body, cr, ld=[ld], app=app_link(e), img=e['img'] or og_grupo(e),
          clave=json.dumps(ld, ensure_ascii=False, sort_keys=True), grupo='eventos-' + (zt['path'] if zt else 'otras'))
 
 # ---------- eventos que ya pasaron: la página sigue (sin indexar ni en el mapa del sitio), con aviso y planes parecidos

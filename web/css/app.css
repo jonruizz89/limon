@@ -93,6 +93,11 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 8
 .cd.hoy { box-shadow: inset 0 0 0 1px var(--line); font-weight: 700 }
 .cd.en { background: var(--accent-soft) }
 .cd.bd { background: var(--accent); color: var(--accent-ink); font-weight: 700 }
+.franja { margin: 2px 0 12px }
+.franja .note { margin: 0 0 6px }
+.fchips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none }
+.fchips::-webkit-scrollbar { display: none }
+.fchips .qchip { flex: 0 0 auto; min-height: 40px; white-space: nowrap; padding: 6px 12px }
 .qgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px }
 .qchip { min-height: 48px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 12px; padding: 8px 12px; font-size: 14.5px; text-align: left; display: flex; align-items: center; gap: 8px; cursor: pointer }
 .qfoot { position: sticky; bottom: -1px; background: var(--surface); padding: 12px 0 4px; margin-top: 6px; justify-content: space-between; align-items: center }

@@ -41,7 +41,7 @@ const CLICS = [
   clicEnlaceDeLaApp, clicCuenta, clicCakind, clicCaday, clicCadayGo, clicRmtema, clicRmtcat, clicAiRefresh, clicFtoggle, clicFset,
   clicFclear, clicCutmap, clicCutgo, clicRmstreet, clicFiltroDeTarjeta, clicExClear, clicGoto, clicSave, clicDismiss, clicWent,
   clicSheetClose, clicCityBtn, clicNuevosVer, clicInteresesRapido, clicTema, clicCuando, clicCalq, clicCalm, clicCald, clicCalok,
-  clicInstalarNo, clicInstalar, clicQgrp, clicQver, clicQmas, clicSharev, clicIcs, clicShareFinde, clicZoneWider, clicZoneLocate, clicZoneHintX,
+  clicInstalarNo, clicInstalar, clicQgrp, clicQfr, clicQver, clicQmas, clicSharev, clicIcs, clicShareFinde, clicZoneWider, clicZoneLocate, clicZoneHintX,
   clicCity, clicIdeas, clicProf, clicList, clicSocial, clicTopic, clicAddlist, clicRate, clicSocEdit, clicSocCancel, clicSocShare,
   clicSocContacts, clicYear, clicYearShare, clicListPub, clicListShare, clicListDel, clicListFollow, clicGoev, clicRoute, clicInvite,
   clicInviteCancel, clicReshare, clicFui, clicStatsDays, clicGotoEv, clicConsent, clicTarjeta, clicGrp, clicCat

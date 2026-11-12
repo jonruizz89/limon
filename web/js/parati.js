@@ -106,6 +106,27 @@ function newBanner() {
 // mete algo después de la 3.ª tarjeta (o al final si hay menos)
 // el botón de intereses, tras los primeros planes: 3 en el móvil, 4 en el ordenador (dos filas completas de la cuadrícula)
 function tras3(html, extra) { const tope = matchMedia('(min-width: 1024px)').matches ? 4 : 3; let n = 0, at = -1; html.replace(/<\/article>/g, (m, k) => { if (++n === tope) at = k + m.length; return m; }); return at < 0 ? html + extra : html.slice(0, at) + extra + html.slice(at); }
+// P8 · intereses al llegar: una franja encima de la lista con los grandes temas; tocar uno repinta la lista al momento.
+// Sigue visible mientras se eligen (state.franja); el detalle, en «Más…» o en Perfil.
+function franjaIntereses() {
+  const on = g => g.items.every(it => prefs[it.id] === 1);
+  const ORDEN = ['musica', 'escena', 'familia', 'arte', 'cine', 'gastro', 'naturaleza', 'deporte', 'fiestas', 'letras', 'patrimonio', 'aprender', 'ciencia'];
+  const pos = g => { const i = ORDEN.indexOf(g.id); return i < 0 ? 99 : i; };
+  // primero lo ya elegido (que se vea marcado) y después lo que más se busca
+  const grupos = TAX.filter(g => EMO[g.id] && g.items.length).sort((a, b) => (on(b) - on(a)) || (pos(a) - pos(b)));
+  return `<div class="franja" role="group" aria-label="Tus intereses"><p class="note">${state.franja ? 'Toca más si quieres; la lista ya es solo para ti.' : '¿Qué te apetece? Toca y la lista cambia al momento.'}</p>
+    <div class="fchips">${grupos.map(g => `<button class="qchip" data-qfr="${g.id}" aria-pressed="${on(g)}"><span aria-hidden="true">${EMO[g.id]}</span> ${esc(g.name)}</button>`).join('')}<button class="qchip" data-intereses-rapido>Más…</button></div></div>`;
+}
+function clicQfr(ev) {
+  const b = ev.target.closest('[data-qfr]'); if (!b) return false;
+  const g = TAX.find(x => x.id === b.dataset.qfr); if (!g) return true;
+  const all = g.items.every(it => prefs[it.id] === 1);
+  g.items.forEach(it => { if (all) delete prefs[it.id]; else prefs[it.id] = 1; });
+  store.set('prefs', prefs);
+  if (!state.franja && window.limonContar) window.limonContar('intereses');
+  state.franja = true; state.ptShown = 20; renderAll();
+  return true;
+}
 function renderParaTi() {
   $('new-hint').innerHTML = newBanner();
   const [a, b] = range(state.when);
@@ -126,7 +147,7 @@ function renderParaTi() {
     logList(items.slice(0, state.ptShown).map(x => x.e.id));
     $('pt-list').innerHTML = instalarCard() + avisoHoy() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) +
       // se eligen los más destacados y se enseñan por orden de día y hora (en un municipio, primero los suyos)
-      tras3(conSeccion(ZONE ? items.slice(0, state.ptShown) : items.slice(0, state.ptShown).sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || (x.occ.date - y.occ.date) || (horaOrden(x.e) - horaOrden(y.e)) || (y.s - x.s)), x => card(x.e, { occ: x.occ })), `<button class="btn" data-intereses-rapido style="margin:4px 0 14px">✨ Elegir mis intereses</button>`);
+      franjaIntereses() + conSeccion(ZONE ? items.slice(0, state.ptShown) : items.slice(0, state.ptShown).sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || (x.occ.date - y.occ.date) || (horaOrden(x.e) - horaOrden(y.e)) || (y.s - x.s)), x => card(x.e, { occ: x.occ }));
     $('pt-more').hidden = items.length <= state.ptShown;
     document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));
     return;
@@ -149,7 +170,7 @@ function renderParaTi() {
   const html = (dated.length ? `<h2>Con fecha</h2>` + dated.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '') +
     (going.length ? SEC_LARGOS + going.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '');
   logList(top.map(x => x.e.id));
-  $('pt-list').innerHTML = instalarCard() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) + aiBlock() + (html ? '<h2>Todo lo que encaja</h2>' + html.replace('<h2>Con fecha</h2>', '') : '<div class="empty">No hay eventos que encajen con tus intereses en estas fechas.</div>');
+  $('pt-list').innerHTML = instalarCard() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) + (state.franja ? franjaIntereses() : '') + aiBlock() + (html ? '<h2>Todo lo que encaja</h2>' + html.replace('<h2>Con fecha</h2>', '') : '<div class="empty">No hay eventos que encajen con tus intereses en estas fechas.</div>');
   $('pt-more').hidden = items.length <= state.ptShown;
   document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));
 }

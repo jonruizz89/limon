@@ -56,10 +56,14 @@ class Geocoder:
 
     def district(self, addr):
         import difflib
-        for k in ('borough', 'city_district', 'suburb', 'quarter', 'neighbourhood', 'district'):
+        # ciudades cuyos distritos no salen en OpenStreetMap (Gijón: barrios y parroquias → sus 6 distritos)
+        barrios = {fold(b): dd for b, dd in ((self.city.get('features') or {}).get('barrios') or {}).items()}
+        for k in ('borough', 'city_district', 'suburb', 'quarter', 'neighbourhood', 'district', 'village', 'hamlet'):
             v = fold(addr.get(k))
             if not v:
                 continue
+            if v in barrios:
+                return barrios[v]
             for d in self.dists:
                 fd = fold(d)
                 if fd == v or v in fd.split(' ') or fd.split(' ')[0] == v.split(' ')[0]:

@@ -12,6 +12,7 @@ function shareEvUrl(e) {
     ? 'https://limonplanes.com/evento/' + e.id.replace(/^e/, '') + '-' + slugEv(e.titulo) + '/' : appEvUrl(e);
 }
 let fichaHist = null;  // id de la ficha abierta que añadió una entrada al historial
+const olvidaFicha = () => { fichaHist = null; };  // al volver al inicio desde el logo
 function fichaHistoria(id, abierta) {
   try {
     if (abierta) {

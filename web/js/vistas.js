@@ -323,6 +323,18 @@ function clicEnlaceDeLaApp(ev) {
   if (lk) { if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button) return true; ev.preventDefault(); }
   return false;
 }
+// el logo (limón) lleva al inicio, como en cualquier web: Para ti arriba del todo, sin fichas abiertas ni filtros de plan
+function clicHome(ev) {
+  const h = ev.target.closest('[data-home]');
+  if (!h) return false;
+  if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button) return true;  // pestaña nueva: que lo haga el navegador
+  ev.preventDefault();
+  closeSheets();
+  state.open = {}; state.filter = null; state.ptShown = 12; state.exShown = 20;
+  try { history.replaceState(null, '', location.pathname); olvidaFicha(); } catch (e) { }
+  go('parati');
+  return true;
+}
 function clicFiltroDeTarjeta(ev) {
   const ff = ev.target.closest('[data-f-cat], [data-f-tema], [data-f-serie]');
   if (ff) {

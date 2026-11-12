@@ -166,6 +166,12 @@ async function flush() {
       } else if (m.kind === 'admin_signup') {
         const tot = Number(pl.total) || 0, hoy = Number(pl.hoy) || 0;
         mail = { subject: `Nuevo registro en Limón (ya sois ${tot})`, html: layout({ title: 'Alguien se ha registrado', intro: `Una persona nueva ha creado su cuenta en Limón.<br><br>Usuarios registrados: <b>${tot}</b>${hoy > 1 ? ` · ${hoy} hoy` : ''}.`, cta: { label: 'Ver estadísticas', url: APP + '?tab=intereses' }, footer: footer(p, k, 'Eres administrador de Limón.') }) };
+      } else if (m.kind === 'admin_error') {
+        const n = Number(pl.n) || 1;
+        mail = { subject: pl.motivo === 'nuevo' ? `Error nuevo en la app: ${String(pl.msg).slice(0, 70)}` : `Error repetido ${n} veces hoy: ${String(pl.msg).slice(0, 60)}`,
+          html: layout({ title: pl.motivo === 'nuevo' ? 'Ha aparecido un error nuevo en la app' : `Un error se ha repetido ${n} veces hoy`,
+            intro: `<b>${esc(String(pl.msg))}</b> (${esc(String(pl.kind))})<br><br>Se cuenta de forma anónima. El parte diario lo revisa; si es urgente, abre una conversación con este aviso.`,
+            cta: { label: 'Abrir Limón', url: APP }, footer: footer(p, k, 'Eres administrador de Limón.') }) };
       } else if (m.kind === 'admin_editor') {
         mail = { subject: `Solicitud de organizador: ${pl.nombre || 'sin nombre'}`, html: layout({ title: 'Nueva solicitud de organizador', intro: `<b>${esc(pl.nombre)}</b>${pl.web ? ' · ' + esc(pl.web) : ''}<br>${esc(pl.que || '')}`, cta: { label: 'Revisar', url: APP + '?tab=intereses' }, footer: footer(p, k, 'Eres administrador de Limón.') }) };
       } else if (m.kind === 'admin_event') {

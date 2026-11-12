@@ -16,7 +16,8 @@
     const contar = (kind, msg) => {
       if (enviados >= 3 || !msg || /ResizeObserver|Script error|extension:\/\//i.test(msg)) return;
       enviados++;
-      try { sb.rpc('contar_error', { p_kind: kind, p_msg: String(msg).slice(0, 300) }).then(() => { }, () => { }); } catch (e) { }
+      // si es un error nuevo (o ya van 10 hoy), la base de datos deja un aviso para los administradores y aquí se manda al momento
+      try { sb.rpc('contar_error', { p_kind: kind, p_msg: String(msg).slice(0, 300) }).then(({ data }) => { if (data === true) window.limonFn('limon-mail', { body: { action: 'flush' } }).catch(() => { }); }, () => { }); } catch (e) { }
     };
     window.addEventListener('error', (ev) => contar('error', (ev.message || '') + (ev.filename ? ' @' + ev.filename.split('/').pop() + ':' + ev.lineno : '')));
     window.addEventListener('unhandledrejection', (ev) => contar('promesa', ev.reason && (ev.reason.message || String(ev.reason))));

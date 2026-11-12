@@ -38,7 +38,7 @@ iniciaAviso();              // base.js: botones del aviso (deshacer y cerrar)
 // Clics: cada tema atiende los suyos, con las funciones clic… de su archivo. Se prueban EN ESTE ORDEN y gana la
 // primera que lo reconoce (devuelve algo distinto de false). No reordenar: hay controles dentro de otros.
 const CLICS = [
-  clicEnlaceDeLaApp, clicCampana, clicCuenta, clicCakind, clicCaday, clicCadayGo, clicRmtema, clicRmtcat, clicAiRefresh, clicFtoggle, clicFset,
+  clicEnlaceDeLaApp, clicHome, clicCampana, clicCuenta, clicCakind, clicCaday, clicCadayGo, clicRmtema, clicRmtcat, clicAiRefresh, clicFtoggle, clicFset,
   clicFclear, clicCutmap, clicCutgo, clicRmstreet, clicFiltroDeTarjeta, clicExClear, clicGoto, clicSave, clicDismiss, clicWent,
   clicSheetClose, clicCityBtn, clicNuevosVer, clicInteresesRapido, clicTema, clicCuando, clicCalq, clicCalm, clicCald, clicCalok,
   clicInstalarNo, clicInstalar, clicQgrp, clicQfr, clicQver, clicQmas, clicSharev, clicIcs, clicResumenNo, clicShareFinde, clicZoneWider, clicZoneLocate, clicZoneHintX,

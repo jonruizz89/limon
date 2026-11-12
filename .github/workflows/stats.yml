@@ -42,6 +42,14 @@ jobs:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
         run: python3 engine/src/visitas_web.py
+      - name: Google (Search Console; solo si hay clave de la cuenta de servicio)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET: ${{ secrets.SUPABASE_SECRET }}
+          GSC_SERVICE_ACCOUNT: ${{ secrets.GSC_SERVICE_ACCOUNT }}
+        run: |
+          python3 -c "import cryptography" 2>/dev/null || pip install --quiet cryptography
+          python3 engine/src/search_console.py
       - name: Instagram (métricas diarias de las tres cuentas)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

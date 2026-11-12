@@ -187,7 +187,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding-top
 .brand{display:flex;align-items:center;gap:8px;text-decoration:none;font:italic 700 24px 'Space Grotesk',system-ui,sans-serif}
 .cta{display:inline-block;background:var(--a);color:var(--ai);font-weight:600;text-decoration:none;border-radius:10px;padding:10px 16px}
 h1{font:700 30px/1.2 'Space Grotesk',system-ui,sans-serif;margin:10px 0 8px}h2{font:600 20px 'Space Grotesk',system-ui,sans-serif;margin:28px 0 8px}
-.lead,.q{color:var(--q)}.crumbs{font-size:14px;color:var(--q);margin-top:6px}.crumbs a{color:var(--q)}
+.lead,.q{color:var(--q)}.intro{line-height:1.55;margin:10px 0 14px}.crumbs{font-size:14px;color:var(--q);margin-top:6px}.crumbs a{color:var(--q)}
 ul.ev{list-style:none;padding:0;margin:0}ul.ev li{background:var(--s);border:1px solid var(--l);border-radius:14px;margin:10px 0;overflow:hidden}
 ul.ev li>a{display:flex;gap:12px;padding:10px;text-decoration:none}ul.ev li>a:hover .tt{text-decoration:underline}
 .th{flex:0 0 84px;height:84px;align-self:flex-start;border-radius:10px;overflow:hidden;background:#FFF3BF;display:grid;place-items:center;font-size:34px}
@@ -370,6 +370,47 @@ def corto(e, vie):
 
 
 # zonas
+def _y(xs):
+    xs = [x for x in xs if x]
+    return ', '.join(xs[:-1]) + ' y ' + xs[-1] if len(xs) > 1 else (xs[0] if xs else '')
+
+
+def resumen(lista, z, que='planes'):
+    """Entradilla propia de la semana, hecha con los datos (no una plantilla vacía): cuántos planes con fecha hay en
+    los próximos 7 días, cuántos gratis, los tres más destacados, las categorías y los barrios con más agenda."""
+    sem = [e for e in lista if not e['largo'] and not e.get('prof') and d(e['starts_on']) <= HOY + dt.timedelta(days=7) and d(e['ends_on']) >= HOY]
+    if len(sem) < 3:
+        return ''
+    ngr = sum(1 for e in sem if e.get('is_free'))
+    top, vistos = [], set()
+    for e in picks(sem, HOY, HOY + dt.timedelta(days=7), n=15):  # variado: un plan por tipo
+        gs_e = set(e['grupos'] or [''])
+        if not (gs_e & vistos) or que != 'planes':
+            top.append(e); vistos |= gs_e
+        if len(top) == 3:
+            break
+    dest = _y([f"<a href='{e['url']}'>{esc(e['title'])}</a>" + (f" ({esc(sitio_corto(e['lugar']))}, {esc(etiqueta(e).lower())})" if e['lugar'] else f" ({esc(etiqueta(e).lower())})") for e in top])
+    cg = defaultdict(int)
+    for e in sem:
+        for g in e['grupos'][:1]:
+            cg[g] += 1
+    gs = [f"{groups[g].lower()} ({c})" for g, c in sorted(cg.items(), key=lambda x: -x[1])[:3] if c >= 2]
+    t = f"En los próximos siete días hay {len(sem)} {que} con fecha en {esc(z['name'])}" + (f", {ngr} de ellos gratis" if ngr else '') + '.'
+    if dest:
+        t += f" Lo más destacado: {dest}."
+    if len(gs) >= 2 and que == 'planes':
+        t += f" Sobre todo {esc(_y(gs))}."
+    if z.get('kids') and not z.get('distrito'):
+        cb = defaultdict(int)
+        for e in sem:
+            if e.get('district'):
+                cb[e['district']] += 1
+        bs = [b for b, c in sorted(cb.items(), key=lambda x: -x[1])[:3] if c >= 3]
+        if len(bs) >= 2:
+            t += f" Las zonas con más agenda esta semana son {esc(_y(bs))}."
+    return f"<p class='intro'>{t}</p>"
+
+
 for z in zonas:
     lista = z['evs']
     if not lista:
@@ -383,6 +424,7 @@ for z in zonas:
     tit = f"Planes en {z['name']}: agenda de eventos, conciertos y actividades"
     desc = f"Qué hacer en {z['name']} esta semana y este fin de semana: {n} planes entre conciertos, teatro, exposiciones, actividades infantiles y más. Agenda actualizada cada día."
     body = f"<h1>Planes en {esc(z['name'])}</h1><p class='lead'>{n} planes en las próximas semanas, actualizados cada día.</p>"
+    body += resumen(lista, z)
     body += f'<p><a class="cta" href="{esc(zone_app(z))}">Abrir en la app, con mapa y tu agenda</a></p>'
     vie0, dom0 = finde()
     fb = ''
@@ -424,6 +466,7 @@ for z in zonas:
         page(f"/planes/{z['path']}/{g}/", f"{gn} en {z['name']}: agenda y próximos planes",
              f"{gn} en {z['name']}: {len(l)} planes en las próximas semanas. Fechas, horarios, lugares y precios, actualizados cada día.",
              f"<h1>{esc(gn)} en {esc(z['name'])}</h1><p class='lead'>{len(l)} planes de {esc(gn.lower())} en {esc(z['name'])}.</p>"
+             + resumen(l, z, f'planes de {gn.lower()}') +
              f'<p><a class="cta" href="{esc(zone_app(z))}">Ver en Limón</a></p>' + secciones(l, z),
              crumbs_of(z) + [(z['name'], f"/planes/{z['path']}/")], app=zone_app(z))
 
@@ -467,6 +510,20 @@ def _hoy_o(dia, lista):
     return un, curso
 
 
+def _tiene(z, t):
+    """Si la zona tiene esa página (las mismas condiciones con las que se generan)."""
+    l = z['evs']
+    if t in ('hoy', 'manana'):
+        return True
+    if t == 'este-finde':
+        return z['path'] in FINDE
+    if t == 'gratis':
+        return sum(1 for e in l if e.get('is_free') and d(e['starts_on']) <= HASTA_LISTA and not e.get('prof')) >= 5
+    if t == 'con-ninos':
+        return sum(1 for e in l if 'familia' in e['grupos'] and d(e['starts_on']) <= HASTA_LISTA) >= 5
+    return False
+
+
 def _ld_lista(nombre, sel):
     return {'@context': 'https://schema.org', '@type': 'ItemList', 'name': nombre,
             'itemListElement': [{'@type': 'ListItem', 'position': i + 1, 'url': BASE + e['url'], 'name': e['title']} for i, e in enumerate(sel[:40])]}
@@ -475,6 +532,10 @@ def _ld_lista(nombre, sel):
 def _intencion(z, tipo, h1, title, desc, lead, bloques, total, minimo=3):
     path = f"/planes/{z['path']}/{tipo}/"
     body = f"<h1>{esc(h1)}</h1><p class='lead'>{esc(lead)}</p>"
+    otras = [(r, f"/planes/{z['path']}/{t}/") for t, r in (('hoy', 'Hoy'), ('manana', 'Mañana'), ('este-finde', 'Este finde'), ('gratis', 'Gratis'), ('con-ninos', 'Con niños'))
+             if t != tipo and _tiene(z, t)]
+    if otras:
+        body += '<nav class="fbar" aria-label="Más planes">' + ''.join(f'<a href="{u}">{esc(r)}</a>' for r, u in otras) + '</nav>'
     for t, l, n in bloques:
         if l:
             body += (f'<h2>{esc(t)}</h2>' if t else '') + '<ul class="ev">' + ''.join(li(e, z) for e in l[:n]) + '</ul>' + \

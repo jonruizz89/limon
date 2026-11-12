@@ -81,8 +81,9 @@ function detailsHtml(e) {
 const OFICIAL = /^https:\/\/([a-z0-9-]+\.)*(euskadi\.eus|zaragoza\.es|esmadrid\.com|madrid\.es|donostiakultura\.eus|donostia\.eus|bilbao\.eus|vitoria-gasteiz\.org|gijon\.es|bizkaia\.eus|gipuzkoa\.eus|araba\.eus)\//;
 const imgOf = e => (!AHORRO && e.imagen && OFICIAL.test(e.imagen)) ? e.imagen : '';
 const EMO = { musica: '🎵', escena: '🎭', arte: '🖼️', patrimonio: '🏛️', cine: '🎬', letras: '📚', ciencia: '🔬', gastro: '🍽️', aprender: '✏️', naturaleza: '🌿', ciudad: '🎉', deporte: '🏃', mascotas: '🐾', ferias: '🛍️', familia: '🧒', comunidad: '🤝' };
-// icono del tipo de plan bajo la fecha (la imagen solo se ve al abrir la ficha)
-function thumb(e) {
+// bajo la fecha: la foto oficial en pequeño si la hay (P11; carga diferida y nada con «ahorro de datos»); si no, el icono del tipo de plan
+function thumb(e, open) {
+  if (!open && imgOf(e)) return `<img class="mini" src="${esc(imgOf(e))}" alt="" loading="lazy" decoding="async" width="52" height="52">`;
   const g = e.cats.map(groupOf).find(x => EMO[x]);
   return g ? `<div class="ico" aria-hidden="true">${EMO[g]}</div>` : '';
 }
@@ -125,7 +126,7 @@ function card(e, opt) {
         ${state.route && state.route[e.id] ? `<div class="routewarn">${state.route[e.id]}</div>` : ''}
       </div>` : '';
   return `<article class="card${NEW.has(e.id) ? ' nuevo' : ''}${open ? ' abierta' : ''}" data-eid="${e.id}">
-      <div class="row1"><div class="lcol">${dateBox(e, occ)}${thumb(e)}</div>
+      <div class="row1"><div class="lcol">${dateBox(e, occ)}${thumb(e, open)}</div>
         <div class="body">
           <h3 class="title"><a href="?c=${encodeURIComponent(C_ZONA)}&ev=${e.id}" data-open="${e.id}" aria-expanded="${open}" aria-controls="m-${e.id}">${esc(e.titulo)}</a></h3>
           <div class="meta">${esc(whenText(e, occ))}</div>

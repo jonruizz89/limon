@@ -4,8 +4,8 @@ name: Base de datos de pruebas
 # datos de catálogo (ciudades, categorías, fuentes) y los planes vigentes de unas zonas. Nunca copia datos de personas
 # (cuentas, perfiles, guardados, listas, avisos, estadísticas de uso…) ni claves (app_keys).
 # Se lanza a mano. modo=estructura → solo esquema; modo=datos → solo datos; modo=todo → las dos cosas (en un proyecto vacío).
-# Secretos: SUPABASE_DB_URL o SUPABASE_DB_PASSWORD (leer producción) y SUPABASE_ACCESS_TOKEN (escribir en pruebas por la API
-# de gestión de Supabase). Ninguno se imprime.
+# Secretos: SUPABASE_DB_URL o SUPABASE_DB_PASSWORD (leer producción) y SUPABASE_PRUEBAS_DB_PASSWORD (la contraseña de la base
+# de datos del proyecto de pruebas, para escribir en ella). Ninguno se imprime.
 on:
   workflow_dispatch:
     inputs:
@@ -26,7 +26,7 @@ jobs:
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PRUEBAS_PASSWORD: ${{ secrets.SUPABASE_PRUEBAS_DB_PASSWORD }}
       REF: pxeqbxxfsrvsxcdfiddc       # producción (solo lectura)
       DEST: vxxempphqdpzrzcrtfvw      # pruebas
       REGION: eu-central-1
@@ -84,21 +84,23 @@ jobs:
       - name: Escribir en pruebas
         run: |
           set -euo pipefail
-          api() {  # ejecuta el SQL del fichero $1 en el proyecto de pruebas
-            jq -n --rawfile q "$1" '{query: $q}' > /tmp/body.json
-            code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' -X POST "https://api.supabase.com/v1/projects/$DEST/database/query" \
-              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/body.json)
-            if [ "${code:0:1}" != "2" ]; then echo "::error::$1 → $code $(head -c 600 /tmp/resp.json)"; return 1; fi
-          }
-          if [ -f out/esquema.sql ]; then api out/esquema.sql && echo "esquema cargado"; fi
+          [ -n "$PRUEBAS_PASSWORD" ] || { echo "::error::Falta el secreto SUPABASE_PRUEBAS_DB_PASSWORD"; exit 1; }
+          B=/usr/lib/postgresql/17/bin
+          export PGPASSWORD="$PRUEBAS_PASSWORD" PGUSER="postgres.$DEST" PGPORT=5432 PGDATABASE=postgres PGSSLMODE=require
+          unset PGHOST
+          for h in aws-0-$REGION.pooler.supabase.com aws-1-$REGION.pooler.supabase.com; do
+            if PGHOST=$h PGCONNECT_TIMEOUT=10 $B/psql -tAc 'select 1' >/dev/null 2>&1; then export PGHOST=$h; break; fi
+          done
+          [ -n "${PGHOST:-}" ] || { echo "::error::No se ha podido conectar a la base de datos de pruebas (revisa SUPABASE_PRUEBAS_DB_PASSWORD)"; exit 1; }
+          run() { $B/psql -q -v ON_ERROR_STOP=1 -f "$1" >/dev/null; }
+          if [ -f out/esquema.sql ]; then run out/esquema.sql; echo "esquema cargado"; fi
           for t in category_groups categories sensitive_categories cities aemet_zonas sources venues events event_sessions event_categories event_sources closures; do
             f=out/datos_$t.sql; [ -f "$f" ] || continue
-            n=0; while IFS= read -r linea; do [ -n "$linea" ] || continue; printf '%s\n' "$linea" > /tmp/trozo.sql; api /tmp/trozo.sql; n=$((n+1)); done < "$f"
-            echo "$t: $n trozos cargados"
+            run "$f"; echo "$t: $($B/psql -tAc "select count(*) from public.$t") filas"
           done
           if ls out/datos_*.sql >/dev/null 2>&1; then
-            printf '%s\n' "select setval(pg_get_serial_sequence('public.events','id'), coalesce((select max(id) from public.events), 1));" \
-              "select setval(pg_get_serial_sequence('public.venues','id'), coalesce((select max(id) from public.venues), 1));" \
-              "select setval(pg_get_serial_sequence('public.sources','id'), coalesce((select max(id) from public.sources), 1));" > /tmp/seq.sql
-            api /tmp/seq.sql && echo "contadores al día"
+            $B/psql -q -v ON_ERROR_STOP=1 -c "select setval(pg_get_serial_sequence('public.events','id'), coalesce((select max(id) from public.events), 1));
+              select setval(pg_get_serial_sequence('public.venues','id'), coalesce((select max(id) from public.venues), 1));
+              select setval(pg_get_serial_sequence('public.sources','id'), coalesce((select max(id) from public.sources), 1));" >/dev/null
+            echo "contadores al día"
           fi

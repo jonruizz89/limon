@@ -59,6 +59,8 @@ jobs:
           done
       - name: Ajustes de las funciones de pruebas
         if: github.ref_name == 'pruebas'
+        # si el token de pruebas no tiene permiso para los ajustes, se guardan a mano en Supabase (Edge Functions → Secrets)
+        continue-on-error: true
         run: |
           # enlaces de los correos a la web de pruebas y la IA con un tope de gasto bajo; la clave de Anthropic, sin imprimirla
           args="LIMON_APP_URL=https://pruebas.limonplanes.com/ LIMON_AI_MAX_USD_DAY=0.5"

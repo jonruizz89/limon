@@ -11,8 +11,8 @@ import gzip, base64, datetime as dt, hashlib, hmac, json, os, re, secrets, sys, 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 cfg = open(os.path.join(HERE, '..', '..', 'web', 'config.js'), encoding='utf-8').read()
-SB_URL = re.search(r"supabaseUrl:\s*'([^']+)'", cfg).group(1)
-SB_KEY = re.search(r"supabaseKey:\s*'([^']+)'", cfg).group(1)
+SB_URL = re.search(r"supabaseUrl:[^\n]*'([^']+)'\s*,", cfg).group(1)
+SB_KEY = re.search(r"supabaseKey:[^\n]*'([^']+)'\s*,", cfg).group(1)
 HOY = dt.date.today()
 DIAS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
 EMO = {'musica': '🎵', 'escena': '🎭', 'arte': '🖼️', 'patrimonio': '🏛️', 'cine': '🎬', 'letras': '📚', 'ciencia': '🔬', 'gastro': '🍽️', 'aprender': '✏️',

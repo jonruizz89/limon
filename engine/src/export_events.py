@@ -11,8 +11,8 @@ import datetime as dt, json, os, re, sys, urllib.parse, urllib.request
 
 WEB = sys.argv[1] if len(sys.argv) > 1 else '../web'
 cfg = open(os.path.join(WEB, 'config.js'), encoding='utf-8').read()
-SB_URL = re.search(r"supabaseUrl:\s*'([^']+)'", cfg).group(1)
-SB_KEY = re.search(r"supabaseKey:\s*'([^']+)'", cfg).group(1)  # clave pública: lo mismo que ve la app
+SB_URL = re.search(r"supabaseUrl:[^\n]*'([^']+)'\s*,", cfg).group(1)
+SB_KEY = re.search(r"supabaseKey:[^\n]*'([^']+)'\s*,", cfg).group(1)  # clave pública: lo mismo que ve la app
 COLS = ('id,city_id,title,description,starts_on,ends_on,time_text,district,price_text,is_free,image_url,organizer_url,'
         'is_unique,is_featured,ai_unique,topics,series,lat,lng,first_seen_at,venues(name,address),event_sessions(on_date),'
         'event_categories(category_id),event_sources(url,sources(name))')

@@ -15,8 +15,8 @@ WEB = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else '../web')
 OFICIAL = re.compile(r'https://([a-z0-9-]+\.)*(euskadi\.eus|zaragoza\.es|esmadrid\.com|madrid\.es|donostiakultura\.eus|donostia\.eus|bilbao\.eus|vitoria-gasteiz\.org|gijon\.es|bizkaia\.eus|gipuzkoa\.eus|araba\.eus)/')
 BASE = 'https://limonplanes.com'
 cfg = open(os.path.join(WEB, 'config.js'), encoding='utf-8').read()
-SB_URL = re.search(r"supabaseUrl:\s*'([^']+)'", cfg).group(1)
-SB_KEY = re.search(r"supabaseKey:\s*'([^']+)'", cfg).group(1)
+SB_URL = re.search(r"supabaseUrl:[^\n]*'([^']+)'\s*,", cfg).group(1)
+SB_KEY = re.search(r"supabaseKey:[^\n]*'([^']+)'\s*,", cfg).group(1)
 HOY = dt.date.today()
 HASTA_LISTA = HOY + dt.timedelta(days=45)    # lo que sale en las páginas de zona
 HASTA_FICHA = HOY + dt.timedelta(days=370)   # eventos con página propia (los grandes conciertos se anuncian con un año)

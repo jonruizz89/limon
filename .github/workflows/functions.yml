@@ -3,7 +3,7 @@ name: Funciones del servidor
 # Publica en Supabase las funciones que cambian en supabase/functions/ (o todas, a mano).
 #  - rama main:    las funciones de verdad (limon-mail, limon-ai…).
 #  - rama pruebas: las mismas funciones en el proyecto de pruebas («Limon pruebas»), que usa pruebas.limonplanes.com.
-# Necesita el secreto SUPABASE_ACCESS_TOKEN (Supabase → Account → Access Tokens).
+# Necesita el secreto SUPABASE_ACCESS_TOKEN (Supabase → Account → Access Tokens) y, para pruebas, SUPABASE_PRUEBAS_ACCESS_TOKEN.
 on:
   push:
     branches: [main, pruebas]
@@ -24,7 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      # el token de producción solo vale para su proyecto: pruebas tiene el suyo
+      SUPABASE_ACCESS_TOKEN: ${{ github.ref_name == 'pruebas' && secrets.SUPABASE_PRUEBAS_ACCESS_TOKEN || secrets.SUPABASE_ACCESS_TOKEN }}
       PROJECT: ${{ github.ref_name == 'pruebas' && 'vxxempphqdpzrzcrtfvw' || 'pxeqbxxfsrvsxcdfiddc' }}
       SUFFIX: ''
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

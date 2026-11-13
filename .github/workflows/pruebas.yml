@@ -4,7 +4,7 @@ name: Batería de pruebas
 # No usa la base de datos ni claves: las funciones se prueban sueltas y la app, con planes de prueba y el reloj parado.
 #  - motor: funciones del motor (enlaces, duplicados, callejero, filtro de Ticketmaster, caídas de una fuente)
 #  - app: funciones de la app (planes de hoy que ya han pasado, orden por hora, calles, fechas, temporadas, direcciones de las páginas)
-#  - flujos: la app en un navegador, en móvil y en escritorio (zona, agenda, calendario, enlace de un plan, Navidad, consola)
+#  - flujos: la app en un navegador, en móvil y en escritorio (zona, agenda, calendario, enlace de un plan, Navidad, «Elegidos para ti», Compartir y Proponer, logo, campana, valoraciones, consola)
 # La «Prueba de la app» (humo.yml) sigue aparte: esa abre la app con los datos de producción de cada día.
 on:
   push:

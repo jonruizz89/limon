@@ -256,6 +256,90 @@ try {
       ok(errores.length === 0, T(`Navidad sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
       await ctx.close();
     }
+
+    // ───────── «Elegidos para ti» con un plan que ya no cae en las fechas (rompía la lista y las fichas no se abrían)
+    {
+      const { ctx, p, errores } = await abrir(b, perfil);
+      await cargada(p);
+      await p.evaluate(() => { logged = true; prefs.pop = 1; aiReco.semana = { planes: [{ id: 104, por_que: 'Te gusta el pop' }, { id: 103, por_que: 'Ya pasó' }, { id: 110, por_que: 'Otro mes' }], candidatos: 9 }; renderAll(); });
+      await p.waitForTimeout(250);
+      const ai = await p.locator('#pt-list .ai article.card').evaluateAll((x) => x.map((e) => e.dataset.eid));
+      ok(igual(ai, ['e104']), T(`«Elegidos para ti» quita los planes que ya no caen en estas fechas (${ai})`));
+      await p.locator('#pt-list .ai article.card[data-eid="e104"] [data-open]').first().click();
+      await p.waitForTimeout(250);
+      ok(await p.locator('#pt-list article.card.abierta[data-eid="e104"]').count() > 0, T('…y su ficha se abre'));
+      ok(errores.length === 0, T(`«Elegidos para ti» sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
+      await ctx.close();
+    }
+
+    // ───────── ficha: Compartir abre el menú con «Proponer a amigos»; el logo vuelve al inicio
+    {
+      const { ctx, p, errores } = await abrir(b, perfil);
+      await cargada(p);
+      await p.evaluate(() => { logged = true; });
+      await ir(p, 'explorar');
+      await p.locator('#v-explorar [data-open="e104"]').click();
+      await p.waitForTimeout(250);
+      await p.locator('#v-explorar article.card.abierta .acts [data-sharev]').click();
+      await p.waitForTimeout(300);
+      const menu = await p.locator('#sheet').evaluate((d) => d.open).catch(() => false);
+      ok(menu && await p.locator('#sheet [data-share-ya]').count() === 1 && await p.locator('#sheet [data-invite]').count() === 1, T('Compartir en la ficha abre el menú: compartir el plan o proponerlo a amigos'));
+      ok(await p.locator('#v-explorar article.card.abierta .acts [data-invite], #v-explorar article.card.abierta .acts [data-went]').count() === 0, T('la ficha ya no lleva «Proponer plan» ni «Ya fui» sueltos'));
+      await p.locator('#sheet [data-invite]').click();
+      await p.waitForTimeout(400);
+      ok(await p.locator('[data-invite-form="e104"]').count() === 1 && await p.locator('#v-explorar article.card.abierta[data-eid="e104"]').count() === 1, T('«Proponer a amigos» abre el formulario sin cerrar la ficha'));
+      await p.locator('a.home').first().click();
+      await p.waitForTimeout(400);
+      ok(await p.locator('#v-parati').isVisible() && await p.locator('article.card.abierta:visible').count() === 0 && !/[?&]ev=/.test(p.url()), T('el logo lleva al inicio: Para ti, sin fichas abiertas y con la dirección limpia'));
+      ok(errores.length === 0, T(`ficha y logo sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
+      await ctx.close();
+    }
+
+    // ───────── campana de avisos
+    {
+      const { ctx, p, errores } = await abrir(b, perfil);
+      await cargada(p);
+      await p.locator('#bell').click();
+      await p.waitForTimeout(300);
+      ok(/Con una cuenta te avisamos/.test(await p.locator('#sheet').innerText().catch(() => '')), T('sin cuenta, la campana explica qué avisos recibirías'));
+      await p.locator('#sheet [data-sheet-close]').click().catch(() => p.keyboard.press('Escape'));
+      await p.waitForTimeout(400);
+      await p.evaluate(() => {
+        window.limonDB.user = () => ({ id: 'x' });
+        const t = Date.now();
+        NOTIS = [{ id: 1, kind: 'amigo_plan', title: 'Ane se apunta a un plan', body: 'Concierto', url: '?ev=e104', created_at: new Date(t - 6e5).toISOString() },
+          { id: 2, kind: 'calle', title: 'Cortes en tus calles', body: 'Gran Vía', url: '?tab=calle', created_at: new Date(t - 9e7).toISOString(), read_at: 'x' }];
+        pintaCampana(); openSheet(panelCampana());
+      });
+      await p.waitForTimeout(300);
+      ok(await p.locator('#bell .dot').isVisible() && await p.locator('#sheet .notis li').count() === 2 && await p.locator('#sheet .notis li.nueva').count() === 1,
+        T('con avisos: punto rojo y la lista, con los nuevos resaltados'));
+      await p.locator('#sheet .notis a[data-goev="e104"]').click();
+      await p.waitForTimeout(400);
+      ok(await p.locator('article.card.abierta[data-eid="e104"]').count() > 0, T('tocar un aviso abre su plan'));
+      ok(errores.length === 0, T(`campana sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
+      await ctx.close();
+    }
+
+    // ───────── «¿Al final fuiste?» → estrellas → aprende gustos
+    {
+      const { ctx, p, errores } = await abrir(b, perfil);
+      await cargada(p);
+      await p.evaluate(() => { PAST.e999 = { id: 'e999', titulo: 'Concierto de ayer', fecha: ymd(addDays(today, -1)), lugar: 'Sala de prueba', cats: ['rock'], temas: [], serie: null }; renderParaTi(); });
+      await p.waitForTimeout(200);
+      await p.locator('[data-fui="si"][data-id="e999"]').click();
+      await p.waitForTimeout(300);
+      ok(await p.locator('.consent [data-rate="e999"]').count() === 5, T('tras «Sí, fui» la misma tarjeta pide la nota con 5 estrellas'));
+      await p.locator('.consent [data-rate="e999"][data-n="5"]').click();
+      await p.waitForTimeout(400);
+      const l = await p.evaluate(() => ({ cat: learned['cat:rock'] || 0, sala: learned['sala:' + nf('Sala de prueba')] || 0 }));
+      ok(l.cat > 1 && l.sala > 0 && await p.locator('.consent [data-rate="e999"]').count() === 0, T(`5 ★ suben la categoría y la sala (${JSON.stringify(l)}) y la tarjeta se cierra`));
+      await p.evaluate(() => notaAprende(PAST.e999, 5, 1));
+      const k = await p.evaluate(() => ({ sala: learned['sala:' + nf('Sala de prueba')] || 0, titulo: learned['titulo:' + nf('Concierto de ayer')] || 0 }));
+      ok(k.sala < 0 && k.titulo <= -3, T(`cambiar a 1 ★ deshace la nota anterior y no vuelve a recomendar ese evento (${JSON.stringify(k)})`));
+      ok(errores.length === 0, T(`valoración sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
+      await ctx.close();
+    }
   }
 } finally {
   await b.close();

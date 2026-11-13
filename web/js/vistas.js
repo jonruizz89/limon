@@ -319,7 +319,7 @@ function iniciaEnlacesDirectos() {
 // ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
 function clicEnlaceDeLaApp(ev) {
   // enlaces de la app (pestañas, planes): clic normal se queda en la app; Ctrl/Cmd/Mayús o botón central, pestaña nueva
-  const lk = ev.target.closest('a[data-goto], a[data-open]');
+  const lk = ev.target.closest('a[data-goto], a[data-open], a[data-goev]');
   if (lk) { if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button) return true; ev.preventDefault(); }
   return false;
 }

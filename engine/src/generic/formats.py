@@ -114,7 +114,9 @@ def jsonld_events(blocks, base):
             if isinstance(offers, list):
                 offers = offers[0] if offers else {}
             price = offers.get('price') if isinstance(offers, dict) else None
-            free = e.get('isAccessibleForFree') in (True, 'true', 'True') or str(price) in ('0', '0.0', '0.00')
+            # algunas agendas (Bizkaimusic) ponen price «0» en todo, también en conciertos «CON ENTRADA DE PAGO»: ahí manda el texto
+            free = e.get('isAccessibleForFree') in (True, 'true', 'True') or (
+                str(price) in ('0', '0.0', '0.00') and not re.search(r'\bde pago\b', str(e.get('description') or ''), re.I))
             img = e.get('image')
             if isinstance(img, list):
                 img = img[0] if img else None
@@ -125,7 +127,7 @@ def jsonld_events(blocks, base):
                 'lugar': clean(loc.get('name'), 200) or None,
                 'direccion': clean(addr.get('streetAddress'), 200) or None,
                 'municipio': clean(addr.get('addressLocality'), 80) or None,
-                'precio': (f'{price} €' if price not in (None, '') and not free else None), 'gratis': free,
+                'precio': (f'{price} €' if price not in (None, '') and str(price) not in ('0', '0.0', '0.00') and not free else None), 'gratis': free,
                 'url': urllib.parse.urljoin(base, e.get('url') or '') if e.get('url') else base,
                 'descripcion': clean(e.get('description'), 600) or None, 'imagen': img if isinstance(img, str) else None,
                 'lat': _num(geo.get('latitude')), 'lng': _num(geo.get('longitude')),

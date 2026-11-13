@@ -7,7 +7,7 @@ Credenciales (secretos de GitHub, nunca en el código):
 Sin credenciales o con X_DRY=1 solo escribe el texto en la salida (sirve para probar).
 Coste: X cobra por publicación y bastante más si el texto lleva un enlace, así que solo «finde» lleva enlace; el resto remite al perfil.
 """
-import base64, datetime as dt, hashlib, hmac, json, os, re, secrets, sys, time, urllib.error, urllib.parse, urllib.request
+import gzip, base64, datetime as dt, hashlib, hmac, json, os, re, secrets, sys, time, urllib.error, urllib.parse, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 cfg = open(os.path.join(HERE, '..', '..', 'web', 'config.js'), encoding='utf-8').read()
@@ -63,9 +63,10 @@ CUENTA = {'madrid': 'madrid', 'bizkaia': 'bilbao', 'gipuzkoa': 'donostia', 'arab
 
 
 def get(path):
-    req = urllib.request.Request(f'{SB_URL}/rest/v1/{path}', headers={'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY})
+    req = urllib.request.Request(f'{SB_URL}/rest/v1/{path}', headers={'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Accept-Encoding': 'gzip'})
     with urllib.request.urlopen(req, timeout=60) as r:
-        return json.load(r)
+        _b = r.read()
+        return json.loads(gzip.decompress(_b) if r.headers.get('Content-Encoding') == 'gzip' else _b)
 
 
 def corta(t, n):

@@ -7,7 +7,7 @@ origen, y los dominios de origen nuevos se acumulan como fuentes candidatas. Se 
 Variables: SUPABASE_URL, SUPABASE_SECRET, ANTHROPIC_API_KEY, BUREO_AUDIT_MAX_USD (1.0), BUREO_AUDIT_MODEL.
 Coste orientativo: unas 3 búsquedas por grupo (10 $ por 1.000 búsquedas) + tokens → 0,5–1 $ por ejecución.
 """
-import datetime as dt, difflib, json, os, re, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
+import gzip, datetime as dt, difflib, json, os, re, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 
 URL = os.environ['SUPABASE_URL'].rstrip('/')
 SKEY = os.environ['SUPABASE_SECRET']
@@ -32,12 +32,13 @@ def usd():
 
 def sb(method, path, body=None, prefer=None):
     req = urllib.request.Request(URL + '/rest/v1/' + path, method=method, data=json.dumps(body).encode() if body is not None else None)
-    for k, v in (('apikey', SKEY), ('Authorization', 'Bearer ' + SKEY), ('Content-Type', 'application/json')):
+    for k, v in (('apikey', SKEY), ('Authorization', 'Bearer ' + SKEY), ('Content-Type', 'application/json'), ('Accept-Encoding', 'gzip')):
         req.add_header(k, v)
     if prefer:
         req.add_header('Prefer', prefer)
     with urllib.request.urlopen(req, timeout=120) as r:
-        t = r.read().decode()
+        _b = r.read()
+        t = (gzip.decompress(_b) if r.headers.get('Content-Encoding') == 'gzip' else _b).decode()
         return json.loads(t) if t else None
 
 

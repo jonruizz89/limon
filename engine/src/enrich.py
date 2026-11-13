@@ -5,7 +5,7 @@ que sí está en la página del evento. Se guarda en `events.details`, que la ca
 cuando no hay descripción. Cada ficha se lee una vez (y otra a los 30 días si sigue vacía), sin IA.
 Variables: SUPABASE_URL, SUPABASE_SECRET. Opcional: BUREO_ENRICH_MAX (fichas por ejecución, 400), BUREO_CITY (solo esa ciudad).
 """
-import concurrent.futures as cf, datetime as dt, html, json, os, re, time, urllib.parse, urllib.request
+import gzip, concurrent.futures as cf, datetime as dt, html, json, os, re, time, urllib.parse, urllib.request
 from html.parser import HTMLParser
 
 URL = os.environ['SUPABASE_URL'].rstrip('/')
@@ -18,10 +18,11 @@ MAXLEN = 1500
 
 def sb(method, path, body=None):
     req = urllib.request.Request(URL + '/rest/v1/' + path, method=method, data=json.dumps(body).encode() if body is not None else None)
-    for k, v in (('apikey', KEY), ('Authorization', 'Bearer ' + KEY), ('Content-Type', 'application/json'), ('Prefer', 'return=minimal')):
+    for k, v in (('apikey', KEY), ('Authorization', 'Bearer ' + KEY), ('Content-Type', 'application/json'), ('Prefer', 'return=minimal'), ('Accept-Encoding', 'gzip')):
         req.add_header(k, v)
     with urllib.request.urlopen(req, timeout=60) as r:
-        t = r.read().decode()
+        _b = r.read()
+        t = (gzip.decompress(_b) if r.headers.get('Content-Encoding') == 'gzip' else _b).decode()
         return json.loads(t) if t else None
 
 

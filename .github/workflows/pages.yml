@@ -29,6 +29,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # tras una carga se espera unos minutos antes de leer: si mientras tanto termina otra carga, esta publicación se cancela
+      # (concurrency) y la siguiente lo recoge todo con una sola lectura, en vez de leer la base de datos una vez por carga
+      - name: Esperar a que acaben las cargas seguidas
+        if: github.event_name == 'workflow_run'
+        run: sleep 300
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b  # v5
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5

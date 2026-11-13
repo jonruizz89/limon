@@ -9,7 +9,7 @@
 Variables: SUPABASE_URL, SUPABASE_SECRET, ANTHROPIC_API_KEY (sin ella se reutiliza la caché).
 Caché: raw/closures_cache.json (texto de cada aviso, su huella y lo extraído).
 """
-import json, os, re, sys, html, hashlib, subprocess, time, datetime as dt, urllib.request, urllib.error
+import gzip, json, os, re, sys, html, hashlib, subprocess, time, datetime as dt, urllib.request, urllib.error
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import geo
 
@@ -55,13 +55,14 @@ def main_text(page):
 def sb(method, path, body=None, prefer=None):
     req = urllib.request.Request(URL + '/rest/v1/' + path, method=method,
                                  data=json.dumps(body).encode() if body is not None else None)
-    for k, v in (('apikey', SKEY), ('Authorization', 'Bearer ' + SKEY), ('Content-Type', 'application/json')):
+    for k, v in (('apikey', SKEY), ('Authorization', 'Bearer ' + SKEY), ('Content-Type', 'application/json'), ('Accept-Encoding', 'gzip')):
         req.add_header(k, v)
     if prefer:
         req.add_header('Prefer', prefer)
     try:
         with urllib.request.urlopen(req, timeout=120) as r:
-            t = r.read().decode()
+            _b = r.read()
+            t = (gzip.decompress(_b) if r.headers.get('Content-Encoding') == 'gzip' else _b).decode()
             return json.loads(t) if t else None
     except urllib.error.HTTPError as e:
         raise SystemExit(f'Supabase {method} {path}: {e.code} {e.read().decode()[:400]}')

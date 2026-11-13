@@ -63,4 +63,4 @@ jobs:
           # enlaces de los correos a la web de pruebas y la IA con un tope de gasto bajo; la clave de Anthropic, sin imprimirla
           args="LIMON_APP_URL=https://pruebas.limonplanes.com/ LIMON_AI_MAX_USD_DAY=0.5"
           [ -n "$ANTHROPIC_API_KEY" ] && args="$args ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
-          supabase secrets set $args --project-ref "$PROJECT" 2>&1 | tail -4; echo "codigo: ${PIPESTATUS[0]}"
+          supabase secrets set $args --project-ref "$PROJECT" --yes 2>&1 | grep -iE "finished|error|nothing" | tail -2; test "${PIPESTATUS[0]}" = 0

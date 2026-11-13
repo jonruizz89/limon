@@ -1,0 +1,104 @@
+name: Base de datos de pruebas
+
+# Copia la ESTRUCTURA de la base de datos de producción («Limon») en el proyecto de pruebas («Limon pruebas») y le carga
+# datos de catálogo (ciudades, categorías, fuentes) y los planes vigentes de unas zonas. Nunca copia datos de personas
+# (cuentas, perfiles, guardados, listas, avisos, estadísticas de uso…) ni claves (app_keys).
+# Se lanza a mano. modo=estructura → solo esquema; modo=datos → solo datos; modo=todo → las dos cosas (en un proyecto vacío).
+# Secretos: SUPABASE_DB_URL o SUPABASE_DB_PASSWORD (leer producción) y SUPABASE_ACCESS_TOKEN (escribir en pruebas por la API
+# de gestión de Supabase). Ninguno se imprime.
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "todo | estructura | datos"
+        default: todo
+      zonas:
+        description: "Zonas con planes, separadas por comas"
+        default: madrid,gijon
+
+permissions:
+  contents: read
+
+jobs:
+  copiar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      REF: pxeqbxxfsrvsxcdfiddc       # producción (solo lectura)
+      DEST: vxxempphqdpzrzcrtfvw      # pruebas
+      REGION: eu-central-1
+      MODO: ${{ github.event.inputs.modo }}
+      ZONAS: ${{ github.event.inputs.zonas }}
+    steps:
+      - name: Instalar psql 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -sSf -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17 >/dev/null
+      - name: Leer de producción
+        run: |
+          set -euo pipefail
+          B=/usr/lib/postgresql/17/bin
+          if [[ "${SUPABASE_DB_URL:-}" =~ ^postgres(ql)?://[^/]*@ ]]; then DB=("$SUPABASE_DB_URL")
+          else
+            export PGPASSWORD="${PGPASSWORD:-$SUPABASE_DB_URL}" PGUSER="postgres.$REF" PGPORT=5432 PGDATABASE=postgres PGSSLMODE=require
+            for h in aws-0-$REGION.pooler.supabase.com aws-1-$REGION.pooler.supabase.com; do
+              if PGHOST=$h PGCONNECT_TIMEOUT=10 $B/psql -tAc 'select 1' >/dev/null 2>&1; then export PGHOST=$h; break; fi
+            done
+            [ -n "${PGHOST:-}" ] || { echo "::error::No se ha podido conectar a producción"; exit 1; }
+            DB=()
+          fi
+          mkdir -p out
+          if [ "$MODO" != "datos" ]; then
+            # esquema public con permisos y reglas de acceso; sin dueños. Fuera las órdenes propias de psql (\restrict) y el CREATE SCHEMA.
+            $B/pg_dump "${DB[@]}" -n public --schema-only --no-owner -f out/esquema.sql
+            sed -i -E '/^\\(un)?restrict /d; /^CREATE SCHEMA public;/d; /^COMMENT ON SCHEMA public /d' out/esquema.sql
+            echo "esquema: $(wc -c < out/esquema.sql) bytes, $(grep -c '^CREATE TABLE' out/esquema.sql) tablas, $(grep -c '^CREATE FUNCTION' out/esquema.sql) funciones"
+          fi
+          if [ "$MODO" != "estructura" ]; then
+            Z="'$(echo "$ZONAS" | sed "s/ //g; s/,/','/g")'"
+            # cada tabla en trozos de 400 filas: «insert … select * from json_populate_recordset», respetando los identificadores
+            q() {  # $1 tabla  $2 consulta que devuelve sus filas
+              $B/psql "${DB[@]}" -tA -v ON_ERROR_STOP=1 -c "
+                select format('insert into public.%I overriding system value select * from json_populate_recordset(null::public.%I, %L) on conflict do nothing;', '$1', '$1', json_agg(to_json(t.x)))
+                from (select x, (row_number() over () - 1) / 400 as g from ($2) x) t group by g order by g" > "out/datos_$1.sql"
+              echo "$1: $(grep -c . "out/datos_$1.sql") trozos"
+            }
+            q category_groups "select * from public.category_groups"
+            q categories "select * from public.categories"
+            q sensitive_categories "select * from public.sensitive_categories"
+            q cities "select * from public.cities order by parent nulls first"
+            q aemet_zonas "select * from public.aemet_zonas"
+            q sources "select * from public.sources where city_id in ($Z)"
+            q venues "select * from public.venues where city_id in ($Z)"
+            q events "select * from public.events where city_id in ($Z) and coalesce(ends_on, starts_on) >= current_date"
+            q event_sessions "select s.* from public.event_sessions s join public.events e on e.id = s.event_id where e.city_id in ($Z) and coalesce(e.ends_on, e.starts_on) >= current_date"
+            q event_categories "select c.* from public.event_categories c join public.events e on e.id = c.event_id where e.city_id in ($Z) and coalesce(e.ends_on, e.starts_on) >= current_date"
+            q event_sources "select s.* from public.event_sources s join public.events e on e.id = s.event_id join public.sources so on so.id = s.source_id where e.city_id in ($Z) and so.city_id in ($Z) and coalesce(e.ends_on, e.starts_on) >= current_date"
+            q closures "select * from public.closures where city_id in ($Z)"
+          fi
+      - name: Escribir en pruebas
+        run: |
+          set -euo pipefail
+          api() {  # ejecuta el SQL del fichero $1 en el proyecto de pruebas
+            jq -n --rawfile q "$1" '{query: $q}' > /tmp/body.json
+            code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' -X POST "https://api.supabase.com/v1/projects/$DEST/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/body.json)
+            if [ "${code:0:1}" != "2" ]; then echo "::error::$1 → $code $(head -c 600 /tmp/resp.json)"; return 1; fi
+          }
+          if [ -f out/esquema.sql ]; then api out/esquema.sql && echo "esquema cargado"; fi
+          for t in category_groups categories sensitive_categories cities aemet_zonas sources venues events event_sessions event_categories event_sources closures; do
+            f=out/datos_$t.sql; [ -f "$f" ] || continue
+            n=0; while IFS= read -r linea; do [ -n "$linea" ] || continue; printf '%s\n' "$linea" > /tmp/trozo.sql; api /tmp/trozo.sql; n=$((n+1)); done < "$f"
+            echo "$t: $n trozos cargados"
+          done
+          if ls out/datos_*.sql >/dev/null 2>&1; then
+            printf '%s\n' "select setval(pg_get_serial_sequence('public.events','id'), coalesce((select max(id) from public.events), 1));" \
+              "select setval(pg_get_serial_sequence('public.venues','id'), coalesce((select max(id) from public.venues), 1));" \
+              "select setval(pg_get_serial_sequence('public.sources','id'), coalesce((select max(id) from public.sources), 1));" > /tmp/seq.sql
+            api /tmp/seq.sql && echo "contadores al día"
+          fi

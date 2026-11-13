@@ -56,7 +56,7 @@ jobs:
           if [ "$MODO" != "datos" ]; then
             # esquema public con permisos y reglas de acceso; sin dueños. Fuera las órdenes propias de psql (\restrict) y el CREATE SCHEMA.
             $B/pg_dump "${DB[@]}" -n public --schema-only --no-owner -f out/esquema.sql
-            sed -i -E '/^\\(un)?restrict /d; /^CREATE SCHEMA public;/d; /^COMMENT ON SCHEMA public /d' out/esquema.sql
+            sed -i -E '/^\\(un)?restrict /d; /^CREATE SCHEMA public;/d; /^COMMENT ON SCHEMA public /d; /^ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin/d' out/esquema.sql
             echo "esquema: $(wc -c < out/esquema.sql) bytes, $(grep -c '^CREATE TABLE' out/esquema.sql) tablas, $(grep -c '^CREATE FUNCTION' out/esquema.sql) funciones"
           fi
           if [ "$MODO" != "estructura" ]; then

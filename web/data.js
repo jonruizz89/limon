@@ -7,7 +7,7 @@
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
   });
   const $ = (id) => document.getElementById(id);
-  // web de pruebas (pruebas.limonplanes.com): misma base de datos; usa las funciones «-pruebas» si existen y no cuenta estadísticas
+  // web de pruebas (pruebas.limonplanes.com): su propia base de datos y sus propias funciones (config.js); no cuenta estadísticas
   const STAGING = /^pruebas\.|\.pages\.dev$|\.workers\.dev$/.test(location.hostname);
   window.LIMON_STAGING = STAGING;
   // errores de JavaScript: se cuentan de forma anónima (tipo y mensaje recortado, sin datos de quién) para verlos en el parte diario
@@ -23,12 +23,6 @@
     window.addEventListener('unhandledrejection', (ev) => contar('promesa', ev.reason && (ev.reason.message || String(ev.reason))));
   }
   window.limonFn = async function (name, opts) {
-    if (STAGING) {
-      const r = await sb.functions.invoke(name + '-pruebas', opts);
-      const st = r.error && r.error.context && r.error.context.status;
-      // si no hay copia «-pruebas» de esa función, Supabase responde 404 (o falla la petición previa del navegador): se usa la normal
-      if (!(r.error && (st === 404 || r.error.name === 'FunctionsFetchError' || /not found|404/i.test(String(r.error.message))))) return r;
-    }
     return sb.functions.invoke(name, opts);
   };
   // enlace de «He olvidado mi contraseña»: se detecta antes de que la app termine de cargar

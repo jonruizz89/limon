@@ -6,14 +6,14 @@
 <!-- Política de contenido: solo se carga código de la propia web, jsDelivr (con huella fija) y la comprobación anti-robots de Cloudflare -->
 <!-- Seguridad: solo se ejecutan los scripts propios, los de este archivo (por su huella sha256) y las librerías con versión fija.
      Si cambias un script en línea de esta página, hay que recalcular su huella: lo vigila engine/tests/app/csp.test.mjs -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-6MOrZb5ugijQSlBUHNkO+5pAqWmi2qhJG7fSsbmzd58=' 'sha256-LXoKOwua+sQpjfu1/B/iM1oUHwbHN1ejNSiXjOMVWnc=' 'sha256-A68TYunTNYM7ei2Yp7pqducrDzv0j/1QO+CiKWINx58=' 'sha256-kZ68LaBDgvP18gpg7Fv3SHzEV7tDvdum3p7oh9n8dr4=' https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/ https://cdn.jsdelivr.net/npm/leaflet@1.9.4/ https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net/npm/leaflet@1.9.4/; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://cloudflareinsights.com https://pxeqbxxfsrvsxcdfiddc.supabase.co wss://pxeqbxxfsrvsxcdfiddc.supabase.co https://api.open-meteo.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-6MOrZb5ugijQSlBUHNkO+5pAqWmi2qhJG7fSsbmzd58=' 'sha256-LXoKOwua+sQpjfu1/B/iM1oUHwbHN1ejNSiXjOMVWnc=' 'sha256-A68TYunTNYM7ei2Yp7pqducrDzv0j/1QO+CiKWINx58=' 'sha256-kZ68LaBDgvP18gpg7Fv3SHzEV7tDvdum3p7oh9n8dr4=' https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/ https://cdn.jsdelivr.net/npm/leaflet@1.9.4/ https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net/npm/leaflet@1.9.4/; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://cloudflareinsights.com https://pxeqbxxfsrvsxcdfiddc.supabase.co wss://pxeqbxxfsrvsxcdfiddc.supabase.co https://vxxempphqdpzrzcrtfvw.supabase.co wss://vxxempphqdpzrzcrtfvw.supabase.co https://api.open-meteo.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Qué hacer hoy y este fin de semana en tu ciudad: conciertos, teatro, exposiciones, planes gratis y con niños, en una agenda gratis y sin anuncios. Y en Madrid, también las calles cortadas antes de salir.">
 <!-- El arranque se descarga a la vez que el estilo, sin esperar a que el navegador llegue a sus etiquetas (mismas direcciones y ?v= que abajo) -->
-<link rel="preload" as="script" href="config.js?v=20261027a">
-<link rel="preload" as="script" href="data.js?v=20261112s">
-<link rel="preload" as="script" href="js/app.js?v=20261112s">
+<link rel="preload" as="script" href="config.js?v=20261113a">
+<link rel="preload" as="script" href="data.js?v=20261113a">
+<link rel="preload" as="script" href="js/app.js?v=20261113a">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="icon" href="limon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="limon-180.png">
@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar css/ o js/) -->
-<link rel="stylesheet" href="css/app.css?v=20261112s">
+<link rel="stylesheet" href="css/app.css?v=20261113a">
 
 </head>
 <body>
@@ -299,24 +299,24 @@ try { var _t = JSON.parse(localStorage.getItem('bureo.tema') || 'null'); if (_t 
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
-<script src="config.js?v=20261027a"></script>
-<script src="data.js?v=20261112s"></script>
+<script src="config.js?v=20261113a"></script>
+<script src="data.js?v=20261113a"></script>
 <!-- el arranque va justo después de data.js para pedir los planes cuanto antes; no espera a los archivos por tema -->
-<script src="js/app.js?v=20261112s"></script>
+<script src="js/app.js?v=20261113a"></script>
 <!-- La app, por temas (web/js/). Estos archivos solo declaran funciones y valores fijos; lo que se ejecuta al arrancar está en js/inicio.js, que carga js/app.js cuando llegan los datos.
      Con «defer» se descargan todos a la vez (sin él, el navegador pide cada uno al terminar el anterior) y se ejecutan en este orden al acabar de leerse la página -->
-<script defer src="js/base.js?v=20261112s"></script>
-<script defer src="js/calendario.js?v=20261112s"></script>
-<script defer src="js/filtros.js?v=20261112s"></script>
-<script defer src="js/temporadas.js?v=20261112s"></script>
-<script defer src="js/tarjetas.js?v=20261112s"></script>
-<script defer src="js/compartir.js?v=20261112s"></script>
-<script defer src="js/calle.js?v=20261112s"></script>
-<script defer src="js/social.js?v=20261112s"></script>
-<script defer src="js/cuenta.js?v=20261112s"></script>
-<script defer src="js/campana.js?v=20261112s"></script>
-<script defer src="js/parati.js?v=20261112s"></script>
-<script defer src="js/vistas.js?v=20261112s"></script>
+<script defer src="js/base.js?v=20261113a"></script>
+<script defer src="js/calendario.js?v=20261113a"></script>
+<script defer src="js/filtros.js?v=20261113a"></script>
+<script defer src="js/temporadas.js?v=20261113a"></script>
+<script defer src="js/tarjetas.js?v=20261113a"></script>
+<script defer src="js/compartir.js?v=20261113a"></script>
+<script defer src="js/calle.js?v=20261113a"></script>
+<script defer src="js/social.js?v=20261113a"></script>
+<script defer src="js/cuenta.js?v=20261113a"></script>
+<script defer src="js/campana.js?v=20261113a"></script>
+<script defer src="js/parati.js?v=20261113a"></script>
+<script defer src="js/vistas.js?v=20261113a"></script>
 
 <dialog class="pwdlg sheet" id="sheet" aria-label="Perfil o lista"><div id="sheet-body" class="sheetbody"></div></dialog>
 <dialog class="pwdlg" id="pw-dlg" aria-labelledby="pw-dlg-t">

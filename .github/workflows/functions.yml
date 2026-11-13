@@ -2,7 +2,7 @@ name: Funciones del servidor
 
 # Publica en Supabase las funciones que cambian en supabase/functions/ (o todas, a mano).
 #  - rama main:    las funciones de verdad (limon-mail, limon-ai…).
-#  - rama pruebas: copias con «-pruebas» al final (limon-mail-pruebas…), que solo usa pruebas.limonplanes.com.
+#  - rama pruebas: las mismas funciones en el proyecto de pruebas («Limon pruebas»), que usa pruebas.limonplanes.com.
 # Necesita el secreto SUPABASE_ACCESS_TOKEN (Supabase → Account → Access Tokens).
 on:
   push:
@@ -25,8 +25,9 @@ jobs:
     timeout-minutes: 15
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      PROJECT: pxeqbxxfsrvsxcdfiddc
-      SUFFIX: ${{ github.ref_name == 'pruebas' && '-pruebas' || '' }}
+      PROJECT: ${{ github.ref_name == 'pruebas' && 'vxxempphqdpzrzcrtfvw' || 'pxeqbxxfsrvsxcdfiddc' }}
+      SUFFIX: ''
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       ONLY: ${{ inputs.only }}
       EVENT: ${{ github.event_name }}
       BEFORE: ${{ github.event.before }}
@@ -55,3 +56,10 @@ jobs:
             echo "== $name"
             supabase functions deploy "$name" --project-ref "$PROJECT" --no-verify-jwt --use-api --yes
           done
+      - name: Ajustes de las funciones de pruebas
+        if: github.ref_name == 'pruebas'
+        run: |
+          # enlaces de los correos a la web de pruebas y la IA con un tope de gasto bajo; la clave de Anthropic, sin imprimirla
+          args="LIMON_APP_URL=https://pruebas.limonplanes.com/ LIMON_AI_MAX_USD_DAY=0.5"
+          [ -n "$ANTHROPIC_API_KEY" ] && args="$args ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
+          supabase secrets set $args --project-ref "$PROJECT" >/dev/null && echo "ajustes guardados"

@@ -52,8 +52,9 @@ recintos se guarda lo mínimo para mostrar el evento y siempre se enlaza a la fi
 
 - **`pruebas`** → https://pruebas.limonplanes.com (Cloudflare Pages, carpeta `web`, sin compilación). Lleva una franja roja «PRUEBAS», no aparece en buscadores (`web/_headers`) y no cuenta estadísticas de uso.
 - **`main`** → https://limonplanes.com (GitHub Pages). Solo se pasa a `main` lo que se ha probado en `pruebas`.
-- Base de datos: la misma para las dos webs (los datos, los correos y los avisos son reales). Los cambios de base de datos solo añaden (tablas, columnas, funciones nuevas), nunca quitan ni renombran, para que la versión publicada siga funcionando.
-- Funciones del servidor: lo que se sube a `pruebas` se publica como `limon-…-pruebas`; la web de pruebas las usa si existen y, si no, usa las normales.
+- Base de datos: cada web tiene la suya. Producción usa «Limon» (`pxeqbxxfsrvsxcdfiddc`) y pruebas usa «Limon pruebas» (`vxxempphqdpzrzcrtfvw`), con la misma estructura, el catálogo y los planes de Madrid y Gijón, y sin datos de personas (`web/config.js` elige según la dirección). La copia la hace el flujo «Base de datos de pruebas» (a mano, y los lunes añade los planes nuevos). Un cambio de base de datos se aplica en las dos.
+- Funciones del servidor: lo que se sube a `pruebas` se publica en el proyecto de pruebas (con los enlaces a pruebas.limonplanes.com y un tope de IA bajo); lo de `main`, en producción.
+- En pruebas no hay inicio con Google, ni correos (no tiene clave de Resend), ni avisos al móvil: las cuentas se crean con correo y contraseña.
 
 ## Batería de pruebas
 

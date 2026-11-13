@@ -7,6 +7,9 @@ name: Base de datos de pruebas
 # Secretos: SUPABASE_DB_URL o SUPABASE_DB_PASSWORD (leer producción) y SUPABASE_PRUEBAS_DB_PASSWORD (la contraseña de la base
 # de datos del proyecto de pruebas, para escribir en ella). Ninguno se imprime.
 on:
+  # los lunes se añaden los planes nuevos de las zonas de pruebas (los que ya estaban se dejan como están)
+  schedule:
+    - cron: "13 5 * * 1"
   workflow_dispatch:
     inputs:
       modo:
@@ -30,8 +33,8 @@ jobs:
       REF: pxeqbxxfsrvsxcdfiddc       # producción (solo lectura)
       DEST: vxxempphqdpzrzcrtfvw      # pruebas
       REGION: eu-central-1
-      MODO: ${{ github.event.inputs.modo }}
-      ZONAS: ${{ github.event.inputs.zonas }}
+      MODO: ${{ github.event.inputs.modo || 'datos' }}
+      ZONAS: ${{ github.event.inputs.zonas || 'madrid,gijon' }}
     steps:
       - name: Instalar psql 17
         run: |

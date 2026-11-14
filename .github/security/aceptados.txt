@@ -77,3 +77,14 @@ extension_in_public:pg_net
 
 # Protección de contraseñas filtradas: solo está en el plan Pro de Supabase (comprobado el 11-11-2026). Quitar esta línea al cambiar de plan y activarla
 auth_leaked_password_protection:Auth
+
+# Tablas internas con RLS y sin políticas: la app no las lee ni escribe; solo las funciones del servidor y los flujos (revisado el 14-11-2026)
+rls_enabled_no_policy:newsletter_attempts
+rls_enabled_no_policy:newsletter_subs
+rls_enabled_no_policy:search_daily
+rls_enabled_no_policy:search_queries
+rls_enabled_no_policy:usage_counts
+
+# contar(): contador anónimo de orígenes y embudo; valida ciudad y tipo y solo suma en usage_counts, como contar_apertura
+anon_security_definer_function_executable:contar
+authenticated_security_definer_function_executable:contar

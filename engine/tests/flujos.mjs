@@ -309,6 +309,15 @@ try {
       ok(/Con una cuenta te avisamos/.test(await p.locator('#sheet').innerText().catch(() => '')), T('sin cuenta, la campana explica qué avisos recibirías'));
       await p.locator('#sheet [data-sheet-close]').click().catch(() => p.keyboard.press('Escape'));
       await p.waitForTimeout(400);
+      // un corte de hoy en una calle tuya: ya no sale como aviso grande en Para ti, sino en la campana (también sin cuenta)
+      await p.evaluate(() => { ponStreets(['Alcalá']); renderAll(); pintaCampana(); });
+      await p.waitForTimeout(200);
+      ok(await p.locator('#pt-list .banner').count() === 0 && await p.locator('#bell .dot').isVisible(), T('un corte en tus calles no ocupa Para ti: enciende la campana'));
+      await p.locator('#bell').click(); await p.waitForTimeout(300);
+      ok(/Hoy: 1 aviso en tus calles/.test(await p.locator('#sheet').innerText()), T('…y la campana lo lista, aun sin cuenta'));
+      await p.locator('#sheet .notis a[data-caday-go="hoy"]').click(); await p.waitForTimeout(400);
+      ok(await p.locator('#v-calle').isVisible(), T('tocarlo lleva a Calle'));
+      await ir(p, 'parati');
       await p.evaluate(() => {
         window.limonDB.user = () => ({ id: 'x' });
         const t = Date.now();
@@ -317,8 +326,9 @@ try {
         pintaCampana(); openSheet(panelCampana());
       });
       await p.waitForTimeout(300);
-      ok(await p.locator('#bell .dot').isVisible() && await p.locator('#sheet .notis li').count() === 2 && await p.locator('#sheet .notis li.nueva').count() === 1,
-        T('con avisos: punto rojo y la lista, con los nuevos resaltados'));
+      const nl = await p.locator('#sheet .notis li').count(), nn = await p.locator('#sheet .notis li.nueva').count();
+      ok(await p.locator('#bell .dot').isVisible() && nl >= 3 && nn === 1,
+        T(`con avisos: punto rojo y la lista, con los nuevos resaltados (${nl} avisos, ${nn} nuevos)`));
       await p.locator('#sheet .notis a[data-goev="e104"]').click();
       await p.waitForTimeout(400);
       ok(await p.locator('article.card.abierta[data-eid="e104"]').count() > 0, T('tocar un aviso abre su plan'));

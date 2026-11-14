@@ -142,7 +142,7 @@ function clicQfr(ev) {
   return true;
 }
 function renderParaTi() {
-  $('new-hint').innerHTML = newBanner();
+  $('new-hint').innerHTML = '';  // los planes nuevos se ven con el botón «✨ Nuevos» de la barra de filtros
   const [a, b] = range(state.when);
   if (!Object.values(prefs).some(v => v === 1) && !Object.values(learned).some(v => v >= 2) && !(taste && ((taste.categorias || []).length || (taste.temas || []).length)) && !Object.keys(FRIENDS).length && !TOPICS.length) {
     const items = [];
@@ -158,7 +158,7 @@ function renderParaTi() {
     // sin párrafo de presentación: la franja de intereses ya explica la app y los planes empiezan antes
     $('pt-lead').textContent = ''; $('pt-lead').hidden = true;
     logList(items.slice(0, state.ptShown).map(x => x.e.id));
-    $('pt-list').innerHTML = trasTercera(arriba() + avisoHoy() + shareFindeBtn() + zoneNote() + streetBanner() + friendsBlock(a, b) +
+    $('pt-list').innerHTML = trasTercera(arriba() + avisoHoy() + shareFindeBtn() + zoneNote() + friendsBlock(a, b) +
       // se eligen los más destacados y se enseñan por orden de día y hora (en un municipio, primero los suyos)
       franjaIntereses() + conSeccion(ZONE ? items.slice(0, state.ptShown) : items.slice(0, state.ptShown).sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || (x.occ.date - y.occ.date) || (horaOrden(x.e) - horaOrden(y.e)) || (y.s - x.s)), x => card(x.e, { occ: x.occ })), unAviso());
     $('pt-list').insertAdjacentHTML('beforeend', resumenCard());
@@ -184,7 +184,7 @@ function renderParaTi() {
   const html = (dated.length ? `<h2>Con fecha</h2>` + dated.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '') +
     (going.length ? SEC_LARGOS + going.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '');
   logList(top.map(x => x.e.id));
-  $('pt-list').innerHTML = trasTercera(arriba() + shareFindeBtn() + zoneNote() + streetBanner() + friendsBlock(a, b) + (state.franja ? franjaIntereses() : '') + aiBlock() + (html ? '<h2>Todo lo que encaja</h2>' + html.replace('<h2>Con fecha</h2>', '') : '<div class="empty">No hay planes que encajen con tus intereses en estas fechas.</div>'), unAviso());
+  $('pt-list').innerHTML = trasTercera(arriba() + shareFindeBtn() + zoneNote() + friendsBlock(a, b) + (state.franja ? franjaIntereses() : '') + aiBlock() + (html ? '<h2>Todo lo que encaja</h2>' + html.replace('<h2>Con fecha</h2>', '') : '<div class="empty">No hay planes que encajen con tus intereses en estas fechas.</div>'), unAviso());
   $('pt-list').insertAdjacentHTML('beforeend', resumenCard());
   $('pt-more').hidden = items.length <= state.ptShown;
   document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));

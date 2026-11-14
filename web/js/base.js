@@ -159,6 +159,7 @@ function iniciaDatos() {
   taste = store.get('taste', null);
   tasteText = store.get('taste_text', '');
   CLOSURES = DATA.closures || [];
+  if (typeof pintaCampana === 'function') setTimeout(pintaCampana, 0);  // los cortes en tus calles salen en la campana
   // ciudad elegida: centro, distritos, estadios y secciones disponibles vienen de la tabla de ciudades
   CITY = DATA.city || { id: 'madrid', name: 'Madrid', lat: 40.4168, lng: -3.7038, districts: [], stadiums: [], features: { calle: true } };
   CENTER = [CITY.lat, CITY.lng];

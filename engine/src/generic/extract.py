@@ -29,7 +29,7 @@ def read_source(s, city):
         rows, kind = F.table_rows(txt, ct)
         mp = c.get('mapping') or {}
         data = F.dig(rows, mp.get('ruta')) if kind == 'json' and isinstance(rows, dict) else rows
-        return F.mapped_events(data, mp, f)
+        return F.mapped_events(data, mp, f, city.get('districts'))
     if m == 'jsonld':
         st, _, txt, f = fetch(c['url'])
         return F.jsonld_events(parse_page(txt, f)['ld'], f) if st == 200 else None
@@ -249,7 +249,7 @@ def main(cid):
                 if len(g) > 3 and g[3] and not e.get('direccion'):
                     e['direccion'] = g[3]  # la calle que da OpenStreetMap al situar el recinto, si la fuente no la trae
                 if not prov:
-                    e['distrito'] = g[2]
+                    e['distrito'] = e.get('distrito') or g[2]  # el distrito oficial que da la fuente manda sobre el de OpenStreetMap
             elif prov and e.get('muni_ll'):  # sin el sitio exacto: en el centro del pueblo
                 e['lat'], e['lng'] = e['muni_ll']
         elif e.get('lat') and not e.get('distrito') and e.get('lugar') and vnorm(e['lugar']) in known:

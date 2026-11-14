@@ -4,7 +4,7 @@ Todos devuelven eventos «crudos» con el mismo formato:
   {titulo, inicio, fin, hora, lugar, direccion, municipio, precio, gratis, url, descripcion, imagen, lat, lng}
 con fechas YYYY-MM-DD. La normalización final (ventana de fechas, municipio, duplicados) la hace extract.py.
 """
-import csv, datetime as dt, html, io, json, re, urllib.parse
+import csv, datetime as dt, html, io, json, re, unicodedata, urllib.parse
 from zoneinfo import ZoneInfo
 import xml.etree.ElementTree as ET
 from lib import tool_call, fold
@@ -238,9 +238,15 @@ def guess_mapping(sample, kind):
                      '(usa el nombre exacto que aparece) o null si no existe.', f'Formato: {kind}\nMuestra:\n{shown}', MAP_TOOL, max_tokens=1500)
 
 
-def mapped_events(rows, m, base):
+def mapped_events(rows, m, base, distritos=None):
+    """Filas de datos abiertos → eventos, según el mapa de columnas `m`. Además de las columnas que propone la IA admite dos
+    que se ponen a mano en la receta: `lugar2` (columna del lugar cuando la primera viene vacía) y `distrito` (columna con el
+    distrito oficial; solo se acepta si es uno de `distritos`, los de la ciudad, y se devuelve con su nombre exacto)."""
     out = []
     g = lambda r, k: (r.get(m[k]) if m.get(k) and isinstance(r, dict) else None)
+    plano = lambda t: re.sub(r'[^a-z0-9ñ]+', ' ', ''.join(c for c in unicodedata.normalize('NFD', str(t or '').lower())
+                                                           if unicodedata.category(c) != 'Mn')).strip()
+    oficiales = {plano(d): d for d in (distritos or [])}
     for r in rows:
         ini, hora = parse_when(g(r, 'inicio'))
         if not ini or not g(r, 'titulo'):
@@ -248,7 +254,8 @@ def mapped_events(rows, m, base):
         fin, _ = parse_when(g(r, 'fin'))
         gr = str(g(r, 'gratis') or '').lower()
         out.append({'titulo': clean(g(r, 'titulo'), 300), 'inicio': ini, 'fin': fin or ini, 'hora': clean(g(r, 'hora'), 40) or hora,
-                    'lugar': clean(g(r, 'lugar'), 200) or None, 'direccion': clean(g(r, 'direccion'), 200) or None,
+                    'lugar': clean(g(r, 'lugar'), 200) or clean(g(r, 'lugar2'), 200) or None,
+                    'direccion': clean(g(r, 'direccion'), 200) or None, 'distrito': oficiales.get(plano(g(r, 'distrito'))),
                     'municipio': clean(g(r, 'municipio'), 80) or None, 'precio': clean(g(r, 'precio'), 80) or None,
                     'gratis': gr in ('1', 'true', 'si', 'sí', 'yes', 'gratis', 'gratuito', 'doan', 'dohainik'),
                     'url': clean(g(r, 'url'), 500) or base, 'descripcion': clean(g(r, 'descripcion'), 600) or None, 'imagen': None,

@@ -96,7 +96,8 @@ function renderExplorar() {
 }
 function renderAgenda() {
   const list = EV.filter(e => saved.includes(e.id)).sort((a, b) => a.inicio.localeCompare(b.inicio) || horaOrden(a) - horaOrden(b));
-  $('ag-list').innerHTML = list.map(e => card(e)).join('') || '<div class="empty">Aún no has guardado nada. Toca el marcador de cualquier evento para traerlo aquí.</div>';
+  $('ag-list').innerHTML = list.map(e => card(e)).join('') || `<div class="empty agvacia"><p style="margin:0">Aún no has guardado nada. Toca <b>Guardar</b> en cualquier plan y aparecerá aquí, ordenado por fecha.</p>
+    <button class="btn" data-goto="parati" style="align-self:flex-start">Ver planes de esta semana</button></div>`;
   $('n-agenda').textContent = saved.length || '';
   renderDiary(); renderLists();
 }
@@ -151,15 +152,15 @@ function renderFuentes() {
         <div class="tablewrap"><table class="cov"><thead><tr><th>Web</th><th class="n">Veces</th><th>Ejemplo</th></tr></thead><tbody>${au.cands.map(c => `<tr><td>${esc(c.domain)}</td><td class="n">${c.hits}</td><td>${c.example_url ? `<a href="${ext(c.example_url)}" target="_blank" rel="noopener">${esc((c.example_title || c.example_url).slice(0, 70))}</a>` : ''}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
   }
 }
-// Perfil: sin sesión, «Entra o crea tu cuenta» va arriba y abierto; con sesión, «Tu cuenta» (cerrar sesión, datos…) al final
+// Perfil: la cuenta va arriba, antes de los cuatro grupos (Mis gustos, Mi gente, Avisos y apariencia, Más). Sin sesión,
+// «Entra o crea tu cuenta» abierto; con sesión, «Tu cuenta» (cerrar sesión, datos…) plegado
 function placeAccount() {
-  const acc = $('account'), first = $('taste'), last = $('mail'); if (!acc || !first || !last) return;
+  const acc = $('account'), first = $('g-gustos'); if (!acc || !first) return;
   const h = acc.querySelector('h2');
+  if (acc.nextElementSibling !== first) first.before(acc);
   if (!logged) {
-    if (acc.nextElementSibling !== first) first.before(acc);
     acc.classList.add('open', 'top'); if (h) { h.textContent = 'Entra o crea tu cuenta'; h.setAttribute('aria-expanded', 'true'); }
   } else {
-    if (acc.previousElementSibling !== last) last.after(acc);
     if (acc.classList.contains('top')) { acc.classList.remove('top', 'open'); if (h) h.setAttribute('aria-expanded', 'false'); }
     if (h) h.textContent = 'Tu cuenta';
   }

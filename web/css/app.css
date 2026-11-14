@@ -392,3 +392,13 @@ table.cov td.n, table.cov th.n { text-align: right }
 .skip:focus { top: 8px }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0 }
 a.pill { text-decoration: none; color: inherit }
+
+/* Perfil en cuatro grupos */
+.grupo { margin: 18px 0 2px }
+.grupo .grupo-t { margin: 0; font: 700 18px var(--f-display, inherit); color: var(--ink) }
+.grupo .note { margin: 2px 0 0 }
+.agvacia { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; text-align: left }
+.cutmas-b { align-self: flex-start; font-size: 13.5px; min-height: 32px }
+.cutmas { display: flex; flex-direction: column; gap: 8px }
+.cutmas[hidden] { display: none }
+#splash.out { pointer-events: none; transition-duration: .2s }

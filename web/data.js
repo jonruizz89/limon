@@ -680,7 +680,8 @@
       // startApp (js/app.js) carga js/inicio.js y devuelve la app cuando ha terminado de arrancar
       app = await startApp({ eventos: evs, meta, closures: cuts, audit: undefined, city: CITY, cities: CITIES }, tax, sync);
       wireAccount();
-      requestAnimationFrame(() => sp(1));
+      // los planes ya están pintados: la pantalla de carga se va en ese mismo momento (antes esperaba hasta 0,9 s más)
+      requestAnimationFrame(() => { sp(1); const s = document.getElementById('splash'); if (s) s.classList.add('out'); });
     } catch (e) {
       console.error(e);
       $('pt-h').textContent = 'No se han podido cargar los planes';

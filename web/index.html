@@ -11,9 +11,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Qué hacer hoy y este fin de semana en tu ciudad: conciertos, teatro, exposiciones, planes gratis y con niños, en una agenda gratis y sin anuncios. Y en Madrid, también las calles cortadas antes de salir.">
 <!-- El arranque se descarga a la vez que el estilo, sin esperar a que el navegador llegue a sus etiquetas (mismas direcciones y ?v= que abajo) -->
-<link rel="preload" as="script" href="config.js?v=20261115b">
-<link rel="preload" as="script" href="data.js?v=20261115b">
-<link rel="preload" as="script" href="js/app.js?v=20261115b">
+<link rel="preload" as="script" href="config.js?v=20261115c">
+<link rel="preload" as="script" href="data.js?v=20261115c">
+<link rel="preload" as="script" href="js/app.js?v=20261115c">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="icon" href="limon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="limon-180.png">
@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar css/ o js/) -->
-<link rel="stylesheet" href="css/app.css?v=20261115b">
+<link rel="stylesheet" href="css/app.css?v=20261115c">
 
 </head>
 <body>
@@ -121,7 +121,7 @@ try { var _t = JSON.parse(localStorage.getItem('bureo.tema') || 'null'); if (_t 
   </section>
 
   <section class="view" id="v-calle" hidden>
-    <h1>Antes de salir</h1>
+    <h1>Calle</h1>
     <p class="lead" id="ca-lead">Calles cortadas y cierres de Metro, Cercanías y autobuses, según los avisos del Ayuntamiento y del Consorcio de Transportes.</p>
     <div class="seg" role="group" aria-label="Tipo" id="ca-kinds"></div>
     <div class="seg" role="group" aria-label="Día" id="ca-days"></div>
@@ -199,15 +199,15 @@ try { var _t = JSON.parse(localStorage.getItem('bureo.tema') || 'null'); if (_t 
   <section class="view" id="v-agenda" hidden>
     <h1>Mi agenda</h1>
     <p class="lead">Lo que has guardado, por fecha.</p>
-    <div class="panel" id="ag-cal"></div>
     <div id="ag-list" class="view"></div>
+    <div class="panel" id="ag-cal"></div>
     <div class="panel" id="ag-diary"></div>
     <div class="panel" id="ag-lists"></div>
   </section>
 
   <section class="view" id="v-intereses" hidden>
     <h1>Perfil</h1>
-    <p class="note" style="margin:-4px 0 0">Toca cada apartado para abrirlo.</p>
+    <div class="grupo" id="g-gustos"><p class="grupo-t" role="heading" aria-level="2">Mis gustos</p><p class="note">Lo que te gusta y con quién sales: con esto, Para ti es solo tuyo.</p></div>
     <div class="panel" id="taste">
       <h2 style="margin:0">Cuéntame qué te gusta</h2>
       <p class="note">Escríbelo con tus palabras, como se lo contarías a un amigo: «cine clásico, sobre todo Hitchcock; arqueología y Egipto; nada de reguetón». Lo convertimos en tu perfil y puedes corregirlo.</p>
@@ -232,15 +232,23 @@ try { var _t = JSON.parse(localStorage.getItem('bureo.tema') || 'null'); if (_t 
       <label class="toggle" for="o-stats">Ayudar a mejorar Limón con estadísticas de uso (qué planes abres, guardas o compartes; <a href="privacidad.html#estadisticas">más info</a>)<input type="checkbox" id="o-stats"></label>
       <div id="demo-box"></div>
     </div>
+    <div class="grupo" id="g-gente"><p class="grupo-t" role="heading" aria-level="2">Mi gente</p><p class="note">Amigos, quién te sigue y las salas, ciclos y temas que sigues.</p></div>
     <div class="panel" id="social"></div>
     <div class="panel" id="seguir"></div>
-    <div class="panel" id="ventajas"></div>
+    <div class="grupo" id="g-avisos"><p class="grupo-t" role="heading" aria-level="2">Avisos y apariencia</p><p class="note">Qué te avisamos y cómo se ve la app.</p></div>
+    <div class="panel" id="mail" hidden></div>
+      <div class="panel" id="tema-panel">
+        <h2 style="margin:0">Apariencia</h2>
+        <div class="seg" role="group" aria-label="Tema"><button class="pill" data-tema="auto">Automático</button><button class="pill" data-tema="light">☀️ Claro</button><button class="pill" data-tema="dark">🌙 Oscuro</button></div>
+        <p class="note" style="margin:0">Automático sigue la configuración de tu móvil u ordenador.</p>
+      </div>
+    <div class="grupo" id="g-mas"><p class="grupo-t" role="heading" aria-level="2">Más</p><p class="note">Tu año en planes, ventajas, ideas y, si organizas, tus eventos.</p></div>
     <div class="panel" id="year"></div>
+    <div class="panel" id="ventajas"></div>
     <div class="panel" id="ideas"></div>
     <div class="panel" id="org" hidden></div>
     <div class="panel" id="adm" hidden></div>
     <div class="panel" id="stats" hidden></div>
-    <div class="panel" id="mail" hidden></div>
     <div class="panel" id="account">
       <h2 style="margin:0">Tu cuenta</h2>
       <div id="acc-out">
@@ -269,11 +277,6 @@ try { var _t = JSON.parse(localStorage.getItem('bureo.tema') || 'null'); if (_t 
           <p class="note" id="acc-del-msg" role="status"></p></details>
       </div>
     </div>
-      <div class="panel" id="tema-panel">
-        <h2 style="margin:0">Apariencia</h2>
-        <div class="seg" role="group" aria-label="Tema"><button class="pill" data-tema="auto">Automático</button><button class="pill" data-tema="light">☀️ Claro</button><button class="pill" data-tema="dark">🌙 Oscuro</button></div>
-        <p class="note" style="margin:0">Automático sigue la configuración de tu móvil u ordenador.</p>
-      </div>
       <div id="ig-perfil" hidden style="display:flex;gap:8px"></div>
       <button class="btn ghost" data-goto="fuentes" style="align-self:flex-start">Fuentes y cobertura ›</button>
       <p class="note" id="ver">Versión __VER__</p>
@@ -301,24 +304,24 @@ try { var _t = JSON.parse(localStorage.getItem('bureo.tema') || 'null'); if (_t 
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js?v=sri" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <!-- ?v=: cambia con cada versión del código para que ningún móvil se quede con una copia vieja (súbelo al tocar estos ficheros) -->
-<script src="config.js?v=20261115b"></script>
-<script src="data.js?v=20261115b"></script>
+<script src="config.js?v=20261115c"></script>
+<script src="data.js?v=20261115c"></script>
 <!-- el arranque va justo después de data.js para pedir los planes cuanto antes; no espera a los archivos por tema -->
-<script src="js/app.js?v=20261115b"></script>
+<script src="js/app.js?v=20261115c"></script>
 <!-- La app, por temas (web/js/). Estos archivos solo declaran funciones y valores fijos; lo que se ejecuta al arrancar está en js/inicio.js, que carga js/app.js cuando llegan los datos.
      Con «defer» se descargan todos a la vez (sin él, el navegador pide cada uno al terminar el anterior) y se ejecutan en este orden al acabar de leerse la página -->
-<script defer src="js/base.js?v=20261115b"></script>
-<script defer src="js/calendario.js?v=20261115b"></script>
-<script defer src="js/filtros.js?v=20261115b"></script>
-<script defer src="js/temporadas.js?v=20261115b"></script>
-<script defer src="js/tarjetas.js?v=20261115b"></script>
-<script defer src="js/compartir.js?v=20261115b"></script>
-<script defer src="js/calle.js?v=20261115b"></script>
-<script defer src="js/social.js?v=20261115b"></script>
-<script defer src="js/cuenta.js?v=20261115b"></script>
-<script defer src="js/campana.js?v=20261115b"></script>
-<script defer src="js/parati.js?v=20261115b"></script>
-<script defer src="js/vistas.js?v=20261115b"></script>
+<script defer src="js/base.js?v=20261115c"></script>
+<script defer src="js/calendario.js?v=20261115c"></script>
+<script defer src="js/filtros.js?v=20261115c"></script>
+<script defer src="js/temporadas.js?v=20261115c"></script>
+<script defer src="js/tarjetas.js?v=20261115c"></script>
+<script defer src="js/compartir.js?v=20261115c"></script>
+<script defer src="js/calle.js?v=20261115c"></script>
+<script defer src="js/social.js?v=20261115c"></script>
+<script defer src="js/cuenta.js?v=20261115c"></script>
+<script defer src="js/campana.js?v=20261115c"></script>
+<script defer src="js/parati.js?v=20261115c"></script>
+<script defer src="js/vistas.js?v=20261115c"></script>
 
 <dialog class="pwdlg sheet" id="sheet" aria-label="Perfil o lista"><div id="sheet-body" class="sheetbody"></div></dialog>
 <dialog class="pwdlg" id="pw-dlg" aria-labelledby="pw-dlg-t">

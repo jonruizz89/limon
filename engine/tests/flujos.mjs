@@ -138,6 +138,7 @@ try {
       ok(await n() === '1' && await p.locator('#ag-list article.card').count() === 1, T('la agenda sigue tras recargar'));
       await p.locator('#ag-list [data-save="e104"]').click();
       ok(await p.locator('#ag-list article.card').count() === 0, T('quitar desde la Agenda la deja vacía'));
+      ok(await p.locator('#ag-list .agvacia [data-goto="parati"]').isVisible(), T('la Agenda vacía ofrece «Ver planes de esta semana»'));
       ok(errores.length === 0, T(`agenda sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
       await ctx.close();
     }
@@ -190,6 +191,9 @@ try {
       await p.waitForTimeout(300);
       const avisos = () => p.locator('#ca-list').innerText();
       ok(/calle de Alcalá/.test(await avisos()) && !/Castellana/.test(await avisos()), T('Calle · hoy sale la obra de Alcalá y no el corte del día 20'));
+      const plegado = await p.locator('#ca-list .cutmas').first().isHidden();
+      await p.locator('#ca-list [data-cutmas]').first().click();
+      ok(plegado && await p.locator('#ca-list .cutmas').first().isVisible(), T('Calle · cada aviso sale plegado y «Ver detalles» lo abre'));
       await p.click('#ca-days [data-cuando]');
       await dia(p, 20);
       await p.waitForTimeout(300);
@@ -297,6 +301,18 @@ try {
       await p.waitForTimeout(400);
       ok(await p.locator('#v-parati').isVisible() && await p.locator('article.card.abierta:visible').count() === 0 && !/[?&]ev=/.test(p.url()), T('el logo lleva al inicio: Para ti, sin fichas abiertas y con la dirección limpia'));
       ok(errores.length === 0, T(`ficha y logo sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
+      await ctx.close();
+    }
+
+    // ───────── Perfil: la cuenta arriba y cuatro grupos
+    {
+      const { ctx, p, errores } = await abrir(b, perfil);
+      await cargada(p);
+      await ir(p, 'intereses');
+      const orden = await p.locator('#v-intereses > .panel, #v-intereses > .grupo').evaluateAll((xs) => xs.filter((x) => !x.hidden).map((x) => x.id));
+      ok(orden[0] === 'account' && orden.indexOf('g-gustos') < orden.indexOf('g-gente') && orden.indexOf('g-gente') < orden.indexOf('g-avisos') && orden.indexOf('g-avisos') < orden.indexOf('g-mas'),
+        T(`Perfil: la cuenta arriba y luego Mis gustos, Mi gente, Avisos y apariencia, Más (${orden.join(',')})`));
+      ok(errores.length === 0, T(`Perfil sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
       await ctx.close();
     }
 

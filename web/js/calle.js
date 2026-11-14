@@ -66,13 +66,24 @@ function cutCard(x, i) {
       <div class="tags"><span class="tag ${x.mine ? 'uni' : ''}">${x.mine ? 'Te afecta' : esc(KIND[c.kind] || 'Aviso')}</span>${x.mine ? `<span class="tag">${esc(KIND[c.kind] || 'Aviso')}</span>` : ''}${c.district ? `<span class="tag">${esc(c.district)}</span>` : ''}</div>
       <div class="when">${esc(when)}</div>
       <h3 class="title" style="padding-right:0">${esc(c.title)}</h3>
+      ${sts.length ? `<div class="tags">${sts.slice(0, 3).map(st => `<span class="street ${isMine(st) ? 'hit' : ''}">${esc(st)}</span>`).join('')}${sts.length > 3 ? `<span class="street">y ${sts.length - 3} más</span>` : ''}</div>` : ''}
+      <button class="btnlink cutmas-b" data-cutmas="${i}" aria-expanded="false" aria-controls="cutmas-${i}">Ver detalles</button>
+      <div class="cutmas" id="cutmas-${i}" hidden>
       ${c.summary ? `<p class="meta" style="margin:0">${esc(c.summary)}</p>` : ''}
       ${(() => { const st = stadiumOf(c.title + ' ' + (c.summary || '')); const m = st && CA_DATE ? bigEventsOn(CA_DATE, st) : []; return m.length ? `<div class="why">Por: ${m.map(e => `<button class="btnlink" data-goev="${e.id}">${esc(e.titulo)}${e.hora && e.hora.length < 12 ? ' · ' + esc(e.hora) : ''}</button>`).join(' · ')}</div>` : ''; })()}
       ${((c.lines || []).length || (c.stations || []).length) ? `<div class="tags">${c.lines.map(l => `<span class="line ${lineMine(l, c.kind) ? 'hit' : ''}" style="${lineStyle(l, c.kind)}">${esc(l)}</span>`).join('')}${(c.stations || []).map(st => `<span class="street ${isMine(st) ? 'hit' : ''}">${esc(st)}</span>`).join('')}</div>` : ''}
-      <div class="tags">${sts.slice(0, 10).map(st => `<span class="street ${isMine(st) ? 'hit' : ''}">${esc(st)}</span>`).join('')}${sts.length > 10 ? `<span class="street">y ${sts.length - 10} más</span>` : ''}</div>
+      ${sts.length > 3 ? `<div class="tags">${sts.slice(3, 20).map(st => `<span class="street ${isMine(st) ? 'hit' : ''}">${esc(st)}</span>`).join('')}${sts.length > 20 ? `<span class="street">y ${sts.length - 20} más</span>` : ''}</div>` : ''}
       ${c.geom ? `<button class="maplink" data-cutmap="${i}">Ver en el mapa</button>` : ''}
       ${c.source_url ? `<div class="links"><a href="${ext(c.source_url)}" target="_blank" rel="noopener">${CITY.id !== 'madrid' && c.source_name ? 'Ver en ' + esc(c.source_name.split('·').pop().trim()) : 'Ver el aviso ' + (TRANS.includes(c.kind) ? 'del Consorcio de Transportes' : 'del Ayuntamiento')} ↗</a></div>` : ''}
+      </div>
     </article>`;
+}
+// Calle: cada aviso, plegado (tipo, hora, título y hasta tres calles); el resto al tocar «Ver detalles»
+function clicCutmas(ev) {
+  const b = ev.target.closest('[data-cutmas]'); if (!b) return false;
+  const d = document.getElementById('cutmas-' + b.dataset.cutmas); if (!d) return true;
+  d.hidden = !d.hidden; b.setAttribute('aria-expanded', !d.hidden); b.textContent = d.hidden ? 'Ver detalles' : 'Ocultar detalles';
+  return true;
 }
 function renderCalle() {
   const days = caDays();

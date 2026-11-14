@@ -138,6 +138,8 @@ def main(cid):
         city['_children'] = {fold(n) for c in kids for n in [c['name']] + list((c.get('features') or {}).get('aliases') or [])}
     srcs = sb('GET', f'sources?select=id,name,url,layer,config,events_last,notes&city_id=eq.{cid}&status=eq.activa&order=id')
     raw, per = [], {}
+    fx = (city.get('features') or {}).get('fuera')
+    fuera = re.compile(r'\b(' + '|'.join(re.escape(fold(x)) for x in fx) + r')\b') if fx else None
     for s in srcs:
         if not (s.get('config') or {}).get('method'):
             continue
@@ -160,6 +162,8 @@ def main(cid):
                 continue  # agendas autonómicas: solo si sabemos que es en la ciudad
             if not in_city(e, city):
                 continue
+            if fuera and fuera.search(fold(' '.join(str(e.get(k) or '') for k in ('lugar', 'municipio')))):
+                continue  # pueblos de la provincia que una agenda de la ciudad mezcla (features.fuera, p. ej. Torremolinos en Málaga)
             e['fuentes'] = [{'nombre': s['name'], 'url': e.get('url') or s['url']}]
             keep.append(e)
         raw += keep

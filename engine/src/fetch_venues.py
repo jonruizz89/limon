@@ -10,7 +10,7 @@ Cada fuente se lee con el método más barato que admite:
 Respeta robots.txt (se comprobó al dar de alta cada fuente) y hace una petición cada pocos segundos.
 Variables: ANTHROPIC_API_KEY (para las fuentes llm; sin ella se reutiliza la caché), BUREO_EXTRA_MAX_USD (0.15).
 """
-import datetime as dt, hashlib, html, json, os, re, subprocess, sys, time, urllib.error, urllib.request
+import datetime as dt, hashlib, html, json, os, re, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
 
 RAW = os.environ.get('BUREO_RAW', 'raw')
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -172,24 +172,80 @@ def jsonld(src):
 
 
 # --------------------------------------------------------------------------- estrenos de cine
-def estrenos(src):
-    page = get(src['url'])
+# Fuente principal: la API de TMDB (estrenos en cines de España, con su fecha de estreno en España). Necesita TMDB_API_KEY;
+# sin ella, se lee la página de próximos estrenos de eCartelera (formato de 2026, por semanas).
+# TMDB pide citar: «This product uses the TMDB API but is not endorsed or certified by TMDB».
+TMDB = os.environ.get('TMDB_API_KEY', '').strip()
+
+
+def estrenos_tmdb(src):
+    hasta = HOY + dt.timedelta(days=35)
+    out, vistos = [], set()
+    for pag in (1, 2, 3):
+        q = urllib.parse.urlencode({'region': 'ES', 'language': 'es-ES', 'with_release_type': '3|2', 'sort_by': 'popularity.desc',
+                                    'release_date.gte': (HOY - dt.timedelta(days=6)).isoformat(), 'release_date.lte': hasta.isoformat(), 'page': pag})
+        hdr = {'Accept': 'application/json', 'User-Agent': UA}
+        url = 'https://api.themoviedb.org/3/discover/movie?' + q
+        if TMDB.startswith('ey'):  # «API Read Access Token» (v4) o clave de la v3
+            hdr['Authorization'] = 'Bearer ' + TMDB
+        else:
+            url += '&api_key=' + urllib.parse.quote(TMDB)
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=hdr), timeout=30) as r:
+                d = json.loads(r.read().decode())
+        except Exception as ex:
+            print('  TMDB:', type(ex).__name__, file=sys.stderr)
+            return None if not out else out
+        for m in d.get('results') or []:
+            f = m.get('release_date') or ''
+            if not re.match(r'\d{4}-\d\d-\d\d$', f) or m.get('id') in vistos or m.get('adult'):
+                continue
+            vistos.add(m['id'])
+            dia = dt.date.fromisoformat(f)
+            out.append(ev(src, 'Estreno en cines: ' + (m.get('title') or m.get('original_title') or '').strip(), dia.isoformat(),
+                          (dia + dt.timedelta(days=6)).isoformat(), url=f"https://www.themoviedb.org/movie/{m['id']}?language=es-ES",
+                          lugar='Cines de Madrid', direccion=None, descripcion=(m.get('overview') or '')[:400],
+                          imagen=f"https://image.tmdb.org/t/p/w500{m['poster_path']}" if m.get('poster_path') else None))
+        if pag >= (d.get('total_pages') or 1):
+            break
+    return out
+
+
+def estrenos_ecartelera(src):
+    page = get('https://www.ecartelera.com/peliculas/estrenos/')
     if not page:
         return None
     out = []
-    for fecha, bloque in re.findall(r'<h3 class="mlist-subtit"><span>([^<]+)</span></h3>(.*?)(?=<h3 class="mlist-subtit"|<h2 |$)', page, re.S):
-        m = re.search(r'(\d{1,2}) de ([a-z]+) de (\d{4})', html.unescape(fecha).lower())
-        if not m or m.group(2) not in MESES:
+    for semana, bloque in re.findall(r'<h3 class="fm-team__title">(.*?)</h3>\s*<ul class="fm-posters">(.*?)</ul>', page, re.S):
+        sem = re.sub(r'<[^>]+>', ' ', html.unescape(semana)).lower()
+        m = re.search(r'del (\d{1,2})(?: de ([a-z]+))? al (\d{1,2}) de ([a-z]+)', sem)
+        if not m:
             continue
-        dia = dt.date(int(m.group(3)), MESES[m.group(2)], int(m.group(1)))
-        for item in re.findall(r'<div class="mlist-item".*?</div>\s*</div>|<div class="mlist-item".*?title="[^"]+">[^<]+</a></div>', bloque, re.S):
-            if 'source cinema' not in item:
-                continue  # solo cines, no plataformas
-            t = re.search(r'<a href="([^"]+)" title="([^"]+)"', item)
-            if t:
-                out.append(ev(src, 'Estreno en cines: ' + html.unescape(t.group(2)), dia.isoformat(),
-                              (dia + dt.timedelta(days=6)).isoformat(), url=t.group(1), lugar='Cines de Madrid', direccion=None))
+        mes_i = MESES.get(m.group(2) or m.group(4))
+        if not mes_i:
+            continue
+        for href, titulo, dia_txt in re.findall(r'<a class="fm-rel fm-tile" href="([^"]+)">.*?<span class="fm-u">([^<]+)</span>.*?<span class="fm-rel__year">([^<]*)</span>', bloque, re.S):
+            d = re.search(r'(\d{1,2})', dia_txt)
+            num = int(d.group(1)) if d else int(m.group(1))
+            # «del 27 de noviembre al 3 de diciembre»: los días altos son del primer mes y los bajos del segundo
+            mes = MESES.get(m.group(2)) if m.group(2) and num >= int(m.group(1)) else mes_i
+            try:
+                dia = dt.date(HOY.year, mes, num)
+            except ValueError:
+                continue
+            if dia < HOY - dt.timedelta(days=14):  # los meses ya pasados son del año que viene
+                dia = dia.replace(year=HOY.year + 1)
+            out.append(ev(src, 'Estreno en cines: ' + html.unescape(titulo).strip(), dia.isoformat(),
+                          (dia + dt.timedelta(days=6)).isoformat(), url=href, lugar='Cines de Madrid', direccion=None))
     return out
+
+
+def estrenos(src):
+    if TMDB:
+        r = estrenos_tmdb(src)
+        if r:
+            return r
+    return estrenos_ecartelera(src)
 
 
 # --------------------------------------------------------------------------- páginas de agenda leídas con IA

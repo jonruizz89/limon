@@ -8,7 +8,7 @@
    "method": "schema.org Event en la web", "license": "Enlace a la ficha original", "kind": "jsonld", "cats": ["teatro"],
    "venue": "Teatros del Canal", "address": "Calle de Cea Bermúdez, 1"},
   {"name": "Estrenos de cine", "layer": "cartelera", "url": "https://www.ecartelera.com/peliculas/estrenos/",
-   "method": "Listado de estrenos", "license": "Título, fecha y enlace", "kind": "estrenos", "cats": ["estrenos"]},
+   "method": "API de TMDB (estrenos en cines de España); si no hay clave, página de próximos estrenos de eCartelera", "license": "Título, fecha y enlace. This product uses the TMDB API but is not endorsed or certified by TMDB.", "kind": "estrenos", "cats": ["estrenos"]},
   {"name": "Teatro Real", "layer": "recinto", "url": "https://www.teatroreal.es/es/calendario",
    "method": "Página de calendario leída con IA", "license": "Enlace a la ficha original", "kind": "llm", "cats": ["opera"],
    "venue": "Teatro Real", "address": "Plaza de Isabel II, 7"},

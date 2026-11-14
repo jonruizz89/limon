@@ -2,6 +2,7 @@
 // Sitúa la dirección en el mapa, la IA comprueba que es un evento real en la ciudad del evento y le pone categorías.
 // Nada sale sin supervisión: todo queda en «revisión» hasta que un admin lo aprueba (solo lo que publica un admin sale directo).
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
+import { hostPublico } from '../_shared/red.js';
 
 const URL = Deno.env.get('SUPABASE_URL')!;
 const SECRET = (() => {
@@ -59,12 +60,15 @@ const TOOL = {
 
 // P13 · alta pegando un enlace: se lee la página del evento y la IA rellena el formulario (el organizador lo revisa y lo envía;
 // después pasa por la misma revisión de siempre). Solo http(s) a dominios públicos, sin seguir más de 3 redirecciones.
+// En cada salto se comprueba además a qué direcciones resuelve el nombre (hostPublico): un dominio que apunte a una dirección
+// interna no se lee. Queda un riesgo teórico pequeño (que el DNS cambie entre la comprobación y la lectura).
 const PRIVADO = /^(localhost|.*\.local|.*\.internal|.*\.lan|metadata\.google\.internal|\d+\.\d+\.\d+\.\d+|\[.*\])$/i;
 async function leerPagina(url: string): Promise<string | null> {
   let u: URL;
   try { u = new URL(url); } catch { return null; }
   for (let i = 0; i < 4; i++) {
-    if (!/^https?:$/.test(u.protocol) || PRIVADO.test(u.hostname) || (u.port && !['80', '443'].includes(u.port))) return null;
+    if (!/^https?:$/.test(u.protocol) || PRIVADO.test(u.hostname) || (u.port && !['80', '443'].includes(u.port)) || u.username || u.password) return null;
+    if (!(await hostPublico(u.hostname))) return null;
     const r = await fetch(u, { redirect: 'manual', signal: AbortSignal.timeout(10000),
       headers: { 'User-Agent': 'LimonBot/1.0 (+https://limonplanes.com)', 'Accept': 'text/html,application/xhtml+xml' } });
     if (r.status >= 300 && r.status < 400 && r.headers.get('location')) { await r.body?.cancel(); u = new URL(r.headers.get('location')!, u); continue; }
@@ -113,8 +117,7 @@ Deno.serve(async (req) => {
     if (body.action === 'leer') {
       if (!me || (me.role !== 'admin' && me.editor_status !== 'aprobado')) return json({ error: 'Tu cuenta de organizador aún no está aprobada.' }, 403);
       if (!AKEY) return json({ error: 'El relleno automático no está disponible ahora. Rellena los datos a mano.' }, 503);
-      const html = await leerPagina(String(body.url || '').trim().slice(0, 500)).catch(() => null);
-      if (!html) return json({ error: 'No he podido abrir esa página. Comprueba el enlace o rellena los datos a mano.' }, 422);
+      // la lectura cuenta para el tope del día desde antes de salir a por la página (si no, se podría usar para pedir páginas sin límite)
       let reservedL = false;
       if (me.role !== 'admin') {
         const { data: r, error: re } = await admin.rpc('ai_usage_reserve', { p_user: u.user.id, p_max_calls: MAX_REVIEWS_DAY, p_max_usd: MAX_USD_DAY, p_reserve: RESERVE });
@@ -124,6 +127,8 @@ Deno.serve(async (req) => {
       }
       let usdL = 0;
       try {
+        const html = await leerPagina(String(body.url || '').trim().slice(0, 500)).catch(() => null);
+        if (!html) return json({ error: 'No he podido abrir esa página. Comprueba el enlace o rellena los datos a mano.' }, 422);
         const hoy = new Date().toISOString().slice(0, 10);
         const r = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',

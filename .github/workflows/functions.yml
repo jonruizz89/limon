@@ -63,6 +63,9 @@ jobs:
         continue-on-error: true
         run: |
           # enlaces de los correos a la web de pruebas y la IA con un tope de gasto bajo; la clave de Anthropic, sin imprimirla
-          args="LIMON_APP_URL=https://pruebas.limonplanes.com/ LIMON_AI_MAX_USD_DAY=0.5"
-          [ -n "$ANTHROPIC_API_KEY" ] && args="$args ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
-          supabase secrets set $args --project-ref "$PROJECT" --yes 2>&1 | grep -iE "finished|error|nothing" | tail -2; test "${PIPESTATUS[0]}" = 0
+          # (en un archivo temporal que solo lee este usuario, no como argumentos de la orden)
+          umask 077; f=$(mktemp)
+          printf 'LIMON_APP_URL=https://pruebas.limonplanes.com/\nLIMON_AI_MAX_USD_DAY=0.5\n' > "$f"
+          if [ -n "$ANTHROPIC_API_KEY" ]; then printf 'ANTHROPIC_API_KEY=%s\n' "$ANTHROPIC_API_KEY" >> "$f"; fi
+          supabase secrets set --env-file "$f" --project-ref "$PROJECT" --yes 2>&1 | grep -iE "finished|error|nothing" | tail -2; st="${PIPESTATUS[0]}"
+          rm -f "$f"; test "$st" = 0

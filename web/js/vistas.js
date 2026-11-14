@@ -309,7 +309,14 @@ function iniciaEnlacesDirectos() {
   document.addEventListener('input', ev => { if (ev.target.id === 'idea-title') { IDEAS_SIM = similarIdeas(ev.target.value); const b = $('idea-sim'); if (b) b.innerHTML = IDEAS_SIM.length ? '<p class="note" style="margin:0">¿Es alguna de estas? Mejor vótala para que sume:</p>' + IDEAS_SIM.map(ideaRow).join('') : ''; } });
   if (QS.get('fui')) go('parati');
   const rs = QS.get('resumen');
-  if (rs) { if (rs === 'confirmado') store.set('resumenOk', 1); setTimeout(() => toast({ confirmado: '¡Listo! Cada jueves te mandaremos lo mejor del finde.', baja: 'Te hemos dado de baja del resumen. No te escribiremos más.', caducado: 'Ese enlace ya no vale. Pídelo otra vez desde Para ti.' }[rs] || ''), 600); try { history.replaceState(history.state, '', location.pathname + location.search.replace(/[?&]resumen=[a-z]+/, '').replace(/^&/, '?')); } catch (x) { } }
+  if ((rs === 'confirmar' || rs === 'darbaja') && /^[0-9a-f-]{36}$/i.test(QS.get('t') || '')) {  // el enlace del correo: la app es la que confirma o da de baja
+    const conf = rs === 'confirmar';
+    window.limonFn('limon-mail', { body: { action: conf ? 'confirmar' : 'baja_resumen', t: QS.get('t') } }).then(({ data }) => {
+      if (conf && data && data.ok) store.set('resumenOk', 1);
+      toast(data && data.ok ? (conf ? '¡Listo! Te escribiremos solo con lo que pediste.' : 'Te hemos dado de baja. No te escribiremos más.') : 'Ese enlace ya no vale. Pídelo otra vez desde Limón.');
+    }, () => toast('No se ha podido. Prueba otra vez en un rato.'));
+    try { history.replaceState(history.state, '', location.pathname + location.search.replace(/[?&](resumen|t)=[^&]*/g, '').replace(/^&/, '?')); } catch (x) { }
+  } else if (rs) { if (rs === 'confirmado') store.set('resumenOk', 1); setTimeout(() => toast({ confirmado: '¡Listo! Cada jueves te mandaremos lo mejor del finde.', baja: 'Te hemos dado de baja del resumen. No te escribiremos más.', caducado: 'Ese enlace ya no vale. Pídelo otra vez desde Para ti.' }[rs] || ''), 600); try { history.replaceState(history.state, '', location.pathname + location.search.replace(/[?&]resumen=[a-z]+/, '').replace(/^&/, '?')); } catch (x) { } }
   if (QS.get('ideas') !== null) { go('intereses'); openFold('ideas', true); setTimeout(() => { const b = $('ideas'); if (b) b.scrollIntoView({ behavior: 'smooth' }); }, 400); }
   if (QS.get('u') && /^[a-z0-9_.]{3,20}$/i.test(QS.get('u'))) { const un = QS.get('u'); go('intereses'); setTimeout(() => openProfile(un), 300); }
   if (QS.get('lista') && /^\d+$/.test(QS.get('lista'))) { const li = QS.get('lista'); setTimeout(() => openList(li), 300); }

@@ -86,7 +86,7 @@ function cleanLearned(l: unknown): Record<string, number> {
   const out: Record<string, number> = {};
   if (!l || typeof l !== 'object') return out;
   for (const [k, v] of Object.entries(l as Record<string, unknown>).slice(0, 400)) {
-    if (/^(cat|tema|serie):.{1,80}$/.test(k) && typeof v === 'number' && isFinite(v)) out[k] = Math.max(-50, Math.min(50, v));
+    if (/^(cat|tema|serie|sala):.{1,80}$/.test(k) && typeof v === 'number' && isFinite(v)) out[k] = Math.max(-50, Math.min(50, v));
   }
   return out;
 }
@@ -237,8 +237,8 @@ async function recommend(uid: string, when: string, force: boolean, city = 'madr
   if (!cand.length) return { planes: [], usd: 0 };
   const perfil = [taste && taste.resumen, taste && taste.temas && taste.temas.length ? 'Temas: ' + taste.temas.join(', ') : '',
     Object.keys(W).length ? 'Categorías que le gustan: ' + Object.keys(W).join(', ') : '',
-    Object.entries(learned).filter(([, v]) => v >= 1).map(([k]) => k.replace(/^(cat|tema|serie):/, '')).slice(0, 20).join(', ')
-      ? 'Ha guardado o ido a planes de: ' + Object.entries(learned).filter(([, v]) => v >= 1).map(([k]) => k.replace(/^(cat|tema|serie):/, '')).slice(0, 20).join(', ') : '',
+    Object.entries(learned).filter(([, v]) => v >= 1).map(([k]) => k.replace(/^(cat|tema|serie|sala):/, '')).slice(0, 20).join(', ')
+      ? 'Ha guardado o ido a planes de: ' + Object.entries(learned).filter(([, v]) => v >= 1).map(([k]) => k.replace(/^(cat|tema|serie|sala):/, '')).slice(0, 20).join(', ') : '',
     avoid.size ? 'Evita: ' + [...avoid].join(', ') : ''].filter(Boolean).join('\n');
   const lines = cand.map(({ e }) => {
     const sess = (e.event_sessions || []).map((x) => x.on_date).filter((d) => d >= from && d <= to).slice(0, 3);

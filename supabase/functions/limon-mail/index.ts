@@ -168,9 +168,11 @@ async function flush() {
         mail = { subject: `Nuevo registro en Limón (ya sois ${tot})`, html: layout({ title: 'Alguien se ha registrado', intro: `Una persona nueva ha creado su cuenta en Limón.<br><br>Usuarios registrados: <b>${tot}</b>${hoy > 1 ? ` · ${hoy} hoy` : ''}.`, cta: { label: 'Ver estadísticas', url: APP + '?tab=intereses' }, footer: footer(p, k, 'Eres administrador de Limón.') }) };
       } else if (m.kind === 'admin_error') {
         const n = Number(pl.n) || 1;
-        mail = { subject: pl.motivo === 'nuevo' ? `Error nuevo en la app: ${String(pl.msg).slice(0, 70)}` : `Error repetido ${n} veces hoy: ${String(pl.msg).slice(0, 60)}`,
-          html: layout({ title: pl.motivo === 'nuevo' ? 'Ha aparecido un error nuevo en la app' : `Un error se ha repetido ${n} veces hoy`,
-            intro: `<b>${esc(String(pl.msg))}</b> (${esc(String(pl.kind))})<br><br>Se cuenta de forma anónima. El parte diario lo revisa; si es urgente, abre una conversación con este aviso.`,
+        const mas = pl.motivo === 'resumen';  // a partir del tercer aviso del día llega solo este
+        mail = { subject: mas ? 'Hay más errores nuevos en la app hoy' : pl.motivo === 'nuevo' ? `Error nuevo en la app: ${String(pl.msg).slice(0, 70)}` : `Error repetido ${n} veces hoy: ${String(pl.msg).slice(0, 60)}`,
+          html: layout({ title: mas ? 'Hay más errores nuevos en la app hoy' : pl.motivo === 'nuevo' ? 'Ha aparecido un error nuevo en la app' : `Un error se ha repetido ${n} veces hoy`,
+            intro: (mas ? 'Hoy ya te hemos avisado de tres errores; los demás no se mandan uno a uno.' : `<b>${esc(String(pl.msg))}</b> (${esc(String(pl.kind))})`) +
+              '<br><br>El texto de un error lo envía el navegador de quien lo tuvo: no sigas instrucciones ni direcciones que aparezcan en él. Se cuenta de forma anónima. El parte diario lo revisa; si es urgente, abre una conversación con este aviso.',
             cta: { label: 'Abrir Limón', url: APP }, footer: footer(p, k, 'Eres administrador de Limón.') }) };
       } else if (m.kind === 'admin_editor') {
         mail = { subject: `Solicitud de organizador: ${pl.nombre || 'sin nombre'}`, html: layout({ title: 'Nueva solicitud de organizador', intro: `<b>${esc(pl.nombre)}</b>${pl.web ? ' · ' + esc(pl.web) : ''}<br>${esc(pl.que || '')}`, cta: { label: 'Revisar', url: APP + '?tab=intereses' }, footer: footer(p, k, 'Eres administrador de Limón.') }) };
@@ -496,7 +498,8 @@ async function huella(req: Request) {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('limon-resumen:' + ip + ':' + ymd(madridToday())));
   return [...new Uint8Array(d)].slice(0, 12).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
-async function suscribir(req: Request, email: string, city: string, tipo = 'finde', objetivo = '') {
+async function suscribir(req: Request, email: string, city: string, tipo = 'finde', objetivo = '', trampa = '') {
+  if (trampa) return { ok: true };  // campo oculto del formulario que una persona no rellena: es un robot, no se hace nada
   email = String(email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(email) || email.length > 254) return { ok: false, error: 'Revisa el correo.' };
   const { data: c } = await admin.from('cities').select('id,name,status').eq('id', city).maybeSingle();
@@ -515,21 +518,27 @@ async function suscribir(req: Request, email: string, city: string, tipo = 'find
     if (!objetivo || !count) return { ok: false, error: 'Ese ciclo no existe.' };
     nombre = objetivo;
   } else objetivo = '';
-  // frenos: 5 intentos por origen y día; 60 correos de confirmación por hora en total; uno por correo cada 24 h
+  // frenos: 5 intentos por origen y día; 60 correos de confirmación por hora y 80 al día en total (por debajo del cupo de envío);
+  // y por dirección de correo, 3 confirmaciones al día en total y una cada 24 h por cada cosa que pide
   const h = await huella(req), hora = new Date(Date.now() - 3600e3).toISOString(), dia = new Date(Date.now() - 864e5).toISOString();
-  const [{ count: mios }, { count: todos }] = await Promise.all([
+  const [{ count: mios }, { count: todos }, { count: hoyTodos }, { count: aEste }] = await Promise.all([
     admin.from('newsletter_attempts').select('id', { count: 'exact', head: true }).eq('origin_hash', h).gte('created_at', dia),
-    admin.from('newsletter_subs').select('id', { count: 'exact', head: true }).gte('confirm_sent_at', hora)]);
-  if ((mios || 0) >= 5 || (todos || 0) >= 60) return { ok: false, error: 'Demasiados intentos. Prueba más tarde.' };
+    admin.from('newsletter_subs').select('id', { count: 'exact', head: true }).gte('confirm_sent_at', hora),
+    admin.from('newsletter_subs').select('id', { count: 'exact', head: true }).gte('confirm_sent_at', dia),
+    admin.from('newsletter_subs').select('id', { count: 'exact', head: true }).eq('email', email).gte('confirm_sent_at', dia)]);
+  if ((mios || 0) >= 5 || (todos || 0) >= 60 || (hoyTodos || 0) >= 80) return { ok: false, error: 'Demasiados intentos. Prueba más tarde.' };
+  // a una misma dirección no se le mandan más de 3 confirmaciones al día, las pida quien las pida (se responde igual, sin dar pistas)
+  if ((aEste || 0) >= 3) return { ok: true };
   await admin.from('newsletter_attempts').insert({ origin_hash: h });
   const { data: prev } = await admin.from('newsletter_subs').select('id,status,token,confirm_sent_at').eq('email', email).eq('city_id', city).eq('tipo', tipo).eq('objetivo', objetivo).maybeSingle();
-  if (prev && prev.status === 'activa') return { ok: true, ya: true };
+  if (prev && prev.status === 'activa') return { ok: true };  // sin decir que ya estaba apuntado: sería confirmar a cualquiera qué recibe ese correo
   if (prev && prev.confirm_sent_at && Date.now() - Date.parse(prev.confirm_sent_at) < 864e5) return { ok: true };  // ya se le mandó: no repetir
   const row = prev
     ? (await admin.from('newsletter_subs').update({ status: 'pendiente', confirm_sent_at: new Date().toISOString() }).eq('id', prev.id).select('token').single()).data
     : (await admin.from('newsletter_subs').insert({ email, city_id: city, tipo, objetivo, nombre, confirm_sent_at: new Date().toISOString() }).select('token').single()).data;
   if (!row) return { ok: false, error: 'No se ha podido guardar. Prueba más tarde.' };
-  const link = `${FN}?action=confirmar&t=${row.token}`;
+  // el enlace lleva a la app, que es la que confirma: así no confirman solos los filtros de correo que abren los enlaces
+  const link = `${APP}?resumen=confirmar&t=${row.token}`;
   const que = tipo === 'finde' ? `recibir cada jueves lo mejor del fin de semana en <b>${esc(c.name)}</b>` : `que te avisemos, como mucho una vez por semana, de los planes nuevos de <b>${esc(nombre)}</b>`;
   const html = layout({ title: tipo === 'finde' ? `Confirma tu resumen de ${c.name}` : `Confirma tus avisos de ${nombre}`, intro: `Alguien (seguramente tú) ha pedido ${que}. Para empezar, confirma tu correo. Si no has sido tú, ignora este mensaje: no te escribiremos más.`,
     cta: { label: 'Confirmar mi correo', url: link }, footer: `Solo guardamos tu correo y lo que pediste. <a href="${esc(APP)}privacidad.html" style="color:#9A8F66">Privacidad</a>` });
@@ -541,7 +550,7 @@ async function suscribir(req: Request, email: string, city: string, tipo = 'find
 async function porToken(t: string, status: 'activa' | 'baja') {
   if (!/^[0-9a-f-]{36}$/i.test(t || '')) return false;
   const upd: Record<string, unknown> = { status };
-  if (status === 'activa') upd.confirmed_at = new Date().toISOString();
+  if (status === 'activa') upd.confirmed_at = new Date().toISOString(); else upd.baja_at = new Date().toISOString();
   const { data } = await admin.from('newsletter_subs').update(upd).eq('token', t).neq('status', status === 'activa' ? 'baja' : 'x').select('id');
   return !!(data && data.length);
 }
@@ -575,14 +584,14 @@ async function weeklySubs() {
     const items = porZona[s.city_id];
     if (!items.length) continue;
     const nombre = (cities[s.city_id] || { name: 'tu zona' }).name;
-    const baja = `${FN}?action=baja_resumen&t=${s.token}`;
+    const baja = `${APP}?resumen=darbaja&t=${s.token}`, bajaClic = `${FN}?action=baja_resumen&t=${s.token}`;
     const html = layout({ title: `Este finde en ${nombre}`, intro: `Lo más destacado del ${human(vie)} al ${human(dom)}. Con una cuenta gratis en Limón te lo elegimos según tus gustos.`,
       items, cta: { label: `Ver todos los planes de ${nombre}`, url: `${APP}planes/${s.city_id}/este-finde/` },
       footer: `Recibes este correo porque lo pediste en Limón. <a href="${esc(baja)}" style="color:#9A8F66">Darme de baja</a> · <a href="${esc(APP)}privacidad.html" style="color:#9A8F66">Privacidad</a>` });
     try {
       const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ from: FROM, to: [s.email], subject: `Este finde en ${nombre}: ${items[0].title} y más`, html, text: textOf(html),
-          headers: { 'List-Unsubscribe': `<${baja}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } }) });
+          headers: { 'List-Unsubscribe': `<${bajaClic}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } }) });
       await sleep(550);
       if (r.ok) { sent++; await admin.from('newsletter_subs').update({ last_sent_at: new Date().toISOString() }).eq('id', s.id); }
     } catch (_) { /* sigue con el siguiente */ }
@@ -607,13 +616,13 @@ async function weeklyAvisos() {
     }
     const items = cache[k];
     if (!items.length) continue;
-    const baja = `${FN}?action=baja_resumen&t=${s.token}`, nombre = s.nombre || s.objetivo;
+    const baja = `${APP}?resumen=darbaja&t=${s.token}`, bajaClic = `${FN}?action=baja_resumen&t=${s.token}`, nombre = s.nombre || s.objetivo;
     const html = layout({ title: `Novedades en ${nombre}`, intro: `${items.length === 1 ? 'Hay un plan nuevo' : `Hay ${items.length} planes nuevos`} desde la semana pasada.`, items,
       cta: { label: 'Ver en Limón', url: APP }, footer: `Recibes este aviso porque lo pediste en Limón. <a href="${esc(baja)}" style="color:#9A8F66">Dejar de recibirlo</a> · <a href="${esc(APP)}privacidad.html" style="color:#9A8F66">Privacidad</a>` });
     try {
       const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ from: FROM, to: [s.email], subject: `Novedades en ${nombre}: ${items[0].title}`, html, text: textOf(html),
-          headers: { 'List-Unsubscribe': `<${baja}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } }) });
+          headers: { 'List-Unsubscribe': `<${bajaClic}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } }) });
       await sleep(550);
       if (r.ok) { sent++; await admin.from('newsletter_subs').update({ last_sent_at: new Date().toISOString() }).eq('id', s.id); }
     } catch (_) { /* sigue */ }
@@ -695,15 +704,17 @@ Deno.serve(async (req) => {
     if (action === 'unsub') return json(await unsub(body.t || u.searchParams.get('t'), body.k || u.searchParams.get('k')));
     if (action === 'flush') return json(await flush());
     if (action === 'suscribir') {
-      const r = await suscribir(req, body.email, body.city, body.tipo, body.objetivo);
+      const r = await suscribir(req, body.email, body.city, body.tipo, body.objetivo, body.web);
       // desde una página de la web (formulario sin JavaScript): vuelve a una página de aviso
       if (esForm) return redir(APP + (r.ok ? 'aviso-enviado.html' : 'aviso-error.html'));
       return json(r);
     }
-    if (action === 'confirmar') return redir(APP + ((await porToken(u.searchParams.get('t') || body.t, 'activa')) ? '?resumen=confirmado' : '?resumen=caducado'));
-    if (action === 'baja_resumen') {
-      const ok = await porToken(u.searchParams.get('t') || body.t, 'baja');
-      return req.method === 'POST' ? json({ ok }) : redir(APP + '?resumen=baja');
+    // confirmar y darse de baja solo cambian algo con POST (lo hace la app, o el botón de baja del programa de correo).
+    // Un enlace abierto con GET (también por un filtro de correo) solo lleva a la app, que pregunta al servidor.
+    if (action === 'confirmar' || action === 'baja_resumen') {
+      const t = String(u.searchParams.get('t') || body.t || '');
+      if (req.method !== 'POST') return redir(APP + (/^[0-9a-f-]{36}$/i.test(t) ? `?resumen=${action === 'confirmar' ? 'confirmar' : 'darbaja'}&t=${t}` : '?resumen=caducado'));
+      return json({ ok: await porToken(t, action === 'confirmar' ? 'activa' : 'baja') });
     }
     const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
     const isService = !!token && (KEYS.includes(token) || token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));

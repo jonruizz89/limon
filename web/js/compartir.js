@@ -207,7 +207,7 @@ function envioResumen(ev) {
       const { data, error } = await window.limonFn('limon-mail', { body: { action: 'suscribir', email, city: window.limonCity.zone().split('|')[0] } });
       if (error || !data || !data.ok) { msg.textContent = (data && data.error) || 'No se ha podido. Prueba más tarde.'; return; }
       store.set('resumenOk', 1); if (window.limonContar) window.limonContar('resumen_alta');
-      msg.textContent = data.ya ? 'Ya lo recibes. ¡Buen finde!' : 'Te hemos enviado un correo: confírmalo para empezar a recibirlo.';
+      msg.textContent = 'Si aún no lo recibes, te hemos enviado un correo: confírmalo para empezar.';
       f.querySelector('.seg').hidden = true;
     } catch (x) { msg.textContent = 'No se ha podido. Prueba más tarde.'; }
   })();

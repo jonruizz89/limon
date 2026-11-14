@@ -187,7 +187,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding-top
 .brand{display:flex;align-items:center;gap:8px;text-decoration:none;font:italic 700 24px 'Space Grotesk',system-ui,sans-serif}
 .cta{display:inline-block;background:var(--a);color:var(--ai);font-weight:600;text-decoration:none;border-radius:10px;padding:10px 16px}
 h1{font:700 30px/1.2 'Space Grotesk',system-ui,sans-serif;margin:10px 0 8px}h2{font:600 20px 'Space Grotesk',system-ui,sans-serif;margin:28px 0 8px}
-.aviso{background:var(--s);border:1px solid var(--l);border-radius:12px;padding:12px 14px;margin:12px 0}.aviso label{font-weight:600;display:block;margin-bottom:8px}.aviso div{display:flex;gap:8px;flex-wrap:wrap}.aviso input{flex:1 1 180px;min-height:42px;border:1px solid var(--l);border-radius:10px;padding:0 10px;font:inherit}.aviso button{min-height:42px;border:0;border-radius:999px;background:var(--a);color:var(--ai);font-weight:700;padding:0 18px;font:inherit;font-weight:700;cursor:pointer}.aviso .q{font-size:13px;margin:8px 0 0}.cod{white-space:pre-wrap;word-break:break-all;background:var(--s);border:1px solid var(--l);border-radius:10px;padding:10px;font-size:12px}iframe{max-width:100%}.lead,.q{color:var(--q)}.intro{line-height:1.55;margin:10px 0 14px}.crumbs{font-size:14px;color:var(--q);margin-top:6px}.crumbs a{color:var(--q)}
+.aviso{background:var(--s);border:1px solid var(--l);border-radius:12px;padding:12px 14px;margin:12px 0}.aviso label{font-weight:600;display:block;margin-bottom:8px}.aviso div{display:flex;gap:8px;flex-wrap:wrap}.aviso input{flex:1 1 180px;min-height:42px;border:1px solid var(--l);border-radius:10px;padding:0 10px;font:inherit}.aviso button{min-height:42px;border:0;border-radius:999px;background:var(--a);color:var(--ai);font-weight:700;padding:0 18px;font:inherit;font-weight:700;cursor:pointer}.aviso .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}.aviso .q{font-size:13px;margin:8px 0 0}.cod{white-space:pre-wrap;word-break:break-all;background:var(--s);border:1px solid var(--l);border-radius:10px;padding:10px;font-size:12px}iframe{max-width:100%}.lead,.q{color:var(--q)}.intro{line-height:1.55;margin:10px 0 14px}.crumbs{font-size:14px;color:var(--q);margin-top:6px}.crumbs a{color:var(--q)}
 ul.ev{list-style:none;padding:0;margin:0}ul.ev li{background:var(--s);border:1px solid var(--l);border-radius:14px;margin:10px 0;overflow:hidden}
 ul.ev li>a{display:flex;gap:12px;padding:10px;text-decoration:none}ul.ev li>a:hover .tt{text-decoration:underline}
 .th{flex:0 0 84px;height:84px;align-self:flex-start;border-radius:10px;overflow:hidden;background:#FFF3BF;display:grid;place-items:center;font-size:34px}
@@ -223,7 +223,9 @@ def aviso_form(tipo, objetivo, city, nombre):
     por correo; como mucho un aviso a la semana y solo si hay planes nuevos)."""
     return (f'<form class="aviso" method="post" action="{SB_URL}/functions/v1/limon-mail?action=suscribir">'
             f'<input type="hidden" name="tipo" value="{esc(tipo)}"><input type="hidden" name="objetivo" value="{esc(objetivo)}">'
-            f'<input type="hidden" name="city" value="{esc(city)}"><label for="av-mail">🔔 Avísame por correo de los planes nuevos de {esc(nombre)}</label>'
+            f'<input type="hidden" name="city" value="{esc(city)}">'
+            # campo trampa: oculto para las personas; los robots que rellenan todo se delatan y no se les manda nada
+            f'<span class="hp" aria-hidden="true"><input type="text" name="web" tabindex="-1" autocomplete="off"></span><label for="av-mail">🔔 Avísame por correo de los planes nuevos de {esc(nombre)}</label>'
             f'<div><input id="av-mail" type="email" name="email" required placeholder="tu@correo.com" autocomplete="email"><button type="submit">Avísame</button></div>'
             f'<p class="q">Como mucho un correo a la semana. Sin cuenta; te das de baja con un clic.</p></form>')
 

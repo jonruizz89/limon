@@ -88,3 +88,7 @@ rls_enabled_no_policy:usage_counts
 # contar(): contador anónimo de orígenes y embudo; valida ciudad y tipo y solo suma en usage_counts, como contar_apertura
 anon_security_definer_function_executable:contar
 authenticated_security_definer_function_executable:contar
+
+# Contador de los frenos de uso (solo lo toca el servidor)
+rls_enabled_no_policy:rate_hits
+authenticated_security_definer_function_executable:notif_leidas

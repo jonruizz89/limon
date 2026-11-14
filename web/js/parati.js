@@ -154,14 +154,13 @@ function renderParaTi() {
       items.push({ e, occ, s });  // en pueblos con pocos destacados, detrás van los demás por fecha
     }
     items.sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || zoneSort(x.e, y.e, y.s - x.s || x.occ.date - y.occ.date || horaOrden(x.e) - horaOrden(y.e)));
-    $('pt-h').textContent = 'Destacado ' + cuandoTxt(state.when).frase.replace(/^en los próximos/, 'en los próximos');
-    // la presentación, solo las primeras veces; después, la lista empieza arriba
-    $('pt-lead').textContent = VISITAS <= 2 ? 'Todos los planes de ' + CITY.name + ' en un sitio, gratis y sin anuncios. Marca tus intereses y esta lista será solo para ti.' : '';
-    $('pt-lead').hidden = VISITAS > 2;
+    $('pt-h').textContent = 'Planes en ' + (ZONE ? ZONE.name : CITY.name) + ' ' + cuandoTxt(state.when).frase;
+    // sin párrafo de presentación: la franja de intereses ya explica la app y los planes empiezan antes
+    $('pt-lead').textContent = ''; $('pt-lead').hidden = true;
     logList(items.slice(0, state.ptShown).map(x => x.e.id));
-    $('pt-list').innerHTML = instalarCard() + avisoHoy() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) +
+    $('pt-list').innerHTML = trasTercera(arriba() + avisoHoy() + shareFindeBtn() + zoneNote() + streetBanner() + friendsBlock(a, b) +
       // se eligen los más destacados y se enseñan por orden de día y hora (en un municipio, primero los suyos)
-      franjaIntereses() + conSeccion(ZONE ? items.slice(0, state.ptShown) : items.slice(0, state.ptShown).sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || (x.occ.date - y.occ.date) || (horaOrden(x.e) - horaOrden(y.e)) || (y.s - x.s)), x => card(x.e, { occ: x.occ }));
+      franjaIntereses() + conSeccion(ZONE ? items.slice(0, state.ptShown) : items.slice(0, state.ptShown).sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || (x.occ.date - y.occ.date) || (horaOrden(x.e) - horaOrden(y.e)) || (y.s - x.s)), x => card(x.e, { occ: x.occ })), unAviso());
     $('pt-list').insertAdjacentHTML('beforeend', resumenCard());
     $('pt-more').hidden = items.length <= state.ptShown;
     document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));
@@ -185,10 +184,21 @@ function renderParaTi() {
   const html = (dated.length ? `<h2>Con fecha</h2>` + dated.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '') +
     (going.length ? SEC_LARGOS + going.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '');
   logList(top.map(x => x.e.id));
-  $('pt-list').innerHTML = instalarCard() + shareFindeBtn() + zoneNote() + streetBanner() + (fuiCard() || consentCard()) + friendsBlock(a, b) + (state.franja ? franjaIntereses() : '') + aiBlock() + (html ? '<h2>Todo lo que encaja</h2>' + html.replace('<h2>Con fecha</h2>', '') : '<div class="empty">No hay eventos que encajen con tus intereses en estas fechas.</div>');
+  $('pt-list').innerHTML = trasTercera(arriba() + shareFindeBtn() + zoneNote() + streetBanner() + friendsBlock(a, b) + (state.franja ? franjaIntereses() : '') + aiBlock() + (html ? '<h2>Todo lo que encaja</h2>' + html.replace('<h2>Con fecha</h2>', '') : '<div class="empty">No hay planes que encajen con tus intereses en estas fechas.</div>'), unAviso());
   $('pt-list').insertAdjacentHTML('beforeend', resumenCard());
   $('pt-more').hidden = items.length <= state.ptShown;
   document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));
+}
+// ---------- avisos de la pantalla (instalar la app, permiso de medición, «¿al final fuiste?»): como mucho uno, y después de la
+// tercera tarjeta, nunca por encima de los planes. Solo va arriba el «¿fuiste?» que se abre desde un aviso o mientras se valora.
+function arriba() { return (fuiFocus || fuiRate) ? fuiCard() : ''; }
+function unAviso() { return (fuiFocus || fuiRate) ? '' : (fuiCard() || consentCard() || instalarCard()); }
+function trasTercera(html, aviso) {
+  if (!aviso) return html;
+  let i = -1;
+  for (let n = 0; n < 3; n++) { i = html.indexOf('</article>', i + 1); if (i < 0) return html + aviso; }
+  i += '</article>'.length;
+  return html.slice(0, i) + aviso + html.slice(i);
 }
 // ---------- selección de la IA (servidor): 6–10 planes con el porqué
 function aiBlock() {

@@ -376,3 +376,19 @@ table.cov td.n, table.cov th.n { text-align: right }
 /* P13: rellenar el evento desde un enlace */
 .form .leer{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;padding:10px 12px;border:1px dashed var(--line, #ccc);border-radius:12px}
 .form .leer label{flex:1 1 220px}
+
+/* revisión de uso (14 nov): etiquetas de 28 px (también objetivo táctil), corte de calle discreto en la lista,
+   tres acciones en la ficha y el resto en «Más», enlace para saltar al contenido y encabezados solo para lectores */
+.tag { min-height: 28px; display: inline-flex; align-items: center; padding: 0 10px; font-size: 12.5px }
+.card:not(.abierta) .streetwarn { background: none; color: var(--quiet); padding: 0; font-weight: 400 }
+.act.prim { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700 }
+.act.prim[aria-pressed="true"] { background: var(--strong); color: var(--strong-ink); border-color: var(--strong) }
+[data-mas]::after { content: " ▾" }
+[data-mas][aria-expanded="true"]::after { content: " ▴" }
+.acts.mas { flex-basis: 100% }
+.acts.mas[hidden] { display: none }
+.citybtn { min-height: 32px; padding: 4px 8px }
+.skip { position: absolute; left: 8px; top: -60px; z-index: 100; background: var(--strong); color: var(--strong-ink); padding: 10px 14px; border-radius: 8px; font-weight: 700 }
+.skip:focus { top: 8px }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0 }
+a.pill { text-decoration: none; color: inherit }

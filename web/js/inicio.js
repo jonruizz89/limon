@@ -39,7 +39,7 @@ iniciaAviso();              // base.js: botones del aviso (deshacer y cerrar)
 // primera que lo reconoce (devuelve algo distinto de false). No reordenar: hay controles dentro de otros.
 const CLICS = [
   clicEnlaceDeLaApp, clicHome, clicCampana, clicCuenta, clicCakind, clicCaday, clicCadayGo, clicRmtema, clicRmtcat, clicAiRefresh, clicFtoggle, clicFset,
-  clicFclear, clicCutmap, clicCutgo, clicRmstreet, clicFiltroDeTarjeta, clicExClear, clicGoto, clicSave, clicDismiss, clicWent,
+  clicFclear, clicCutmap, clicCutgo, clicRmstreet, clicFiltroDeTarjeta, clicExClear, clicGoto, clicMas, clicSave, clicDismiss, clicWent,
   clicSheetClose, clicCityBtn, clicNuevosVer, clicInteresesRapido, clicTema, clicCuando, clicCalq, clicCalm, clicCald, clicCalok,
   clicInstalarNo, clicInstalar, clicQgrp, clicQfr, clicQver, clicQmas, clicSharev, clicShareYa, clicIcs, clicResumenNo, clicShareFinde, clicZoneWider, clicZoneLocate, clicZoneHintX,
   clicCity, clicIdeas, clicProf, clicList, clicSocial, clicTopic, clicAddlist, clicRate, clicSocEdit, clicSocCancel, clicSocShare,

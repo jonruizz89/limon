@@ -168,7 +168,7 @@ function renderAll() {
   placeAccount();
   pintaCuando();
   pintaTema();
-  $('stamp').innerHTML = `<button class="citybtn" id="city-btn" aria-haspopup="dialog" aria-label="Cambiar de ciudad (ahora ${esc(CITY.name)})">${esc(CITY.name)} <span aria-hidden="true">▾</span></button> · ${(ZONE ? EV.filter(inZone).length : META.eventos).toLocaleString('es-ES')} eventos`;
+  $('stamp').innerHTML = `<button class="citybtn" id="city-btn" aria-haspopup="dialog" aria-label="${esc(CITY.name)}: cambiar de ciudad">${esc(CITY.name)} <span aria-hidden="true">▾</span></button>`;
   document.querySelectorAll('.n-unicos').forEach(n => { n.textContent = EV.filter(e => e.unico && !esProf(e) && parse(e.fin) >= today && inZone(e)).length || ''; });
   $('n-unicos').textContent = EV.filter(e => e.unico && !esProf(e) && parse(e.fin) >= today && inZone(e)).length || '';
   renderFilters();

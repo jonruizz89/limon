@@ -280,6 +280,11 @@ try {
       await ir(p, 'explorar');
       await p.locator('#v-explorar [data-open="e104"]').click();
       await p.waitForTimeout(250);
+      const visibles = await p.locator('#v-explorar article.card.abierta .acts > .act:visible').evaluateAll((xs) => xs.map((x) => x.textContent.trim()));
+      ok(visibles.length === 4 && /Guardar/.test(visibles[0]) && /Más/.test(visibles[3]), T(`la ficha enseña Guardar, Compartir, Al calendario y Más (${visibles.join(' | ')})`));
+      ok(!(await p.locator('#v-explorar article.card.abierta [data-dismiss]').isVisible()), T('«No me interesa» queda dentro de «Más»'));
+      await p.locator('#v-explorar article.card.abierta [data-mas]').click();
+      ok(await p.locator('#v-explorar article.card.abierta [data-dismiss]').isVisible(), T('«Más» enseña el resto de acciones'));
       await p.locator('#v-explorar article.card.abierta .acts [data-sharev]').click();
       await p.waitForTimeout(300);
       const menu = await p.locator('#sheet').evaluate((d) => d.open).catch(() => false);
@@ -327,6 +332,9 @@ try {
       await cargada(p);
       await p.evaluate(() => { PAST.e999 = { id: 'e999', titulo: 'Concierto de ayer', fecha: ymd(addDays(today, -1)), lugar: 'Sala de prueba', cats: ['rock'], temas: [], serie: null }; renderParaTi(); });
       await p.waitForTimeout(200);
+      const orden = await p.locator('#pt-list > *').evaluateAll((xs) => xs.map((x) => x.tagName === 'ARTICLE' ? 'plan' : (x.className || '').split(' ')[0]));
+      const iAviso = orden.indexOf('consent');
+      ok(iAviso > 0 && orden.slice(0, iAviso).filter((x) => x === 'plan').length === 3, T(`el aviso «¿Al final fuiste?» sale tras la tercera tarjeta, no encima de los planes (${orden.slice(0, iAviso + 1).join(',')})`));
       await p.locator('[data-fui="si"][data-id="e999"]').click();
       await p.waitForTimeout(300);
       ok(await p.locator('.consent [data-rate="e999"]').count() === 5, T('tras «Sí, fui» la misma tarjeta pide la nota con 5 estrellas'));

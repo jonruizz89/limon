@@ -98,8 +98,9 @@ function card(e, opt) {
   const cats = e.cats.filter(c => c !== 'sin_categoria').slice(0, 3);
   const vh = ventajaHit(e);
   const precioVale = e.precio && e.precio.length < 40 && !/consult|^[\s\-–—.?]*$/i.test(e.precio);  // «Consultar página oficial» o «--» no dicen nada
-  const nEst = (NEW.has(e.id) ? 1 : 0) + (e.gratis || precioVale ? 1 : 0) + (e.unico && !esProf(e) ? 1 : 0), cupo = Math.max(1, 4 - nEst);  // como mucho 4 etiquetas en total
-  const temas = (e.temas || []).slice(0, Math.min(2, cupo)), cats3 = cats.slice(0, cupo - temas.length);
+  const nEst = (NEW.has(e.id) ? 1 : 0) + (e.gratis || precioVale ? 1 : 0) + (e.unico && !esProf(e) ? 1 : 0) + (ventajaHit(e) ? 1 : 0);
+  const cupo = Math.max(0, 2 - nEst);  // en la lista, como mucho dos etiquetas: lo demás se ve al abrir la ficha
+  const temas = open ? (e.temas || []).slice(0, 3) : [], cats3 = open ? cats : cats.slice(0, Math.max(cupo, nEst ? 0 : 1));
   const lug = ((e.lugar ? esc(e.lugar) : '') + (userPos && e.lat ? ` · <span class="dist">a ${fmtDist(km(userPos, [e.lat, e.lng]))}</span>` : '') + (ZONE && zkm(e) > 0 && zkm(e) < 999 ? ` · <span class="dist">${e.distrito && !(e.lugar || '').includes(e.distrito) ? esc(e.distrito) + ', ' : ''}a ${fmtDist(zkm(e))} de ${esc(ZONE.name)}</span>` : '')).replace(/^ · /, '');
   const price = (e.gratis ? '<span class="tag free">Gratis</span>' : (precioVale ? `<span class="tag">${esc(e.precio)}</span>` : '')) + (vh ? `<span class="tag free" title="La ficha menciona condiciones para: ${esc(vh)}. Compruébalo en la web.">Posible descuento para ti</span>` : '');
   const why = opt.info ? `<div class="why">${esc(opt.info)}</div>` : opt.reason ? `<div class="why"><b>Por qué:</b> ${esc(opt.reason)}</div>` : opt.why && opt.why.length ? `<div class="why">Te encaja: ${esc(opt.why.slice(0, 3).join(' · '))}</div>` : '';
@@ -113,14 +114,18 @@ function card(e, opt) {
         ${e.web_organizador ? `<a href="${ext(e.web_organizador)}" target="_blank" rel="noopener">Web del organizador ↗</a>` : ''}
         ${e.lat ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=transit" target="_blank" rel="noopener">Cómo llegar ↗</a>` : ''}</div>
         <p class="note">Fuentes: ${e.fuentes.map(f => esc(f.nombre)).join(', ')}</p>
-        <div class="acts">${'' /* «Ya fui» y «Proponer plan» ocultos para no saturar la ficha: el «fui» llega por el aviso «¿Al final fuiste?» y las quedadas, con Compartir */}
+        <div class="acts">${'' /* a la vista, tres acciones; el resto en «Más» (proponer a amigos va dentro de Compartir) */}
+          <button class="act prim" data-save="${e.id}" aria-pressed="${isSaved}">${isSaved ? '✓ Guardado' : 'Guardar'}</button>
           <button class="act ico" data-sharev="${e.id}">${SHARE_ICO}Compartir</button>
-          <button class="act" data-dismiss="${e.id}" aria-pressed="${isDismissed(e)}">${isDismissed(e) ? 'Volver a mostrar' : 'No me interesa'}</button>
-          ${went.includes(e.id) ? `<button class="act" data-went="${e.id}" aria-pressed="true">✓ Fui</button>` : ''}
-          ${e.lat ? `<button class="act" data-route="${e.id}">¿Cortes en el camino?</button>` : ''}
-          ${parse(e.fin) >= today ? `<button class="act" data-ics="${e.id}">📅 Añadir a mi calendario</button>` : ''}
-          <button class="act" data-addlist="${e.id}">Añadir a lista</button>
-          ${e.lugar ? topicBtn('sala', e.lugar, 'la sala') : ''}${e.serie ? topicBtn('ciclo', e.serie, 'el ciclo') : ''}
+          ${parse(e.fin) >= today ? `<button class="act" data-ics="${e.id}"><span aria-hidden="true">📅</span> Al calendario</button>` : ''}
+          <button class="act" data-mas="${e.id}" aria-expanded="${!!state.mas && state.mas === e.id}" aria-controls="mas-${e.id}">Más</button>
+          <div class="acts mas" id="mas-${e.id}"${state.mas === e.id ? '' : ' hidden'}>
+            <button class="act" data-addlist="${e.id}">Añadir a lista</button>
+            ${e.lugar ? topicBtn('sala', e.lugar, 'la sala') : ''}${e.serie ? topicBtn('ciclo', e.serie, 'el ciclo') : ''}
+            ${e.lat ? `<button class="act" data-route="${e.id}">Ver cortes en el camino</button>` : ''}
+            ${went.includes(e.id) ? `<button class="act" data-went="${e.id}" aria-pressed="true">✓ Fui</button>` : ''}
+            <button class="act" data-dismiss="${e.id}" aria-pressed="${isDismissed(e)}">${isDismissed(e) ? 'Volver a mostrar' : 'No me interesa'}</button>
+          </div>
         </div>
         ${went.includes(e.id) ? diaryForm(e) : ''}
         ${state.listing === e.id ? listPicker(e) : ''}
@@ -146,6 +151,15 @@ function card(e, opt) {
 }
 
 // ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
+// «Más» en la ficha: abre o cierra el resto de acciones sin repintar (y lo recuerda si la lista se repinta)
+function clicMas(ev) {
+  const b = ev.target.closest('[data-mas]'); if (!b) return false;
+  const caja = document.getElementById('mas-' + b.dataset.mas); if (!caja) return true;
+  const abre = caja.hidden;
+  caja.hidden = !abre; b.setAttribute('aria-expanded', abre);
+  state.mas = abre ? b.dataset.mas : null;
+  return true;
+}
 function clicSave(ev) {
   const s = ev.target.closest('[data-save]');
   if (s) {

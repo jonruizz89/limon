@@ -104,6 +104,20 @@ URLNOW = ['']
 PROMPT_VERSION = 'v4'  # cambiarlo vuelve a extraer todos los avisos
 
 
+# frases internas que la IA a veces copia del encargo al resumen («el rango se ha fijado hasta hoy+14 días por falta de fin…»):
+# no son para la gente; se quitan y, si hablaban de la falta de fin, queda «hasta nuevo aviso»
+INTERNO = re.compile(r'[^.]*(hoy\s*\+\s*\d+|rango|por falta de (fecha de )?fin|sin fecha de fin|\bto=|\bfrom=)[^.]*\.?', re.I)
+
+
+def limpia_resumen(t):
+    if not t:
+        return t
+    quitado = INTERNO.sub('', t)
+    if quitado != t and re.search(r'fin|hoy\s*\+', t, re.I) and 'nuevo aviso' not in quitado.lower():
+        quitado = quitado.rstrip() + ' Hasta nuevo aviso.'
+    return re.sub(r'\s{2,}', ' ', quitado).strip() or None
+
+
 def extract(title, text):
     today = dt.date.today()
     system = (f"Hoy es {today.isoformat()} ({['lunes','martes','miércoles','jueves','viernes','sábado','domingo'][today.weekday()]}). "
@@ -229,7 +243,7 @@ for title, u, src in links:
             kind = ('metro_ligero' if '/avisos-metro-ligero/' in u else 'metro' if '/avisos-metro/' in u else
                     'cercanias' if '/avisos-cercanias/' in u else 'autobus')
         rows.append({'city_id': 'madrid', 'title': (c.get('title') or title)[:200], 'kind': kind,
-                     'summary': c.get('summary'), 'district': c.get('district'),
+                     'summary': limpia_resumen(c.get('summary')), 'district': c.get('district'),
                      'streets': [s for s in c.get('streets') or [] if s][:30], 'ranges': c.get('ranges') or [],
                      'lines': [str(x).strip()[:20] for x in c.get('lines') or [] if str(x).strip()][:20],
                      'stations': [str(x).strip()[:80] for x in c.get('stations') or [] if str(x).strip()][:30],

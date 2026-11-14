@@ -271,7 +271,7 @@ function streetWarn(e, occ) {
     out = out.filter(x => { const key = x.t.replace(/ \(a .*$|, \d.*$/, ''); if (seenW.has(key)) return false; seenW.add(key); return true; });
     // una sola línea (el resto, al tocarla o en el texto completo del aviso)
     const dia = +d === +today ? 'Hoy' : 'Ese día';
-    warnCache[k] = out.length ? `<div class="streetwarn"><span class="sw1">⚠ ${dia}${out.length > 1 ? ` (${out.length} avisos)` : ''}: ${esc(out[0].t)}</span><span class="swall">⚠ ${dia}: ${esc(out.map(x => x.t).join(' · '))}</span></div>` : '';
+    warnCache[k] = out.length ? `<div class="streetwarn"><span class="sw1"><span aria-hidden="true">🚧</span> ${dia === 'Hoy' ? 'Corte o desvío cerca hoy' : 'Corte o desvío cerca ese día'}${out.length > 1 ? ` (${out.length})` : ''}</span><span class="swall">⚠ ${dia}: ${esc(out.map(x => x.t).join(' · '))}</span></div>` : '';
   }
   return warnCache[k];
 }

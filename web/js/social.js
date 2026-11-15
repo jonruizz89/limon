@@ -266,7 +266,7 @@ function renderSocial() {
   box.innerHTML = `<div class="seg" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Amigos</h2><button class="act" data-soc-edit>Editar perfil</button></div>
       <p class="note" style="margin:0"><button class="btnlink" data-prof="${esc(me.username)}"><b>${esc(me.display_name || me.username)}</b></button> · @${esc(me.username)} · ${me.is_public ? 'perfil público' : '🔒 perfil privado'}</p>
       <div class="seg"><button class="btn ghost" data-soc-share>Compartir mi perfil</button>${canContacts ? '<button class="btn ghost" data-soc-contacts>Buscar en mis contactos</button>' : ''}</div>
-      <form class="seg" id="soc-search"><input class="search" name="q" placeholder="Buscar por nombre o @usuario" style="flex:1;min-width:180px" autocomplete="off"><button class="btn" type="submit">Buscar</button></form>
+      <form class="seg" id="soc-search"><input class="search" name="q" placeholder="@usuario exacto (ej.: ana.madrid)" autocapitalize="none" spellcheck="false" aria-label="Buscar a alguien por su nombre de usuario exacto" style="flex:1;min-width:180px" autocomplete="off"><button class="btn" type="submit">Buscar</button></form>
       ${SOC.results ? `<div>${SOC.results.length ? SOC.results.map(p => personRow(p, followBtn(p))).join('') : `<p class="note">${SOC.resultsMsg || 'No he encontrado a nadie.'} Comparte tu perfil para que te encuentren.</p>`}</div>` : ''}
       ${net.requests.length ? `<h3 class="ph">Quieren seguirte (${net.requests.length})</h3>` + net.requests.map(p => personRow(p, `<button class="act" data-req-ok="${esc(p.username)}">Aceptar</button><button class="act" data-req-no="${esc(p.username)}">Rechazar</button>`)).join('') : ''}
       <details><summary class="note" style="cursor:pointer">Sigues a ${net.following.length} · Te siguen ${net.followers.length}</summary>
@@ -459,7 +459,7 @@ function envioBuscarGente(ev) {
   const db = window.limonDB, u = db && db.user();
   if (ev.target.id === 'soc-search') return (async () => {
     ev.preventDefault(); const q = String(new FormData(ev.target).get('q') || '').trim(); if (q.length < 2) return;
-    const { data } = await db.sb.rpc('profile_search', { p_q: q }); SOC.results = data || []; SOC.lastQ = q; SOC.resultsMsg = 'No he encontrado a nadie con ese nombre o usuario.'; renderSocial(); return;
+    const { data } = await db.sb.rpc('profile_search', { p_q: q }); SOC.results = data || []; SOC.lastQ = q; SOC.resultsMsg = 'No hay ningún perfil público con ese usuario. Revisa que esté escrito exactamente igual o pídele su enlace de perfil.'; renderSocial(); return;
   })();
   return false;
 }

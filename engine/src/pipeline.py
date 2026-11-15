@@ -127,7 +127,7 @@ KW = [
     (r'animaci[o]n', ['animacion']),
     (r'ciclo de cine|clasico del cine|cine clasico|filmoteca|cineteca|restaurad|hitchcock|kubrick|bergman|fellini|cine mudo', ['cine_clasico']),
     (r'\bv\.?o\.?s\.?e?\b|version original', ['vose']),
-    (r'preestreno|coloquio con', ['preestrenos']),
+    (r'pre-?estren|coloquio (con|tras|posterior)', ['preestrenos']),  # «La Academia preestrena», «coloquio tras la proyección»
     (r'festival de cine|semana de cine|muestra de cine', ['festivales_cine']),
     (r'presentaci[o]n del libro|presenta su (libro|novela)|presentaci[o]n de la novela', ['libros']),
     (r'firma de libros|firmara', ['firmas']),

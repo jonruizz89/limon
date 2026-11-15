@@ -155,9 +155,11 @@ function renderFuentes() {
 // Perfil: la cuenta va arriba, antes de los cuatro grupos (Mis gustos, Mi gente, Avisos y apariencia, Más). Sin sesión,
 // «Entra o crea tu cuenta» abierto; con sesión, «Tu cuenta» (cerrar sesión, datos…) plegado
 function placeAccount() {
-  const acc = $('account'), first = $('g-gustos'); if (!acc || !first) return;
+  // sin cuenta, arriba del todo para animar a entrar; con cuenta, abajo del todo (tras los paneles) para no invitar a salir
+  const acc = $('account'), first = $('g-gustos'), last = $('stats'); if (!acc || !first || !last) return;
   const h = acc.querySelector('h2');
-  if (acc.nextElementSibling !== first) first.before(acc);
+  if (!logged) { if (acc.nextElementSibling !== first) first.before(acc); }
+  else if (last.nextElementSibling !== acc) last.after(acc);
   if (!logged) {
     acc.classList.add('open', 'top'); if (h) { h.textContent = 'Entra o crea tu cuenta'; h.setAttribute('aria-expanded', 'true'); }
   } else {

@@ -312,6 +312,12 @@ try {
       const orden = await p.locator('#v-intereses > .panel, #v-intereses > .grupo').evaluateAll((xs) => xs.filter((x) => !x.hidden).map((x) => x.id));
       ok(orden[0] === 'account' && orden.indexOf('g-gustos') < orden.indexOf('g-gente') && orden.indexOf('g-gente') < orden.indexOf('g-avisos') && orden.indexOf('g-avisos') < orden.indexOf('g-mas'),
         T(`Perfil: la cuenta arriba y luego Mis gustos, Mi gente, Avisos y apariencia, Más (${orden.join(',')})`));
+      await p.evaluate(() => { logged = true; renderAll(); });
+      const orden2 = await p.locator('#v-intereses > .panel, #v-intereses > .grupo').evaluateAll((xs) => xs.map((x) => x.id));
+      ok(orden2[orden2.length - 1] === 'account' && orden2.indexOf('g-mas') < orden2.indexOf('account'),
+        T(`Perfil con cuenta: Tu cuenta abajo del todo (${orden2.join(',')})`));
+      await p.evaluate(() => { logged = false; renderAll(); });
+      ok((await p.locator('#v-intereses > .panel, #v-intereses > .grupo').evaluateAll((xs) => xs.filter((x) => !x.hidden).map((x) => x.id)))[0] === 'account', T('Perfil al salir: la cuenta vuelve arriba'));
       ok(errores.length === 0, T(`Perfil sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
       await ctx.close();
     }

@@ -97,9 +97,9 @@ function renderExplorar() {
 }
 function renderAgenda() {
   const list = EV.filter(e => saved.includes(e.id)).sort((a, b) => a.inicio.localeCompare(b.inicio) || horaOrden(a) - horaOrden(b));
-  const nota = !logged && list.length ? `<div class="cuentanota"><p class="note" style="margin:0">Lo guardado está solo en este dispositivo. Entra o crea tu cuenta para no perderlo, tenerlo en el móvil y el ordenador y recibir avisos de lluvia o cortes.</p>
+  const nota = !logged && list.length ? `<div class="cuentanota"><p class="note" style="margin:0">Sin cuenta puedes guardar ${MAX_SIN_CUENTA} planes, y solo en este dispositivo. Crea tu cuenta gratis para guardar todos los que quieras, tenerlos en el móvil y el ordenador y recibir avisos de lluvia o cortes.</p>
     <button class="btn ghost" data-acc-go>Entrar o crear cuenta</button></div>` : '';
-  $('ag-list').innerHTML = nota + list.map(e => card(e)).join('') || `<div class="empty agvacia"><p style="margin:0">Aún no has guardado nada. Toca <b>Guardar</b> en cualquier plan y aparecerá aquí, ordenado por fecha.${logged ? '' : ' Con una cuenta, lo que guardes estará también en tus otros dispositivos.'}</p>
+  $('ag-list').innerHTML = nota + list.map(e => card(e)).join('') || `<div class="empty agvacia"><p style="margin:0">Aún no has guardado nada. Toca <b>Guardar</b> en cualquier plan y aparecerá aquí, ordenado por fecha.${logged ? '' : ` Sin cuenta puedes guardar ${MAX_SIN_CUENTA}; con una cuenta gratis, todos los que quieras.`}</p>
     <button class="btn" data-goto="parati" style="align-self:flex-start">Ver planes de esta semana</button></div>`;
   $('n-agenda').textContent = saved.length || '';
   renderDiary(); renderLists();

@@ -337,21 +337,26 @@ try {
       await ctx.close();
     }
 
-    // ───────── sin cuenta: guardar funciona y, al tercer plan guardado (no antes), un aviso de lo que da la cuenta
+    // ───────── sin cuenta: se guardan 2 planes; para el tercero se pide la cuenta y ese plan se guarda solo al entrar
     {
       const { ctx, p, errores } = await abrir(b, perfil);
       await cargada(p);
       await ir(p, 'explorar');
       const btns = p.locator('article.card:visible');
-      const aviso = async () => (await p.locator('#toast').isVisible()) && /Con una cuenta/.test(await p.locator('#toast-t').textContent());
-      const guarda = async (i) => { await btns.nth(i).locator('a[data-open]').click(); await p.waitForTimeout(250); await p.locator('article.card.abierta [data-save]').first().click(); await p.waitForTimeout(250);
-        const a = await aviso(); await p.locator('article.card.abierta a[data-open]').first().click(); await p.waitForTimeout(200); return a; };
-      const tras1 = await guarda(0), tras2 = await guarda(1), tras3 = await guarda(2);
-      ok(!tras1 && !tras2 && tras3 && /Crear cuenta/.test(await p.locator('#toast-undo').textContent()), T(`sin cuenta: el aviso de la cuenta sale al tercer plan guardado, no antes (${[tras1, tras2, tras3]})`));
+      const pide = async () => (await p.locator('#toast').isVisible()) && /Crea tu cuenta gratis/.test(await p.locator('#toast-t').textContent());
+      let tercero = null;
+      const guarda = async (i) => { await btns.nth(i).locator('a[data-open]').click(); await p.waitForTimeout(250); const bt = p.locator('article.card.abierta [data-save]').first();
+        if (i === 2) tercero = await bt.getAttribute('data-save');
+        await bt.click(); await p.waitForTimeout(250); const a = await pide(); await p.locator('article.card.abierta a[data-open]').first().click(); await p.waitForTimeout(200); return a; };
+      const r = [await guarda(0), await guarda(1), await guarda(2)];
+      const n = await p.evaluate(() => saved.length);
+      ok(!r[0] && !r[1] && r[2] && n === 2 && /Crear cuenta/.test(await p.locator('#toast-undo').textContent()), T(`sin cuenta: se guardan 2 y el tercero pide la cuenta sin guardarse (${r}, guardados ${n})`));
       await ir(p, 'agenda');
-      ok(await p.locator('#ag-list .cuentanota [data-acc-go]').isVisible() && (await p.locator('#ag-list article.card').count()) === 3, T('Agenda sin cuenta: los 3 guardados y la nota de que están solo en este dispositivo'));
+      ok(await p.locator('#ag-list .cuentanota [data-acc-go]').isVisible() && (await p.locator('#ag-list article.card').count()) === 2, T('Agenda sin cuenta: los 2 guardados y la nota del límite'));
       await p.locator('#ag-list .cuentanota [data-acc-go]').click(); await p.waitForTimeout(700);
       ok(await p.locator('#v-intereses').isVisible() && await p.locator('#account').evaluate((x) => { const r = x.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }), T('desde la Agenda, «Entrar o crear cuenta» lleva a la cuenta en Perfil'));
+      const tras = await p.evaluate(() => { logged = true; guardaPendiente(); return saved.slice(); });
+      ok(tras.length === 3 && tras.includes(tercero), T('al entrar, el plan que se quiso guardar queda guardado'));
       ok(errores.length === 0, T(`guardar sin cuenta sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
       await ctx.close();
     }

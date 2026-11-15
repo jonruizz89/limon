@@ -6,6 +6,7 @@ async function loadMe() {
   if (!u) { me = null; renderAccountExtras(); return; }
   const { data } = await db.sb.from('profiles').select('role,editor_status,organizer,ical_token,notify,birth_year,gender').eq('id', u.id).maybeSingle();
   me = data || null;
+  guardaPendiente();
   if (me && typeof pushSub !== 'undefined' && pushSub && Notification.permission === 'granted') registerSub(pushSub);
   mySubs = [];
   if (me && (me.role === 'editor' || me.role === 'admin')) {
@@ -341,13 +342,21 @@ function clicAccGo(ev) {  // «Entrar o crear cuenta» de los apartados y avisos
   if (!ev.target.closest('[data-acc-go]')) return false;
   irACuenta(); return true;
 }
-// al guardar sin cuenta: a los 3 planes guardados (y otra vez a los 10), un aviso de lo que da la cuenta. Nunca al primero.
-function avisoGuardarSinCuenta() {
-  if (logged) return false;
-  let n = 0; try { n = +(localStorage.getItem('limon_guardados_sin_cuenta') || 0) + 1; localStorage.setItem('limon_guardados_sin_cuenta', n); } catch (e) { return false; }
-  if (n !== 3 && n !== 10) return false;
-  toast('Guardado en este dispositivo. Con una cuenta lo tienes en el móvil y el ordenador, te avisamos si llueve o cortan una calle y se sincroniza con tu calendario.', irACuenta, 'Crear cuenta');
+// sin cuenta se pueden guardar hasta 2 planes (de los que siguen en cartel); para el tercero se pide la cuenta, que es gratis.
+// El plan que se quería guardar se recuerda y se guarda solo al entrar (guardaPendiente). Quitar uno deja hueco.
+const MAX_SIN_CUENTA = 2;
+const guardadosVivos = () => saved.filter(id => BYID[id]).length;
+function limiteSinCuenta(id) {
+  if (logged || guardadosVivos() < MAX_SIN_CUENTA) return false;
+  try { localStorage.setItem('limon_guardar_tras_cuenta', id); } catch (e) { }
+  toast(`Sin cuenta puedes guardar ${MAX_SIN_CUENTA} planes. Crea tu cuenta gratis para guardar todos los que quieras (con Google tardas unos segundos): este plan se guardará solo al entrar.`, irACuenta, 'Crear cuenta');
   return true;
+}
+function guardaPendiente() {
+  let id = null; try { id = localStorage.getItem('limon_guardar_tras_cuenta'); localStorage.removeItem('limon_guardar_tras_cuenta'); } catch (e) { }
+  if (!id || !BYID[id] || saved.includes(id)) return;
+  ponSaved(saved.concat(id)); store.set('saved', saved); learn(BYID[id], 'save');
+  toast(`Guardado en tu agenda: «${BYID[id].titulo}».`); renderAll();
 }
 function clicCuenta(ev) {
   if (ev.target.closest('#org, #adm, #ag-cal, #mail') && ev.target.closest('button, a[data-copy]')) { onAccountClick(ev).then(done => { if (done) ev.preventDefault(); }); if (ev.target.closest('[data-org-new],[data-org-edit],[data-org-leer],[data-org-cancel],[data-org-retire],[data-adm-ed],[data-adm-pub],[data-adm-idea],[data-copy],[data-mail-test]')) return true; }

@@ -165,6 +165,7 @@ function clicSave(ev) {
   const s = ev.target.closest('[data-save]');
   if (s) {
     const id = s.dataset.save, on = !saved.includes(id);
+    if (on && limiteSinCuenta(id)) return true;  // sin cuenta y ya con 2 guardados: se pide la cuenta (cuenta.js)
     ponSaved(on ? saved.concat(id) : saved.filter(x => x !== id)); store.set('saved', saved);
     if (on && window.limonContar) window.limonContar('guardar');
     if (BYID[id]) learn(BYID[id], on ? 'save' : 'unsave');
@@ -177,7 +178,7 @@ function clicSave(ev) {
       if (a2) window.scrollBy(0, a2.getBoundingClientRect().top - y0);
     }
     const deshacer = () => { ponSaved(on ? saved.filter(x => x !== id) : saved.concat(id)); store.set('saved', saved); if (BYID[id]) learn(BYID[id], on ? 'unsave' : 'save'); renderAll(); };
-    if (!(on && avisoGuardarSinCuenta())) toast(on ? 'Guardado en tu agenda.' : 'Quitado de tu agenda.', deshacer);
+    toast(on ? 'Guardado en tu agenda.' : 'Quitado de tu agenda.', deshacer);
     return true;
   }
   return false;

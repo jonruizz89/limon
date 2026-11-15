@@ -349,11 +349,13 @@ const guardadosVivos = () => saved.filter(id => BYID[id]).length;
 function limiteSinCuenta(id) {
   if (logged || guardadosVivos() < MAX_SIN_CUENTA) return false;
   try { localStorage.setItem('limon_guardar_tras_cuenta', id); } catch (e) { }
+  if (window.limonContar) window.limonContar('limite_guardar');  // contador agregado: cuántas veces se choca con el límite
   toast(`Sin cuenta puedes guardar ${MAX_SIN_CUENTA} planes. Crea tu cuenta gratis para guardar todos los que quieras (con Google tardas unos segundos): este plan se guardará solo al entrar.`, irACuenta, 'Crear cuenta');
   return true;
 }
 function guardaPendiente() {
   let id = null; try { id = localStorage.getItem('limon_guardar_tras_cuenta'); localStorage.removeItem('limon_guardar_tras_cuenta'); } catch (e) { }
+  if (id && window.limonContar) window.limonContar('cuenta_tras_limite');  // entró o creó la cuenta después de chocar con el límite
   if (!id || !BYID[id] || saved.includes(id)) return;
   ponSaved(saved.concat(id)); store.set('saved', saved); learn(BYID[id], 'save');
   toast(`Guardado en tu agenda: «${BYID[id].titulo}».`); renderAll();

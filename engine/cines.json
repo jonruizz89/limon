@@ -1,0 +1,10 @@
+{
+  "_nota": "Salas con cartelera pública que se puede leer (para «Dónde verla» en las fichas de estrenos y la búsqueda por sala). Las grandes cadenas (Cinesa, Kinépolis, Ocine, Yelmo) bloquean la lectura automática: no se incluyen.",
+  "madrid": [
+    {"nombre": "Cines Verdi Madrid", "direccion": "Calle de Bravo Murillo, 28", "lat": 40.43662, "lng": -3.70409, "lector": "verdi", "url": "https://madrid.cines-verdi.com/"},
+    {"nombre": "Cines Princesa (Renoir)", "direccion": "Calle de la Princesa, 3", "lat": 40.42504, "lng": -3.71244, "lector": "renoir", "url": "https://www.cinesrenoir.com/cine/cines-princesa/cartelera/"},
+    {"nombre": "Renoir Plaza de España", "direccion": "Calle de Martín de los Heros, 12", "lat": 40.4244, "lng": -3.71341, "lector": "renoir", "url": "https://www.cinesrenoir.com/cine/renoir-plaza-de-espana/cartelera/"},
+    {"nombre": "Renoir Retiro", "direccion": "Calle de Narváez, 42", "lat": 40.42009, "lng": -3.67643, "lector": "renoir", "url": "https://www.cinesrenoir.com/cine/renoir-retiro/cartelera/"},
+    {"nombre": "Golem Madrid", "direccion": "Calle de Martín de los Heros, 14", "lat": 40.42483, "lng": -3.7138, "lector": "golem", "url": "https://www.golem.es/golem/golem-madrid"}
+  ]
+}

@@ -327,6 +327,30 @@ try {
       await ctx.close();
     }
 
+    // ───────── cartelera de salas: «Dónde verla» en un estreno y la sala al buscarla
+    {
+      const { ctx, p, errores } = await abrir(b, perfil);
+      await cargada(p);
+      // un estreno como los de TMDB (se añade aquí para no cambiar los recuentos de las demás pruebas)
+      await p.evaluate(() => { const x = Object.assign({}, BYID.e112, { id: 'e115', titulo: 'Estreno en cines: Wild Horse Nine', cats: ['estrenos'], lugar: 'Cines de Madrid', descripcion: 'Película.' }); EV.push(x); BYID.e115 = x; });
+      await ir(p, 'explorar');
+      await p.fill('#q-global', 'wild horse'); await p.waitForTimeout(400);
+      await p.locator('article.card:visible a[data-open]').first().click(); await p.waitForTimeout(400);
+      const donde = p.locator('article.card.abierta .donde');
+      ok(await donde.isVisible() && (await donde.locator('li').count()) === 2 && /Golem Madrid/.test(await donde.textContent()) && /Verdi/.test(await donde.textContent()),
+        T('estreno: «Dónde verla» con las dos salas que la tienen (aunque una ponga «(V.O.S.E.)»)'));
+      await p.fill('#q-global', 'los miserables'); await p.waitForTimeout(400);
+      await p.locator('article.card:visible a[data-open]').first().click(); await p.waitForTimeout(400);
+      ok(await p.locator('article.card.abierta').count() > 0 && (await p.locator('article.card.abierta .donde').count()) === 0, T('una obra de teatro con el mismo título que una película no sale en la cartelera'));
+      await p.fill('#q-global', 'golem'); await p.waitForTimeout(400);
+      const box = p.locator('.cinebox');
+      ok(await box.isVisible() && /En cartel en Golem Madrid/.test(await box.textContent()) && (await box.locator('a[data-goto-ev]').count()) === 1 && (await box.locator('li').count()) === 2,
+        T('buscar «golem»: sus películas, con el estreno enlazado a su ficha'));
+      ok(!(await p.locator('#ex-list .empty').isVisible().catch(() => false)), T('buscar una sala no dice «ningún plan coincide»'));
+      ok(errores.length === 0, T(`cartelera sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
+      await ctx.close();
+    }
+
     // ───────── campana de avisos
     {
       const { ctx, p, errores } = await abrir(b, perfil);

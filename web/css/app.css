@@ -402,3 +402,12 @@ a.pill { text-decoration: none; color: inherit }
 .cutmas { display: flex; flex-direction: column; gap: 8px }
 .cutmas[hidden] { display: none }
 #splash.out { pointer-events: none; transition-duration: .2s }
+/* cartelera de las salas: «Dónde verla» en la ficha de un estreno y la sala al buscarla (js/cartelera.js) */
+.donde { margin: 10px 0; padding: 10px 12px; border-radius: 12px; background: var(--chip); }
+.donde-t { margin: 0 0 4px; font-weight: 700; }
+.donde ul, .cinebox ul { margin: 4px 0; padding-left: 18px; }
+.donde li, .cinebox li { margin: 4px 0; }
+.cinebox { margin: 0 0 14px; padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.cinebox-t { margin: 0; }
+.cinebox ul.pelis { columns: 2; column-gap: 18px; }
+@media (max-width: 420px) { .cinebox ul.pelis { columns: 1; } }

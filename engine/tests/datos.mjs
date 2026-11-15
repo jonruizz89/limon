@@ -63,6 +63,12 @@ export function archivos() {
     'fuentes-madrid.json': fuentes, 'fuentes-barcelona.json': fuentes,
     'cortes-madrid.json': { generado: GENERADO, cortes: [corte('Obras en la calle de Alcalá', ['Calle de Alcalá'], '2026-12-10', '2026-12-14'),
       corte('Corte por la carrera popular en el paseo de la Castellana', ['Paseo de la Castellana'], '2026-12-20', '2026-12-20')] },
-    'cortes-barcelona.json': { generado: GENERADO, cortes: [] }
+    'cortes-barcelona.json': { generado: GENERADO, cortes: [] },
+    // cartelera de salas (engine/src/cartelera.py): la misma película con otro formato de título en cada sala
+    'cartelera-madrid.json': { generado: GENERADO, cines: [
+      { n: 'Golem Madrid', d: 'Calle de Martín de los Heros, 14', la: 40.42483, lo: -3.7138, w: 'https://ejemplo.limonplanes.com/golem',
+        p: [{ t: 'Wild Horse Nine (V.O.S.E.)', u: 'https://ejemplo.limonplanes.com/golem/whn' }, { t: 'El tren fluvial', u: 'https://ejemplo.limonplanes.com/golem/tren' }] },
+      { n: 'Cines Verdi Madrid', d: 'Calle de Bravo Murillo, 28', la: 40.43662, lo: -3.70409, w: 'https://ejemplo.limonplanes.com/verdi',
+        p: [{ t: 'Wild Horse Nine', u: 'https://ejemplo.limonplanes.com/verdi/whn' }, { t: 'Los miserables', u: 'https://ejemplo.limonplanes.com/verdi/lm' }] }] }
   };
 }

@@ -107,6 +107,7 @@ function card(e, opt) {
   const more = open ? `<div class="more" id="m-${e.id}">
         ${imgOf(e) ? `<img class="evimg" src="${esc(imgOf(e))}" alt="" loading="lazy" decoding="async">` : ''}
         ${e.descripcion ? `<p>${esc(e.descripcion)}</p>` : detailsHtml(e)}
+        ${typeof dondeVerla === 'function' ? dondeVerla(e) : ''}
         ${e.hora && e.hora.length >= 40 ? `<p class="note">${esc(e.hora)}</p>` : ''}
         ${e.precio && e.precio.length >= 40 ? `<p class="note">${esc(e.precio)}</p>` : ''}
         ${e.direccion || e.distrito ? `<p class="note">📍 ${[e.direccion, e.distrito && !(e.direccion || '').includes(e.distrito) ? e.distrito : ''].filter(Boolean).map(esc).join(' · ')}</p>` : ''}

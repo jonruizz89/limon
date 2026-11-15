@@ -91,7 +91,8 @@ function renderExplorar() {
   const f = state.filter;
   $('ex-active').innerHTML = f ? `<button class="filterchip" id="ex-clear" aria-label="Quitar filtro">${esc(f.kind === 'cat' ? labelOf(f.value) : f.kind === 'id' ? f.label : f.value)} <span aria-hidden="true">✕</span></button>` : '';
   $('ex-count').textContent = res.length + (res.length === 1 ? ' evento' : ' eventos');
-  $('ex-list').innerHTML = (res.length ? zoneNote() : '') + (conSeccion(res.slice(0, state.exShown), x => card(x.e, { occ: x.occ })) || (q ? `<div class="empty">Ningún plan coincide con «${esc($('ex-q').value.trim())}» en estas fechas.</div>` : '<div class="empty">Ningún evento con esos filtros.</div>'));
+  const cineBox = typeof carteleraBusqueda === 'function' ? carteleraBusqueda(q) : '';  // buscar una sala: sus películas (cartelera.js)
+  $('ex-list').innerHTML = cineBox + (res.length ? zoneNote() : '') + (conSeccion(res.slice(0, state.exShown), x => card(x.e, { occ: x.occ })) || (cineBox ? '' : q ? `<div class="empty">Ningún plan coincide con «${esc($('ex-q').value.trim())}» en estas fechas.</div>` : '<div class="empty">Ningún evento con esos filtros.</div>'));
   $('ex-more').hidden = res.length <= state.exShown;
 }
 function renderAgenda() {
@@ -169,6 +170,7 @@ function placeAccount() {
 }
 function renderAll() {
   placeAccount();
+  if (typeof cargaCartelera === 'function') cargaCartelera();
   pintaCuando();
   pintaTema();
   $('stamp').innerHTML = `<button class="citybtn" id="city-btn" aria-haspopup="dialog" aria-label="${esc(CITY.name)}: cambiar de ciudad">${esc(CITY.name)} <span aria-hidden="true">▾</span></button>`;

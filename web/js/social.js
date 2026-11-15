@@ -108,6 +108,7 @@ async function toggleTopic(kind, value) {
 }
 function renderSeguir() {
   const box = $('seguir'); if (!box) return;
+  if (!logged) { box.innerHTML = '<h2 style="margin:0">Lo que sigues</h2>' + soloConCuenta('Sigue salas, ciclos, temas o artistas: lo nuevo te sale antes en Para ti, te avisamos en la campana 🔔 y aparece en tu resumen semanal. Entra o crea tu cuenta para usarlo.'); return; }
   box.innerHTML = `<h2 style="margin:0">Lo que sigues</h2>
       <p class="note" style="margin:0">Salas, ciclos, temas o artistas. Lo nuevo te sale antes en Para ti${logged ? ', te avisamos en la campana 🔔 de los planes nuevos de salas y ciclos, y sale en el resumen semanal (si lo tienes activado)' : ''}. Desde cada evento puedes seguir su sala o su ciclo.</p>
       <div class="seg">${TOPICS.map(t => `<button class="filterchip" data-topic-kind="${t.kind}" data-topic="${esc(t.value)}" aria-label="Dejar de seguir ${esc(t.value)}">${esc(t.value)} <span aria-hidden="true">✕</span></button>`).join('') || '<span class="note">Aún no sigues nada.</span>'}</div>
@@ -296,6 +297,8 @@ async function shareLink(url, title, text) {
 // tu año en planes
 function renderYear() {
   const box = $('year'); if (!box) return;
+  box.hidden = !logged;  // sin cuenta no se oculta nada que ver: el año sale de lo que marcas «Ya fui», que es de la cuenta
+  if (!logged) { box.innerHTML = ''; return; }
   box.innerHTML = `<div class="seg" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Tu año en planes</h2><button class="btn ghost" data-year>${state.year ? 'Ocultar' : 'Ver mi ' + today.getFullYear()}</button></div>` + (state.year || '');
 }
 function buildYear() {

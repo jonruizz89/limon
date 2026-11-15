@@ -323,6 +323,13 @@ try {
       ok(await p.locator('#acc-export').isVisible(), T('Tu cuenta: al abrir «Descargar mis datos» aparece el enlace de descarga'));
       await p.evaluate(() => { $('acc-out').hidden = false; $('acc-in').hidden = true; logged = false; renderAll(); });
       ok((await p.locator('#v-intereses > .panel, #v-intereses > .grupo').evaluateAll((xs) => xs.filter((x) => !x.hidden).map((x) => x.id)))[0] === 'account', T('Perfil al salir: la cuenta vuelve arriba'));
+      const sin = await p.evaluate(() => ({ taste: $('ts-con').hidden && !$('ts-sin').hidden && !!$('ts-sin').querySelector('[data-acc-go]'),
+        seguir: !!$('seguir').querySelector('[data-acc-go]') && !$('seguir').querySelector('#seguir-form'), avisos: !$('mail').hidden && !!$('mail').querySelector('[data-acc-go]'),
+        year: $('year').hidden }));
+      ok(sin.taste && sin.seguir && sin.avisos && sin.year, T(`Perfil sin cuenta: «Cuéntame qué te gusta», «Lo que sigues» y «Avisos» explican qué son y piden entrar; «Tu año» no sale (${JSON.stringify(sin)})`));
+      await p.evaluate(() => { document.querySelectorAll('#seguir').forEach(x => x.classList.add('open')); });
+      await p.locator('#seguir [data-acc-go]').click(); await p.waitForTimeout(700);
+      ok(await p.locator('#account').evaluate((x) => { const r = x.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }), T('«Entrar o crear cuenta» lleva a la cuenta'));
       ok(errores.length === 0, T(`Perfil sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
       await ctx.close();
     }

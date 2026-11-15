@@ -184,7 +184,9 @@ function renderAccountExtras() {
   renderStats(); renderDemo();
   if ($('o-stats')) $('o-stats').checked = !!(window.limonConsent && window.limonConsent.get() === '1');
   if (!logged || !me) {
-    org.hidden = true; adm.hidden = true; mail.hidden = true;
+    org.hidden = true; adm.hidden = true; mail.hidden = !!logged;  // con sesión pero aún sin datos de la cuenta: oculto hasta que lleguen
+    if (!logged) mail.innerHTML = '<h2 style="margin:0">Avisos</h2>' + soloConCuenta('Con cuenta te avisamos en el móvil, por correo y en la campana 🔔 de lo que te importa: cortes en tus calles, lluvia en tus planes guardados, planes nuevos de lo que sigues y el resumen semanal. Entra o crea tu cuenta para configurarlos.');
+    if ($('year') && !logged) $('year').hidden = true;
     cal.innerHTML = `<h2 style="margin:0">Sincronizar con tu calendario</h2><p class="note">Entra con tu cuenta (en Perfil) y tus planes guardados y los cortes de tus calles aparecerán en Google Calendar, Apple u Outlook, y se actualizarán solos.</p>`;
     return;
   }
@@ -328,6 +330,13 @@ function iniciaVersion() {
 }
 
 // ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
+function clicAccGo(ev) {  // «Entrar o crear cuenta» de los apartados que lo piden: a la cuenta, arriba en Perfil
+  if (!ev.target.closest('[data-acc-go]')) return false;
+  const acc = $('account'); if (!acc) return true;
+  acc.classList.add('open'); acc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => { const i = $('acc-email'); if (i && !$('acc-out').hidden) i.focus({ preventScroll: true }); }, 400);
+  return true;
+}
 function clicCuenta(ev) {
   if (ev.target.closest('#org, #adm, #ag-cal, #mail') && ev.target.closest('button, a[data-copy]')) { onAccountClick(ev).then(done => { if (done) ev.preventDefault(); }); if (ev.target.closest('[data-org-new],[data-org-edit],[data-org-leer],[data-org-cancel],[data-org-retire],[data-adm-ed],[data-adm-pub],[data-adm-idea],[data-copy],[data-mail-test]')) return true; }
   return false;

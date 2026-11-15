@@ -228,6 +228,8 @@ async function loadAI(w, force) {
   if (state.tab === 'parati') renderParaTi();
 }
 function renderTaste() {
+  $('ts-con').hidden = !logged; $('ts-sin').hidden = logged;
+  if (!logged) { $('ts-sin').innerHTML = soloConCuenta('Escribe con tus palabras lo que te gusta («cine clásico, sobre todo Hitchcock; nada de reguetón») y lo convertimos en tu perfil de gustos para que Para ti acierte más. Entra o crea tu cuenta para usarlo.'); return; }
   if (document.activeElement !== $('ts-text')) $('ts-text').value = tasteText || '';
   $('ts-go').disabled = !logged;
   if (!logged) $('ts-msg').textContent = 'Entra con tu cuenta (arriba, en «Entra o crea tu cuenta») para usarlo.';

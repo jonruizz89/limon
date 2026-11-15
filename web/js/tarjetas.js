@@ -122,7 +122,7 @@ function card(e, opt) {
           <button class="act" data-mas="${e.id}" aria-expanded="${!!state.mas && state.mas === e.id}" aria-controls="mas-${e.id}">Más</button>
           <div class="acts mas" id="mas-${e.id}"${state.mas === e.id ? '' : ' hidden'}>
             <button class="act" data-addlist="${e.id}">Añadir a lista</button>
-            ${e.lugar ? topicBtn('sala', e.lugar, 'la sala') : ''}${e.serie ? topicBtn('ciclo', e.serie, 'el ciclo') : ''}
+            ${logged && e.lugar ? topicBtn('sala', e.lugar, 'la sala') : ''}${logged && e.serie ? topicBtn('ciclo', e.serie, 'el ciclo') : ''}
             ${e.lat ? `<button class="act" data-route="${e.id}">Ver cortes en el camino</button>` : ''}
             ${went.includes(e.id) ? `<button class="act" data-went="${e.id}" aria-pressed="true">✓ Fui</button>` : ''}
             <button class="act" data-dismiss="${e.id}" aria-pressed="${isDismissed(e)}">${isDismissed(e) ? 'Volver a mostrar' : 'No me interesa'}</button>

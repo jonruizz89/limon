@@ -15,6 +15,8 @@ const SAMPLE = { pintura: 1, expo_hist: 1, arqueo_cat: 1, fotografia: 1, museos:
 let logged = false;
 const aiReco = {};   // por rango de fechas: { loading, planes, error }
 let state = { caKind: 'todo', caDay: null, filter: null, tab: 'parati', when: 'semana', free: false, ptShown: 12, exShown: 20, open: {}, groupsOpen: { arte: true } };
+// apartados de Perfil que solo funcionan con cuenta: qué hacen y un botón para entrar (lo atiende clicAccGo, en cuenta.js)
+const soloConCuenta = txt => `<p class="note" style="margin:0">${txt}</p><div class="seg"><button class="btn" data-acc-go>Entrar o crear cuenta</button></div>`;
 const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 // se llama miles de veces por pantalla: cada fecha se convierte una sola vez (nadie modifica estas fechas; addDays copia)
 const PARSED = new Map();

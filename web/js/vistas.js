@@ -97,7 +97,9 @@ function renderExplorar() {
 }
 function renderAgenda() {
   const list = EV.filter(e => saved.includes(e.id)).sort((a, b) => a.inicio.localeCompare(b.inicio) || horaOrden(a) - horaOrden(b));
-  $('ag-list').innerHTML = list.map(e => card(e)).join('') || `<div class="empty agvacia"><p style="margin:0">Aún no has guardado nada. Toca <b>Guardar</b> en cualquier plan y aparecerá aquí, ordenado por fecha.</p>
+  const nota = !logged && list.length ? `<div class="cuentanota"><p class="note" style="margin:0">Lo guardado está solo en este dispositivo. Entra o crea tu cuenta para no perderlo, tenerlo en el móvil y el ordenador y recibir avisos de lluvia o cortes.</p>
+    <button class="btn ghost" data-acc-go>Entrar o crear cuenta</button></div>` : '';
+  $('ag-list').innerHTML = nota + list.map(e => card(e)).join('') || `<div class="empty agvacia"><p style="margin:0">Aún no has guardado nada. Toca <b>Guardar</b> en cualquier plan y aparecerá aquí, ordenado por fecha.${logged ? '' : ' Con una cuenta, lo que guardes estará también en tus otros dispositivos.'}</p>
     <button class="btn" data-goto="parati" style="align-self:flex-start">Ver planes de esta semana</button></div>`;
   $('n-agenda').textContent = saved.length || '';
   renderDiary(); renderLists();
@@ -124,6 +126,9 @@ function renderIntereses() {
     return `<div class="grp"><button data-grp="${g.id}" aria-expanded="${!!open}"><span class="nm">${esc(g.name)}</span><span class="ct ${on ? 'on' : ''}">${ct}</span><span aria-hidden="true">${open ? '▴' : '▾'}</span></button>
         ${open ? `<div class="chips">${items.map(it => `<button class="chip" data-cat="${it.id}" data-v="${prefs[it.id] || 0}" aria-label="${esc(it.label)}: ${['sin marcar', 'me interesa', 'no me muestres'][prefs[it.id] || 0]}">${esc(it.label)}<span class="k">${counts[it.id] || 0}</span></button>`).join('')}</div>` : ''}</div>`;
   }).join('');
+  // sin cuenta, cuando ya hay algo que perder (3 intereses o más), se recuerda qué da la cuenta
+  const nMarcados = Object.values(prefs).filter(v => v === 1).length;
+  $('in-cuenta').innerHTML = !logged && nMarcados >= 3 ? `<div class="cuentanota"><p class="note" style="margin:0">Tus intereses están solo en este dispositivo. Crea una cuenta para no perderlos y tenerlos en el móvil y el ordenador.</p><button class="btn ghost" data-acc-go>Crear cuenta</button></div>` : '';
   $('o-ninos').checked = !!opts.ninos; $('o-perro').checked = !!opts.perro; $('o-dist').checked = !!opts.dist;
   renderTaste();
 }

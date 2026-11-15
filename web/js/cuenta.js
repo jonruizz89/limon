@@ -187,7 +187,7 @@ function renderAccountExtras() {
     org.hidden = true; adm.hidden = true; mail.hidden = !!logged;  // con sesión pero aún sin datos de la cuenta: oculto hasta que lleguen
     if (!logged) mail.innerHTML = '<h2 style="margin:0">Avisos</h2>' + soloConCuenta('Con cuenta te avisamos en el móvil, por correo y en la campana 🔔 de lo que te importa: cortes en tus calles, lluvia en tus planes guardados, planes nuevos de lo que sigues y el resumen semanal. Entra o crea tu cuenta para configurarlos.');
     if ($('year') && !logged) $('year').hidden = true;
-    cal.innerHTML = `<h2 style="margin:0">Sincronizar con tu calendario</h2><p class="note">Entra con tu cuenta (en Perfil) y tus planes guardados y los cortes de tus calles aparecerán en Google Calendar, Apple u Outlook, y se actualizarán solos.</p>`;
+    cal.innerHTML = '<h2 style="margin:0">Sincronizar con tu calendario</h2>' + soloConCuenta('Con una cuenta, tus planes guardados y los cortes de tus calles aparecen en Google Calendar, Apple u Outlook y se actualizan solos. Entra o crea tu cuenta para activarlo.');
     return;
   }
   const ics = `${CONF.supabaseUrl}/functions/v1/limon-ical?t=${me.ical_token}`, webcal = ics.replace(/^https:/, 'webcal:');
@@ -330,11 +330,23 @@ function iniciaVersion() {
 }
 
 // ---------- clics de este tema. Cada función devuelve true si el clic era suyo; el orden en que se prueban está en js/inicio.js
-function clicAccGo(ev) {  // «Entrar o crear cuenta» de los apartados que lo piden: a la cuenta, arriba en Perfil
-  if (!ev.target.closest('[data-acc-go]')) return false;
-  const acc = $('account'); if (!acc) return true;
+// a la cuenta (arriba en Perfil), desde cualquier pestaña, con el cursor en el correo
+function irACuenta() {
+  if (state.tab !== 'intereses') go('intereses');
+  const acc = $('account'); if (!acc) return;
   acc.classList.add('open'); acc.scrollIntoView({ behavior: 'smooth', block: 'start' });
   setTimeout(() => { const i = $('acc-email'); if (i && !$('acc-out').hidden) i.focus({ preventScroll: true }); }, 400);
+}
+function clicAccGo(ev) {  // «Entrar o crear cuenta» de los apartados y avisos que lo piden
+  if (!ev.target.closest('[data-acc-go]')) return false;
+  irACuenta(); return true;
+}
+// al guardar sin cuenta: a los 3 planes guardados (y otra vez a los 10), un aviso de lo que da la cuenta. Nunca al primero.
+function avisoGuardarSinCuenta() {
+  if (logged) return false;
+  let n = 0; try { n = +(localStorage.getItem('limon_guardados_sin_cuenta') || 0) + 1; localStorage.setItem('limon_guardados_sin_cuenta', n); } catch (e) { return false; }
+  if (n !== 3 && n !== 10) return false;
+  toast('Guardado en este dispositivo. Con una cuenta lo tienes en el móvil y el ordenador, te avisamos si llueve o cortan una calle y se sincroniza con tu calendario.', irACuenta, 'Crear cuenta');
   return true;
 }
 function clicCuenta(ev) {

@@ -177,8 +177,7 @@ function clicSave(ev) {
       if (a2) window.scrollBy(0, a2.getBoundingClientRect().top - y0);
     }
     const deshacer = () => { ponSaved(on ? saved.filter(x => x !== id) : saved.concat(id)); store.set('saved', saved); if (BYID[id]) learn(BYID[id], on ? 'unsave' : 'save'); renderAll(); };
-    if (on && !logged && (saved.length === 1 || saved.length === 3)) toast('Guardado. Con una cuenta gratis te avisamos antes de que empiece.', () => go('intereses'), 'Crear cuenta');
-    else toast(on ? 'Guardado en tu agenda.' : 'Quitado de tu agenda.', deshacer);
+    if (!(on && avisoGuardarSinCuenta())) toast(on ? 'Guardado en tu agenda.' : 'Quitado de tu agenda.', deshacer);
     return true;
   }
   return false;

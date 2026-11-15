@@ -327,10 +327,32 @@ try {
         seguir: !!$('seguir').querySelector('[data-acc-go]') && !$('seguir').querySelector('#seguir-form'), avisos: !$('mail').hidden && !!$('mail').querySelector('[data-acc-go]'),
         year: $('year').hidden }));
       ok(sin.taste && sin.seguir && sin.avisos && sin.year, T(`Perfil sin cuenta: «Cuéntame qué te gusta», «Lo que sigues» y «Avisos» explican qué son y piden entrar; «Tu año» no sale (${JSON.stringify(sin)})`));
+      const notaInt = await p.evaluate(() => { const antes = !!$('in-cuenta').querySelector('[data-acc-go]'); const ids = TAX.flatMap(g => g.items.map(i => i.id)).slice(0, 3);
+        ids.forEach(id => { prefs[id] = 1; }); renderIntereses(); const despues = !!$('in-cuenta').querySelector('[data-acc-go]'); ids.forEach(id => { delete prefs[id]; }); renderIntereses(); return [antes, despues]; });
+      ok(!notaInt[0] && notaInt[1], T(`intereses sin cuenta: con 3 marcados se recuerda crear cuenta, no antes (${notaInt})`));
       await p.evaluate(() => { document.querySelectorAll('#seguir').forEach(x => x.classList.add('open')); });
       await p.locator('#seguir [data-acc-go]').click(); await p.waitForTimeout(700);
       ok(await p.locator('#account').evaluate((x) => { const r = x.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }), T('«Entrar o crear cuenta» lleva a la cuenta'));
       ok(errores.length === 0, T(`Perfil sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
+      await ctx.close();
+    }
+
+    // ───────── sin cuenta: guardar funciona y, al tercer plan guardado (no antes), un aviso de lo que da la cuenta
+    {
+      const { ctx, p, errores } = await abrir(b, perfil);
+      await cargada(p);
+      await ir(p, 'explorar');
+      const btns = p.locator('article.card:visible');
+      const aviso = async () => (await p.locator('#toast').isVisible()) && /Con una cuenta/.test(await p.locator('#toast-t').textContent());
+      const guarda = async (i) => { await btns.nth(i).locator('a[data-open]').click(); await p.waitForTimeout(250); await p.locator('article.card.abierta [data-save]').first().click(); await p.waitForTimeout(250);
+        const a = await aviso(); await p.locator('article.card.abierta a[data-open]').first().click(); await p.waitForTimeout(200); return a; };
+      const tras1 = await guarda(0), tras2 = await guarda(1), tras3 = await guarda(2);
+      ok(!tras1 && !tras2 && tras3 && /Crear cuenta/.test(await p.locator('#toast-undo').textContent()), T(`sin cuenta: el aviso de la cuenta sale al tercer plan guardado, no antes (${[tras1, tras2, tras3]})`));
+      await ir(p, 'agenda');
+      ok(await p.locator('#ag-list .cuentanota [data-acc-go]').isVisible() && (await p.locator('#ag-list article.card').count()) === 3, T('Agenda sin cuenta: los 3 guardados y la nota de que están solo en este dispositivo'));
+      await p.locator('#ag-list .cuentanota [data-acc-go]').click(); await p.waitForTimeout(700);
+      ok(await p.locator('#v-intereses').isVisible() && await p.locator('#account').evaluate((x) => { const r = x.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }), T('desde la Agenda, «Entrar o crear cuenta» lleva a la cuenta en Perfil'));
+      ok(errores.length === 0, T(`guardar sin cuenta sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
       await ctx.close();
     }
 

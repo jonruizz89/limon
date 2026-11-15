@@ -135,7 +135,7 @@ const isDismissed = e => dismissed.includes(e.id);
 let toastTimer = null, toastUndo = null;
 function toast(msg, undo, label) {
   $('toast-t').textContent = msg; $('toast-undo').hidden = !undo; $('toast-undo').textContent = label || 'Deshacer'; toastUndo = undo || null;
-  $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, label ? 6000 : 5000);
+  $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, label ? (msg.length > 90 ? 10000 : 6000) : 5000);
 }
 
 // ---------- arranque: los datos de la zona, las etiquetas, lo guardado en el dispositivo y la fecha de hoy

@@ -411,3 +411,5 @@ a.pill { text-decoration: none; color: inherit }
 .cinebox-t { margin: 0; }
 .cinebox ul.pelis { columns: 2; column-gap: 18px; }
 @media (max-width: 420px) { .cinebox ul.pelis { columns: 1; } }
+/* recordatorio de lo que da la cuenta (Agenda e intereses sin cuenta) */
+.cuentanota { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: var(--chip); }

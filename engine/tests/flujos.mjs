@@ -316,7 +316,12 @@ try {
       const orden2 = await p.locator('#v-intereses > .panel, #v-intereses > .grupo').evaluateAll((xs) => xs.map((x) => x.id));
       ok(orden2[orden2.length - 1] === 'account' && orden2.indexOf('g-mas') < orden2.indexOf('account'),
         T(`Perfil con cuenta: Tu cuenta abajo del todo (${orden2.join(',')})`));
-      await p.evaluate(() => { logged = false; renderAll(); });
+      await p.evaluate(() => { $('acc-out').hidden = true; $('acc-in').hidden = false; $('account').classList.add('open'); });
+      ok(await p.locator('#acc-logout').isVisible() && !(await p.locator('#acc-export').isVisible()) && await p.locator('details:has(#acc-export) summary').isVisible(),
+        T('Tu cuenta: «Descargar mis datos» va plegado, como «Darme de baja», y «Cerrar sesión» sigue a la vista'));
+      await p.locator('details:has(#acc-export) summary').click();
+      ok(await p.locator('#acc-export').isVisible(), T('Tu cuenta: al abrir «Descargar mis datos» aparece el enlace de descarga'));
+      await p.evaluate(() => { $('acc-out').hidden = false; $('acc-in').hidden = true; logged = false; renderAll(); });
       ok((await p.locator('#v-intereses > .panel, #v-intereses > .grupo').evaluateAll((xs) => xs.filter((x) => !x.hidden).map((x) => x.id)))[0] === 'account', T('Perfil al salir: la cuenta vuelve arriba'));
       ok(errores.length === 0, T(`Perfil sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
       await ctx.close();

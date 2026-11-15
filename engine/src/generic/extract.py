@@ -129,6 +129,9 @@ def caida(antes, ahora, dias):
     return antes >= 3 and ahora < 0.3 * antes and dias < 3
 
 
+EN_LINEA = re.compile(r'^(online|on line|en linea|webinars?|virtual|streaming)$')
+
+
 def main(cid):
     city = load_city(cid)
     prov = city.get('kind') == 'provincia'
@@ -164,6 +167,13 @@ def main(cid):
                 continue
             if fuera and fuera.search(fold(' '.join(str(e.get(k) or '') for k in ('lugar', 'municipio')))):
                 continue  # pueblos de la provincia que una agenda de la ciudad mezcla (features.fuera, p. ej. Torremolinos en Málaga)
+            if EN_LINEA.match(fold(e.get('lugar') or '').strip()):
+                continue  # charlas y webinars por internet: no son planes en la ciudad
+            cfg = s.get('config') or {}
+            if not e.get('lugar') and cfg.get('lugar'):  # webs de una sola sala que no repiten su nombre en cada plan (config.lugar)
+                e['lugar'] = cfg['lugar']
+                if cfg.get('direccion') and not e.get('direccion'):
+                    e['direccion'] = cfg['direccion']
             e['fuentes'] = [{'nombre': s['name'], 'url': e.get('url') or s['url']}]
             keep.append(e)
         raw += keep

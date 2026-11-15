@@ -101,7 +101,7 @@ def jsonld_events(blocks, base):
                 hora = f'{m.group(4)}:{m.group(5)}' if m.group(4) else None
             if not ini or not e.get('name'):
                 continue
-            loc = e.get('location') or {}
+            loc = e.get('location') or e.get('Location') or {}  # Fundación Unicaja lo escribe con mayúscula
             if isinstance(loc, list):
                 loc = loc[0] if loc else {}
             if isinstance(loc, str):
@@ -109,6 +109,10 @@ def jsonld_events(blocks, base):
             addr = loc.get('address') or {}
             if isinstance(addr, str):
                 addr = {'streetAddress': addr}
+            # «Sala María Cristina (C. Marqués de Valdecañas, 2)» como nombre y como dirección: se separan
+            m = re.match(r'^(.+?)\s*\(([^()]*\d[^()]*)\)\s*$', str(loc.get('name') or ''))
+            if m and (not addr.get('streetAddress') or addr.get('streetAddress') == loc.get('name')):
+                loc = dict(loc, name=m.group(1)); addr = dict(addr, streetAddress=m.group(2))
             geo = loc.get('geo') or {}
             offers = e.get('offers') or {}
             if isinstance(offers, list):

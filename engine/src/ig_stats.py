@@ -74,10 +74,11 @@ for cuenta, uid in IG_ID.items():
             except Exception as e:
                 fila[col] = None; sin.append(f'{m} ({error(e)})')
         upsert([fila])
-        if sin and all('(#10)' in x for x in sin) and len(sin) == len(METRICAS):
+        sinpermiso = lambda x: '(#10)' in x or '(429' in x  # 429 suelto entre #10: es el mismo caso (sin permiso), no un fallo
+        if sin and all(sinpermiso(x) for x in sin) and any('(#10)' in x for x in sin) and len(sin) == len(METRICAS):
             print(f'{cuenta} {dia}: el token no tiene permiso de estadísticas (instagram_business_manage_insights); solo foto diaria · Meta: {sin[0][:200]}')
         else:
             print(f'{cuenta} {dia}: {len(METRICAS) - len(sin)}/{len(METRICAS)} métricas guardadas' + (' · sin: ' + '; '.join(sin) if sin else ''))
-        if len(sin) == len(METRICAS) and not all('(#10)' in x for x in sin):
+        if len(sin) == len(METRICAS) and not (all(sinpermiso(x) for x in sin) and any('(#10)' in x for x in sin)):
             fallos += 1  # sin el permiso instagram_manage_insights (#10) no es un fallo: se queda con la foto diaria
 sys.exit(1 if fallos else 0)

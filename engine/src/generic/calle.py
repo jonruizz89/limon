@@ -143,6 +143,12 @@ def malaga_rows(cid):
     st, _, txt, _ = fetch(MALAGA, accept='application/json', ua=UA_API)
     if st != 200:
         print('Málaga', st); return []
+    try:
+        data = json.loads(txt) if (txt or '').strip() else None
+    except ValueError:
+        data = None
+    if not isinstance(data, dict):
+        print('Málaga: respuesta vacía o no es JSON'); return []
     today = dt.date.today()
     until = (today + dt.timedelta(days=30)).isoformat()
     rows, minor = [], 0
@@ -153,7 +159,7 @@ def malaga_rows(cid):
         d = f'{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}'
         h = f'{int(m.group(4)):02d}:{m.group(5)}' if m.group(4) and f'{m.group(4)}:{m.group(5)}' not in ('0:00', '00:00', '23:59') else None
         return d, h
-    for f in (json.loads(txt) or {}).get('features') or []:
+    for f in data.get('features') or []:
         pr = f.get('properties') or {}
         ini, h1 = fecha(pr.get('DESDE'))
         fin, h2 = fecha(pr.get('HASTA'))

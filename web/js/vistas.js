@@ -96,10 +96,13 @@ function renderExplorar() {
   $('ex-more').hidden = res.length <= state.exShown;
 }
 function renderAgenda() {
-  const list = EV.filter(e => saved.includes(e.id)).sort((a, b) => a.inicio.localeCompare(b.inicio) || horaOrden(a) - horaOrden(b));
+  // cada plan en el día que eligió ir («¿Qué día vas?») o, si no, en su próxima fecha
+  const cuando = e => { const d = diaElegido(e); if (d) return { date: d, ongoing: false }; return occurs(e, today, addDays(today, 400)); };
+  const list = EV.filter(e => saved.includes(e.id)).map(e => ({ e, occ: cuando(e) }))
+    .sort((x, y) => ((x.occ ? x.occ.date : parse(x.e.inicio)) - (y.occ ? y.occ.date : parse(y.e.inicio))) || horaOrden(x.e) - horaOrden(y.e));
   const nota = !logged && list.length ? `<div class="cuentanota"><p class="note" style="margin:0">Sin cuenta puedes guardar ${MAX_SIN_CUENTA} planes, y solo en este dispositivo. Crea tu cuenta gratis para guardar todos los que quieras, tenerlos en el móvil y el ordenador y recibir avisos de lluvia o cortes.</p>
     <button class="btn ghost" data-acc-go>Entrar o crear cuenta</button></div>` : '';
-  $('ag-list').innerHTML = nota + list.map(e => card(e)).join('') || `<div class="empty agvacia"><p style="margin:0">Aún no has guardado nada. Toca <b>Guardar</b> en cualquier plan y aparecerá aquí, ordenado por fecha.${logged ? '' : ` Sin cuenta puedes guardar ${MAX_SIN_CUENTA}; con una cuenta gratis, todos los que quieras.`}</p>
+  $('ag-list').innerHTML = nota + list.map(x => card(x.e, x.occ ? { occ: x.occ } : {})).join('') || `<div class="empty agvacia"><p style="margin:0">Aún no has guardado nada. Toca <b>Guardar</b> en cualquier plan y aparecerá aquí, ordenado por fecha.${logged ? '' : ` Sin cuenta puedes guardar ${MAX_SIN_CUENTA}; con una cuenta gratis, todos los que quieras.`}</p>
     <button class="btn" data-goto="parati" style="align-self:flex-start">Ver planes de esta semana</button></div>`;
   $('n-agenda').textContent = saved.length || '';
   renderDiary(); renderLists();

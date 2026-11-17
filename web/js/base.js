@@ -140,7 +140,7 @@ function toast(msg, undo, label) {
 
 // ---------- arranque: los datos de la zona, las etiquetas, lo guardado en el dispositivo y la fecha de hoy
 let DATA, TAX, sync, EV, META, CLOSURES, CITY, CENTER, HAS_CALLE, today, HOY0, BYID;  // se fijan al arrancar (iniciaDatos)
-let VISITAS, prefs, opts, saved, streets, dismissed, went, nofui, learned, taste, tasteText;
+let VISITAS, prefs, opts, saved, dias, streets, dismissed, went, nofui, learned, taste, tasteText;
 function iniciaDatos() {
   ({ DATA, TAX, sync } = window.LIMON_INICIO);
 
@@ -153,6 +153,7 @@ function iniciaDatos() {
   prefs = store.get('prefs', null) || {};
   opts = store.get('opts', { ninos: false, perro: false });
   saved = store.get('saved', []);
+  dias = store.get('dias', {});      // «¿Qué día vas?»: id del plan guardado → 'AAAA-MM-DD' (tarjetas.js)
   streets = store.get('streets', []);
   dismissed = store.get('dismissed', []);
   went = store.get('went', []);
@@ -192,16 +193,16 @@ function iniciaEnlacesExternos() {
 function entregaApp() {
   // lo que usa data.js para sincronizar la cuenta
   window.LIMON_INICIO.listo({
-    get: () => ({ prefs, opts, saved, streets, dismissed, went, nofui, learned, taste }),
+    get: () => ({ prefs, opts, saved, dias, streets, dismissed, went, nofui, learned, taste }),
     setUser(v) { logged = v; Object.keys(aiReco).forEach(k => delete aiReco[k]); renderAll(); loadMe(); if (typeof loadNotis === "function") loadNotis(true); loadInvites(); loadSocial(); loadIdeas(); loadPast(); },
     set(p) {
       if (p.prefs) prefs = p.prefs; if (p.opts) opts = Object.assign({}, opts, p.opts, { dist: opts.dist });  // la distancia es de cada dispositivo: la cuenta no la pisa
-      if (p.saved) saved = p.saved; if (p.streets) streets = p.streets;
+      if (p.saved) saved = p.saved; if (p.dias) dias = p.dias; if (p.streets) streets = p.streets;
       if (p.dismissed) dismissed = p.dismissed; if (p.went) went = p.went; if (p.nofui) nofui = p.nofui; if (p.learned) learned = p.learned;
       if ('taste' in p) { taste = p.taste; try { localStorage.setItem('bureo.taste', JSON.stringify(taste)); } catch (e) { } }
       if ('taste_text' in p) { tasteText = p.taste_text || ''; try { localStorage.setItem('bureo.taste_text', JSON.stringify(tasteText)); } catch (e) { } }
       if ('taste' in p || 'taste_text' in p) { Object.keys(aiReco).forEach(k => delete aiReco[k]); if (!p.prefs) { renderAll(); return; } }
-      store.set('prefs', prefs); store.set('opts', opts); store.set('saved', saved); store.set('streets', streets);
+      store.set('prefs', prefs); store.set('opts', opts); store.set('saved', saved); store.set('dias', dias); store.set('streets', streets);
       store.set('dismissed', dismissed); store.set('went', went); store.set('nofui', nofui); store.set('learned', learned); renderAll(); loadPast();
     }
   });
@@ -221,6 +222,7 @@ function clicTema(ev) {
 // ---------- cada variable se asigna solo en su archivo: desde los demás, estas se cambian con su función pon…
 function ponStreets(v) { return (streets = v); }
 function ponSaved(v) { return (saved = v); }
+function ponDias(v) { return (dias = v); }
 function ponWent(v) { return (went = v); }
 function ponNofui(v) { return (nofui = v); }
 function ponTaste(v) { return (taste = v); }

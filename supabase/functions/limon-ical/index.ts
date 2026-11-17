@@ -49,21 +49,23 @@ Deno.serve(async (req) => {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
 
   // planes guardados
-  const { data: sv } = await admin.from('saved_events').select('event_id').eq('user_id', p.id);
+  const { data: sv } = await admin.from('saved_events').select('event_id,day').eq('user_id', p.id);
   const ids = (sv || []).map((r: { event_id: number }) => r.event_id);
+  const diaDe: Record<number, string> = {};  // el día que eligió ir (si lo eligió)
+  (sv || []).forEach((r: { event_id: number; day: string | null }) => { if (r.day) diaDe[r.event_id] = r.day; });
   if (ids.length) {
     const { data: evs } = await admin.from('events')
       .select('id,title,description,starts_on,ends_on,time_text,venues(name),event_sessions(on_date),event_sources(url)')
       .in('id', ids).gte('ends_on', new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10));
     for (const e of evs || []) {
-      const sess = ((e.event_sessions || []) as { on_date: string }[]).map((x) => x.on_date).sort();
-      const days = sess.length > 1 ? sess.filter((d) => d >= today).slice(0, 1) : [e.starts_on];
+      const sess = diaDe[e.id] ? [diaDe[e.id]] : ((e.event_sessions || []) as { on_date: string }[]).map((x) => x.on_date).sort();
+      const days = diaDe[e.id] ? [diaDe[e.id]] : sess.length > 1 ? sess.filter((d) => d >= today).slice(0, 1) : [e.starts_on];
       const src = String((((e.event_sources || []) as { url: string }[])[0] || {}).url || '');
       const url = /^https?:\/\/[^\s]+$/i.test(src) ? src : WEB;  // solo enlaces http(s) de una pieza
       const venue = (e.venues as unknown as { name: string } | null)?.name || '';
       for (const d of days.length ? days : [e.starts_on]) {
         const h = timed(e.time_text);
-        const single = sess.length > 1 || e.starts_on === e.ends_on;
+        const single = !!diaDe[e.id] || sess.length > 1 || e.starts_on === e.ends_on;
         lines.push('BEGIN:VEVENT', `UID:limon-e${e.id}-${d}@limon`, `DTSTAMP:${stamp}`);
         const long = !single && (Date.parse(e.ends_on) - Date.parse(e.starts_on)) > 7 * 864e5;
         if (h && single) lines.push(`DTSTART;TZID=Europe/Madrid:${ymd(d)}T${h}`, 'DURATION:PT2H');

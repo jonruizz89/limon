@@ -301,6 +301,10 @@
         else chk(await sb.from(table).upsert(ids.map((id) => ({ user_id: uid, event_id: id })), { ignoreDuplicates: true }));
       }
       BASE[k] = new Set(ids);
+    } else if (k === 'dias') {
+      // el día elegido de cada plan guardado (saved_events.day); null = aún no lo sabe
+      const rows = (app.get().saved || []).map((id) => ({ user_id: uid, event_id: toDbId(id), day: (v || {})[id] || null })).filter((r) => r.event_id);
+      if (rows.length) chk(await sb.from('saved_events').upsert(rows, { onConflict: 'user_id,event_id' }));
     } else if (k === 'taste') {
       chk(await sb.from('profiles').update({ taste: v }).eq('id', uid));
     } else if (k === 'learned') {
@@ -312,7 +316,7 @@
     }
   }
   function sync(k, v) {
-    if (pulling || !user || !['prefs', 'saved', 'opts', 'streets', 'dismissed', 'went', 'nofui', 'learned', 'taste'].includes(k)) return;
+    if (pulling || !user || !['prefs', 'saved', 'dias', 'opts', 'streets', 'dismissed', 'went', 'nofui', 'learned', 'taste'].includes(k)) return;
     clearTimeout(timers[k]);
     marcaPend(k, true);
     timers[k] = setTimeout(() => empuja(k, v), 400);
@@ -323,7 +327,7 @@
     lastPull = Date.now();
     const [i, s, p, d, w] = await Promise.all([
       sb.from('user_interests').select('category_id,value').eq('user_id', uid),
-      sb.from('saved_events').select('event_id').eq('user_id', uid),
+      sb.from('saved_events').select('event_id,day').eq('user_id', uid),
       sb.from('profiles').select('with_kids,with_dog,my_streets,learned,taste,taste_text,city_id,analytics').eq('id', uid).maybeSingle(),
       sb.from('dismissed_events').select('event_id').eq('user_id', uid),
       sb.from('attendance').select('event_id,went').eq('user_id', uid)
@@ -353,7 +357,16 @@
       out[k] = remoto.concat(nuevos);
       if (nuevos.length || quitados.size) subir.push(k);
     };
-    if (!s.error) lista('saved', s.data || []);
+    if (!s.error) {
+      lista('saved', s.data || []);
+      // día elegido: el de la cuenta; si la cuenta no tiene y este dispositivo sí, se sube
+      const dd = {}, ld = local.dias || {};
+      (s.data || []).forEach((r) => { if (r.day) dd['e' + r.event_id] = r.day; });
+      let falta = false;
+      (out.saved || []).forEach((id) => { if (!dd[id] && ld[id]) { dd[id] = ld[id]; falta = true; } });
+      out.dias = dd;
+      if (falta) subir.push('dias');
+    }
     if (!d.error) lista('dismissed', d.data || []);
     if (!w.error) { lista('went', (w.data || []).filter((r) => r.went)); lista('nofui', (w.data || []).filter((r) => !r.went)); }
     if (!i.error) {
@@ -527,7 +540,7 @@
       const was = user && user.id;
       if (evt === 'SIGNED_OUT' && was) {
         // lo de la cuenta no se queda en este navegador para la siguiente persona (sigue en la cuenta)
-        try { ['prefs', 'saved', 'dismissed', 'went', 'nofui', 'learned', 'streets', 'taste', 'taste_text', 'opts', 'syncbase', 'pend'].forEach((k) => localStorage.removeItem('bureo.' + k)); } catch (e) { }
+        try { ['prefs', 'saved', 'dias', 'dismissed', 'went', 'nofui', 'learned', 'streets', 'taste', 'taste_text', 'opts', 'syncbase', 'pend'].forEach((k) => localStorage.removeItem('bureo.' + k)); } catch (e) { }
         Object.keys(BASE).forEach((k) => delete BASE[k]);
         try { caches.keys().then((ks) => ks.filter((n) => /sb|supabase|limon-api/i.test(n)).forEach((n) => caches.delete(n))); } catch (e) { }
         setTimeout(() => location.reload(), 50);

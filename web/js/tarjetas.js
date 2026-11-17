@@ -137,7 +137,7 @@ function card(e, opt) {
       <div class="row1"><div class="lcol">${dateBox(e, occ)}${thumb(e, open)}</div>
         <div class="body">
           <h3 class="title"><a href="?c=${encodeURIComponent(C_ZONA)}&ev=${e.id}" data-open="${e.id}" aria-expanded="${open}" aria-controls="m-${e.id}">${esc(e.titulo)}</a></h3>
-          <div class="meta">${esc(whenText(e, occ))}</div>
+          <div class="meta">${esc(whenText(e, occ))}${isSaved && variasFechas(e) ? diaBtn(e) : ''}</div>
           ${lug ? `<div class="meta">${lug}</div>` : ''}
           ${streetWarn(e, occ)}${rainWarn(e, occ)}${crewHtml(e)}${friendsHtml(e)}
           ${e.serie ? `<button class="serie link" data-f-serie="${esc(e.serie)}" aria-label="Ver todo el ciclo: ${esc(e.serie)}">${esc(e.serie)} ›</button>` : ''}
@@ -167,6 +167,7 @@ function clicSave(ev) {
     const id = s.dataset.save, on = !saved.includes(id);
     if (on && limiteSinCuenta(id)) return true;  // sin cuenta y ya con 2 guardados: se pide la cuenta (cuenta.js)
     ponSaved(on ? saved.concat(id) : saved.filter(x => x !== id)); store.set('saved', saved);
+    if (!on && dias[id]) ponDia(id, null);
     if (on && window.limonContar) window.limonContar('guardar');
     if (BYID[id]) learn(BYID[id], on ? 'save' : 'unsave');
     // al repintar, la lista puede reordenarse (aprende de lo guardado): la tarjeta tocada se queda donde estaba en pantalla
@@ -178,10 +179,67 @@ function clicSave(ev) {
       if (a2) window.scrollBy(0, a2.getBoundingClientRect().top - y0);
     }
     const deshacer = () => { ponSaved(on ? saved.filter(x => x !== id) : saved.concat(id)); store.set('saved', saved); if (BYID[id]) learn(BYID[id], on ? 'unsave' : 'save'); renderAll(); };
-    toast(on ? 'Guardado en tu agenda.' : 'Quitado de tu agenda.', deshacer);
+    // con varias fechas, el aviso pregunta qué día vas (sin abrir nada encima); si se miraban fechas elegidas, ya va ese día
+    if (on && BYID[id] && fechasPosibles(BYID[id]).length > 1) {
+      const pd = diaPropuesto(BYID[id]);
+      if (pd) { ponDia(id, ymd(pd)); renderAll(); toast('Guardado para el ' + diaCorto(pd) + '.', () => pideDia(id), 'Cambiar'); }
+      else toast('Guardado. ¿Qué día vas?', () => pideDia(id), 'Elegir día');
+    } else toast(on ? 'Guardado en tu agenda.' : 'Quitado de tu agenda.', deshacer);
     return true;
   }
   return false;
+}
+
+// ---------- «¿Qué día vas?»: en un plan guardado con varias fechas se apunta el día elegido (dias, en la cuenta saved_events.day).
+// La Agenda lo pone ese día, y los avisos de lluvia y cortes, «¿fuiste?» y el calendario usan esa fecha
+const variasFechas = e => e.sesiones.length > 1 || e.inicio !== e.fin;
+function fechasPosibles(e) {
+  if (e.sesiones.length > 1) return e.sesiones.map(parse).filter(d => d >= today && !pasadoHoy(e, d));
+  const out = [], f = parse(e.fin);
+  for (let d = parse(e.inicio) < today ? today : parse(e.inicio); d <= f && out.length < 120; d = addDays(d, 1)) out.push(d);
+  return out;
+}
+function diaElegido(e) { const v = dias[e.id]; if (!v) return null; const d = parse(v); return d >= today ? d : null; }
+const diaCorto = d => DIA[d.getDay()] + ' ' + d.getDate() + ' ' + MES[d.getMonth()];
+function diaBtn(e) {
+  const d = diaElegido(e);
+  return ` · <button class="btnlink diabtn" data-dia="${e.id}">${d ? 'Vas el ' + diaCorto(d) : '¿Qué día vas?'}</button>`;
+}
+// si se estaban mirando unas fechas elegidas a mano (Explorar o Para ti), el día del plan en ellas viene ya marcado
+function diaPropuesto(e) {
+  const w = state.tab === 'explorar' ? $('ex-when').value : state.tab === 'parati' ? state.when : null;
+  if (w !== 'rango') return null;
+  const [a, b] = range(w), o = occurs(e, a, b);
+  return o ? (o.ongoing ? a : o.date) : null;
+}
+function pideDia(id) {
+  const e = BYID[id]; if (!e) return;
+  const fs = fechasPosibles(e); if (fs.length < 2) return;
+  const sel = diaElegido(e) || diaPropuesto(e);
+  state.diaDe = id;
+  const elegir = fs.length <= 24
+    ? `<div class="qgrid diachips">${fs.map(d => `<button class="qchip" data-diaset="${ymd(d)}" aria-pressed="${!!sel && +sel === +d}">${diaCorto(d)}</button>`).join('')}</div>`
+    : `<div class="seg"><label class="sr-only" for="dia-in">Día</label><input type="date" id="dia-in" min="${ymd(fs[0])}" max="${ymd(fs[fs.length - 1])}" value="${sel ? ymd(sel) : ''}">
+        <button class="btn" data-diaset-in>Ese día</button></div>`;
+  openSheet(`<div class="seg" style="justify-content:space-between;align-items:center"><h2 style="margin:0">¿Qué día vas?</h2><button class="btn ghost" data-sheet-close>Cerrar</button></div>
+    <p class="note" style="margin:4px 0 10px">«${esc(e.titulo)}» tiene varias fechas. Elige la tuya y te lo pondremos ese día en la Agenda, con los avisos de lluvia y cortes de ese día.</p>
+    ${elegir}<div class="seg qfoot"><button class="btnlink" data-diaset="">Aún no lo sé</button></div>`);
+}
+function ponDia(id, v) {
+  const n = Object.assign({}, dias);
+  if (v) n[id] = v; else delete n[id];
+  ponDias(n); store.set('dias', dias);
+}
+function clicDia(ev) {
+  const b = ev.target.closest('[data-dia]');
+  if (b) { pideDia(b.dataset.dia); return true; }
+  const s = ev.target.closest('[data-diaset], [data-diaset-in]');
+  if (!s || !state.diaDe) return false;
+  const v = s.hasAttribute('data-diaset-in') ? ($('dia-in').value || '') : s.dataset.diaset;
+  ponDia(state.diaDe, v || null); state.diaDe = null;
+  closeSheets(); renderAll();
+  toast(v ? 'Apuntado para el ' + diaCorto(parse(v)) + '.' : 'Sin día: sale en su próxima fecha.');
+  return true;
 }
 function clicDismiss(ev) {
   const dm = ev.target.closest('[data-dismiss]');

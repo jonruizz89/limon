@@ -273,11 +273,14 @@ async function daily() {
     const sections: { h: string; items: Item[] }[] = [];
     const wantCalle = (p.notify || {}).calle === true || wantsPush(p, 'calle'), wantRain = (p.notify || {}).lluvia === true || wantsPush(p, 'lluvia');
     // tus planes guardados con sesión hoy o mañana
-    const { data: sv } = await admin.from('saved_events').select('event_id, events(id,title,description,lat,lng,time_text,venues(name), event_sessions(on_date), event_categories(category_id))').eq('user_id', p.id);
+    const { data: sv } = await admin.from('saved_events').select('event_id, day, events(id,title,description,lat,lng,time_text,venues(name), event_sessions(on_date), event_categories(category_id))').eq('user_id', p.id);
     const planItems: Item[] = [], rainItems: Item[] = [];
     for (const row of sv || []) {
       const e = row.events as unknown as { id: number; title: string; description: string | null; lat: number; lng: number; time_text: string; venues: { name: string } | null; event_sessions: { on_date: string }[]; event_categories: { category_id: string }[] } | null;
       if (!e) continue;
+      // si eligió qué día va (saved_events.day), solo ese día cuenta para la lluvia y los cortes
+      const dia = (row as unknown as { day: string | null }).day;
+      if (dia) e.event_sessions = [{ on_date: dia }];
       if (wantRain && rain && isOutdoor((e.event_categories || []).map((c) => c.category_id), e.title + ' ' + (e.description || ''))) {
         for (const d of days) {
           if (!(e.event_sessions || []).some((s) => s.on_date === ymd(d))) continue;
@@ -344,10 +347,12 @@ async function fuiste() {
   const { data: profs } = await admin.from('profiles').select('id,notify').eq('notify->push->>fuiste', 'true');
   let sent = 0;
   for (const p of profs || []) {
-    const { data: sv } = await admin.from('saved_events').select('event_id, events(id,title,ends_on,event_sessions(on_date))').eq('user_id', p.id);
+    const { data: sv } = await admin.from('saved_events').select('event_id, day, events(id,title,ends_on,event_sessions(on_date))').eq('user_id', p.id);
     const { data: at } = await admin.from('attendance').select('event_id').eq('user_id', p.id);
     const done = new Set((at || []).map((a) => a.event_id));
-    const hit = (sv || []).map((r) => r.events as unknown as { id: number; title: string; ends_on: string; event_sessions: { on_date: string }[] } | null)
+    // «¿fuiste?» al día siguiente del día que eligió (saved_events.day) o, si no eligió, de la última sesión
+    const hit = (sv || []).map((r) => { const e = r.events as unknown as { id: number; title: string; ends_on: string; event_sessions: { on_date: string }[] } | null;
+      const dia = (r as unknown as { day: string | null }).day; return e && dia ? { ...e, event_sessions: [{ on_date: dia }] } : e; })
       .find((e) => e && !done.has(e.id) && ((e.event_sessions || []).length ? (e.event_sessions || []).map((x) => x.on_date).sort().pop() === ayer : e.ends_on === ayer));
     if (!hit) continue;
     const { data: ins } = await admin.from('mail_outbox').insert({ user_id: p.id, kind: 'fuiste', ref: ayer, payload: { event_id: hit.id }, sent_at: new Date().toISOString(), error: 'push' }).select('id');

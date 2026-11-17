@@ -157,17 +157,18 @@ function clicShareYa(ev) {
 }
 // «Añadir a mi calendario»: un .ics hecho en el navegador, sin cuenta ni servidor. Con hora, dos horas; sin hora, el día entero.
 function icsDe(e) {
-  const occ = occurs(e, today, addDays(today, 400)) || { date: parse(e.inicio) };
+  const dia = diaElegido(e);  // si eligió qué día va, ese día
+  const occ = dia ? { date: dia, ongoing: false } : occurs(e, today, addDays(today, 400)) || { date: parse(e.inicio) };
   const d0 = occ.ongoing ? today : occ.date, p2 = n => String(n).padStart(2, '0');
   const ymd = d => d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate());
   const txt = t => String(t || '').replace(/\\/g, '\\\\').replace(/[,;]/g, m => '\\' + m).replace(/\r?\n/g, '\\n');
-  const sh = (+parse(e.inicio) === +parse(e.fin) || e.sesiones.length > 1) ? startHour(e) : null;
+  const sh = (dia || +parse(e.inicio) === +parse(e.fin) || e.sesiones.length > 1) ? startHour(e) : null;
   let cuando;
   if (sh != null) {
     const h = Math.floor(sh), m = Math.round((sh % 1) * 60), fin = new Date(d0); fin.setHours(h + 2, m);
     cuando = [`DTSTART:${ymd(d0)}T${p2(h)}${p2(m)}00`, `DTEND:${ymd(fin)}T${p2(fin.getHours())}${p2(fin.getMinutes())}00`];
   } else {
-    const fin = occ.ongoing || e.sesiones.length > 1 ? addDays(d0, 1) : addDays(parse(e.fin), 1);
+    const fin = dia || occ.ongoing || e.sesiones.length > 1 ? addDays(d0, 1) : addDays(parse(e.fin), 1);
     cuando = [`DTSTART;VALUE=DATE:${ymd(d0)}`, `DTEND;VALUE=DATE:${ymd(fin)}`];
   }
   const url = location.origin + '/?c=' + encodeURIComponent(C_ZONA) + '&ev=' + e.id;

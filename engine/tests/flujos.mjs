@@ -367,6 +367,39 @@ try {
       await ctx.close();
     }
 
+    // ───────── «¿Qué día vas?» al guardar un plan con varias fechas
+    {
+      const { ctx, p, errores } = await abrir(b, perfil);
+      await cargada(p);
+      await ir(p, 'explorar');
+      await p.fill('#q-global', 'los miserables'); await p.waitForTimeout(400);
+      await p.locator('article.card:visible a[data-open]').first().click(); await p.waitForTimeout(300);
+      await p.locator('article.card.abierta [data-save]').first().click(); await p.waitForTimeout(300);
+      ok(/¿Qué día vas\?/.test(await p.locator('#toast-t').textContent()) && /Elegir día/.test(await p.locator('#toast-undo').textContent()), T('guardar una obra con varias funciones pregunta qué día vas, sin abrir nada encima'));
+      await p.locator('#toast-undo').click(); await p.waitForTimeout(300);
+      const chips = await p.locator('#sheet [data-diaset]').evaluateAll((xs) => xs.map((x) => x.dataset.diaset).filter(Boolean));
+      ok(chips.join(',') === '2026-12-12,2026-12-13,2026-12-18,2026-12-19,2026-12-20', T(`el selector ofrece solo los días con función (${chips})`));
+      await p.click('#sheet [data-diaset="2026-12-18"]'); await p.waitForTimeout(300);
+      await ir(p, 'agenda');
+      const tarjeta = p.locator('#ag-list article.card').filter({ hasText: 'Los miserables' }).first();
+      ok(/Vas el vie 18 dic/.test(await tarjeta.textContent()) && /18/.test(await tarjeta.locator('.date .d').textContent()), T('la Agenda pone la obra el día elegido (vie 18 dic)'));
+      ok(await p.evaluate(() => dias.e104) === '2026-12-18', T('el día elegido queda guardado'));
+      // con unas fechas elegidas en Explorar, el día viene ya puesto
+      await ir(p, 'explorar'); await p.fill('#q-global', ''); await p.waitForTimeout(200);
+      await p.click('#v-explorar [data-cuando]'); await dia(p, 19); await p.click('#sheet [data-calok]'); await p.waitForTimeout(300);
+      await p.evaluate(() => { ponSaved(saved.filter((x) => x !== 'e105')); renderAll(); });  // por si el perfil de prueba ya la tenía guardada
+      const expo = p.locator('#v-explorar article.card:visible').filter({ hasText: 'pintura flamenca' }).first();
+      await expo.locator('a[data-open]').click(); await p.waitForTimeout(300);
+      const expoAb = () => p.locator('#v-explorar article.card.abierta').filter({ hasText: 'pintura flamenca' }).first().locator('[data-save]').first();
+      await expoAb().click(); await p.waitForTimeout(300);
+      ok(/Guardado para el sáb 19 dic/.test(await p.locator('#toast-t').textContent()) && await p.evaluate(() => dias.e105) === '2026-12-19', T(`mirando el sábado 19 en Explorar, la exposición se guarda ya para ese día (${await p.locator('#toast-t').textContent()} · ${await p.evaluate(() => JSON.stringify([dias, $('ex-when').value, state.tab]))})`));
+      // quitar el plan borra su día
+      await expoAb().click(); await p.waitForTimeout(200);
+      ok(await p.evaluate(() => !('e105' in dias)), T('al quitarlo de la agenda se olvida el día'));
+      ok(errores.length === 0, T(`«¿Qué día vas?» sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
+      await ctx.close();
+    }
+
     // ───────── cartelera de salas: «Dónde verla» en un estreno y la sala al buscarla
     {
       const { ctx, p, errores } = await abrir(b, perfil);

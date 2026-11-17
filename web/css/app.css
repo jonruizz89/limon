@@ -413,3 +413,7 @@ a.pill { text-decoration: none; color: inherit }
 @media (max-width: 420px) { .cinebox ul.pelis { columns: 1; } }
 /* recordatorio de lo que da la cuenta (Agenda e intereses sin cuenta) */
 .cuentanota { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: var(--chip); }
+/* «¿Qué día vas?» en planes guardados con varias fechas */
+.diabtn { font: inherit; font-weight: 600; }
+.diachips { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+#dia-in { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: inherit; }

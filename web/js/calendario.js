@@ -32,7 +32,8 @@ function abrirCalendario(ctx) {
 }
 function pintaCal() {
   const c = CAL, el = $('cal'); if (!c || !el) return;
-  const rapidas = c.ctx === 'ca' ? [['hoy', 'Hoy'], ['manana', 'Mañana']] : [['hoy', 'Hoy'], ['manana', 'Mañana'], ['finde', 'Este finde'], ['semana', 'Esta semana'], ['mes', 'Próximos 30 días']].concat(c.ctx === 'ex' ? [['todo', 'Todo']] : []);
+  // en Para ti y Explorar los días se eligen a mano; «Todo» borra la elección (todas las fechas). En Calle, hoy y mañana a mano
+  const rapidas = c.ctx === 'ca' ? [['hoy', 'Hoy'], ['manana', 'Mañana']] : [['todo', 'Todo (borrar fechas)']];
   const y = c.mes.getFullYear(), m = c.mes.getMonth(), primero = (new Date(y, m, 1).getDay() + 6) % 7, nd = new Date(y, m + 1, 0).getDate();
   const max = c.max || addDays(today, 365), [sa, sb] = c.sel || [null, null];
   let celdas = '';

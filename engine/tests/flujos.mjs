@@ -152,11 +152,17 @@ try {
       const dentro = (lista, posibles) => lista.length > 0 && lista.every((i) => posibles.includes(i));
       ok(dentro(await planes(p, 'parati'), [101, 102, 104, 105, 106, 107, 108, 109, 112, 113, 114]), T('…con planes del sábado 12 al domingo 20 (en sábado, «esta semana» llega al domingo siguiente)'));
 
-      // Para ti → Mañana
+      // el calendario ya no tiene atajos (Hoy, Mañana, Este finde…): solo «Todo» para borrar la elección
       await p.click('#v-parati [data-cuando]');
-      await p.click('#sheet [data-calq="manana"]');
+      const atajos = await p.locator('#sheet [data-calq]').evaluateAll((xs) => xs.map((x) => x.dataset.calq));
+      ok(atajos.length === 1 && atajos[0] === 'todo', T(`el calendario solo tiene el botón «Todo» (${atajos})`));
+      // Para ti → el domingo 13, a mano
+      await dia(p, 13); await p.click('#sheet [data-calok]');
       let pt = await planes(p, 'parati');
-      ok(await rotulo('parati') === 'Mañana' && pt.includes(104) && dentro(pt, [101, 104, 105, 106]), T(`Para ti · «Mañana» enseña solo planes del domingo 13 (${pt})`));
+      ok(await rotulo('parati') === '13 dic' && pt.includes(104) && dentro(pt, [101, 104, 105, 106]), T(`Para ti · el domingo 13 enseña solo planes de ese día (${pt})`));
+      // «Todo» borra la elección
+      await p.click('#v-parati [data-cuando]'); await p.click('#sheet [data-calq="todo"]');
+      ok(await rotulo('parati') === 'Todo lo disponible', T('«Todo» borra las fechas elegidas'));
       // Para ti → un día suelto del mes siguiente
       await p.click('#v-parati [data-cuando]');
       await p.click('#sheet [data-calm="1"]');
@@ -180,11 +186,11 @@ try {
       await p.click('#sheet [data-calok]');
       let ex = await planes(p, 'explorar');
       ok(await rotulo('explorar') === '14–16 dic' && igual(ex, [101, 105, 107, 108, 112]), T(`Explorar · del 14 al 16 de diciembre: los planes de esos días y nada más (${ex})`));
-      // Explorar → Hoy
+      // Explorar → hoy, a mano
       await p.click('#v-explorar [data-cuando]');
-      await p.click('#sheet [data-calq="hoy"]');
+      await dia(p, 12); await p.click('#sheet [data-calok]');
       ex = await planes(p, 'explorar');
-      ok(await rotulo('explorar') === 'Hoy' && igual(ex, [101, 102, 104, 105, 114]), T(`Explorar · «Hoy»: sin la charla de las 9:00, que ya ha pasado (${ex})`));
+      ok(await rotulo('explorar') === '12 dic' && igual(ex, [101, 102, 104, 105, 114]), T(`Explorar · hoy: sin la charla de las 9:00, que ya ha pasado (${ex})`));
 
       // Calle → hoy hay un aviso; el domingo 20, otro
       await ir(p, 'calle');

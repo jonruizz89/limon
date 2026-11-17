@@ -570,8 +570,11 @@ def unir(evs):
             # misma ficha de origen (misma URL concreta) y mismo lugar: es el mismo plan aunque la fuente lo titule distinto
             misma_ficha = bool(e.get('url')) and urlparse(e['url']).path.strip('/').count('/') >= 1 \
                 and e['url'] in [f['url'] for f in o['fuentes']] and mismo_lugar(o, e)
+            # título parecido en otra fuente: solo si no son claramente sitios distintos («Alicia…» en el Botánico y un taller
+            # «Alicia…» en el Círculo de Bellas Artes no son el mismo plan)
+            otro_sitio = bool(o.get('lugar') and e.get('lugar')) and not mismo_lugar(o, e)
             if solapan(o, e) and (misma_ficha or (o['fuente'] != e['fuente'] and e['fuente'] not in [f['nombre'] for f in o['fuentes']]
-                                                  and parecidos(o, e))):
+                                                  and parecidos(o, e) and not otro_sitio)):
                 dup = o
                 break
         if dup:

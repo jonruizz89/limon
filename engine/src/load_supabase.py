@@ -200,7 +200,11 @@ for r in rows:
     # un plan que ya tiene su fila no se cede a un gemelo que solo viene de las fuentes de hoy (ese gemelo es el sobrante:
     # se retira en el paso 4); sí a uno de fuera de esta carga (el de un organizador, o el de la otra carga de Madrid)
     cand = [x for x in prev.get(r['starts_on'], []) if not (r['ext_key'] in ya_estan and not de_fuera.get(x[1]))]
-    hit = next(((i, k, v) for (pt, i, k, v, la, lo) in cand if igual(t, pt) and (len(t) >= 20 or cerca(v, la, lo))), None)
+    def lejos(v, la, lo):  # con coordenadas de los dos y a más de ~1,5 km: son sitios distintos aunque el título sea largo y parecido
+        return not (v and v == r['venue_id']) and la is not None and r.get('lat') is not None \
+            and not (abs(la - r['lat']) < 0.0055 * 2.5 and abs(lo - r['lng']) < 0.0075 * 2.5)
+    # «Naturaleza Encendida. Alicia en el País de las Maravillas» (Botánico) no es el taller «Alicia en el País…» del Círculo
+    hit = next(((i, k, v) for (pt, i, k, v, la, lo) in cand if igual(t, pt) and ((len(t) >= 20 and not lejos(v, la, lo)) or cerca(v, la, lo))), None)
     if not hit:
         hit = next(((i, k, v) for (pt, i, k, v, la, lo) in cand if mismo_plan(r, i, la, lo)), None)
     if hit and r['ext_key'] not in ya_estan and not de_fuera.get(hit[0]) and hit[0] not in cambio_clave:

@@ -146,7 +146,13 @@
       sesiones: (e.event_sessions || []).map((s) => s.on_date).sort(),
       cats: (e.event_categories || []).map((c) => c.category_id),
       fuentes: (e.event_sources || []).map((s) => ({ nombre: s.sources ? s.sources.name : 'Fuente', url: s.url }))
-    })).map((e) => { if (!e.sesiones.length) e.sesiones = [e.inicio]; return e; });
+    })).map((e) => {
+      // sesiones que no llegan al final del periodo (p. ej. un plan de dos meses con solo dos fechas sueltas, mal juntadas de otra
+      // fuente): no son fiables y el plan se trata como periodo seguido, para que salga en cualquier día entre inicio y fin
+      if (e.sesiones.length > 1 && e.fin && e.sesiones[e.sesiones.length - 1] < e.fin) e.sesiones = [];
+      if (!e.sesiones.length) e.sesiones = [e.inicio];
+      return e;
+    });
   }
 
   async function loadClosures() {

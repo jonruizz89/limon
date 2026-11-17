@@ -170,6 +170,8 @@ def main(cid):
             if EN_LINEA.match(fold(e.get('lugar') or '').strip()):
                 continue  # charlas y webinars por internet: no son planes en la ciudad
             cfg = s.get('config') or {}
+            if cfg.get('solo') and not re.search(cfg['solo'], fold((e.get('titulo') or '') + ' ' + (e.get('descripcion') or ''))):
+                continue  # webs que mezclan de todo y de las que solo interesa una parte (config.solo, p. ej. los preestrenos de la UCM)
             if not e.get('lugar') and cfg.get('lugar'):  # webs de una sola sala que no repiten su nombre en cada plan (config.lugar)
                 e['lugar'] = cfg['lugar']
                 if cfg.get('direccion') and not e.get('direccion'):

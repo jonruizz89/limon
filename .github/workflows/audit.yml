@@ -2,7 +2,7 @@ name: Auditoría de cobertura
 
 on:
   schedule:
-    - cron: "30 5 * * 1"   # lunes, 07:30 en Madrid (verano)
+    - cron: "30 5 * * 1"   # lunes, 07:30 en Madrid (verano); el paso «plan» solo sigue el primer lunes de cada mes
   workflow_dispatch:
     inputs:
       groups:
@@ -38,11 +38,14 @@ jobs:
           SUPABASE_SECRET: ${{ secrets.SUPABASE_SECRET }}
           ONLY: ${{ inputs.cities }}
         run: |
-          if [ -n "$ONLY" ]; then echo "cities=$(python3 -c 'import json,os; print(json.dumps([c.strip() for c in os.environ["ONLY"].split(",") if c.strip()]))')" >> "$GITHUB_OUTPUT"
-          else echo "cities=$(curl -sf "$SUPABASE_URL/rest/v1/cities?select=id&order=position" -H "apikey: $SUPABASE_SECRET" -H "Authorization: Bearer $SUPABASE_SECRET" | python3 -c 'import json,sys; print(json.dumps([c["id"] for c in json.load(sys.stdin)]))')" >> "$GITHUB_OUTPUT"; fi
+          # automático: solo el primer lunes del mes (por gasto de IA); a mano se puede lanzar cuando se quiera
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%d)" -gt 7 ]; then echo "cities=[]" >> "$GITHUB_OUTPUT"
+          elif [ -n "$ONLY" ]; then echo "cities=$(python3 -c 'import json,os; print(json.dumps([c.strip() for c in os.environ["ONLY"].split(",") if c.strip()]))')" >> "$GITHUB_OUTPUT"
+          else echo "cities=$(curl -sf "$SUPABASE_URL/rest/v1/cities?select=id&status=eq.publicada&order=position" -H "apikey: $SUPABASE_SECRET" -H "Authorization: Bearer $SUPABASE_SECRET" | python3 -c 'import json,sys; print(json.dumps([c["id"] for c in json.load(sys.stdin)]))')" >> "$GITHUB_OUTPUT"; fi
 
   audit:
     needs: plan
+    if: needs.plan.outputs.cities != '[]'
     strategy:
       fail-fast: false
       max-parallel: 1

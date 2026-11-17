@@ -99,8 +99,12 @@ def search_group(g, labels):
             time.sleep(15)
             continue
         u = res.get('usage') or {}
-        COST['in'] += u.get('input_tokens', 0) + u.get('cache_creation_input_tokens', 0)
-        COST['out'] += u.get('output_tokens', 0)
+        # Haiku 5.5: si la petición pasa de 100.000 tokens de entrada (caché incluida), entrada y salida cuestan 5 veces más.
+        # Escritura en caché = 1,25 × entrada; lectura de caché = 0,1 × entrada.
+        _ti, _cw, _cr = u.get('input_tokens', 0), u.get('cache_creation_input_tokens', 0), u.get('cache_read_input_tokens', 0)
+        _x = 5 if _ti + _cw + _cr > 100_000 else 1
+        COST['in'] += _x * (_ti + 1.25 * _cw + 0.1 * _cr)
+        COST['out'] += _x * u.get('output_tokens', 0)
         COST['search'] += (u.get('server_tool_use') or {}).get('web_search_requests', 0)
         blk = [b for b in res.get('content', []) if b.get('type') == 'tool_use' and b.get('name') == 'guardar_encontrados']
         kinds = [b.get('type') for b in res.get('content', [])]

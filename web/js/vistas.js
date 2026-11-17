@@ -70,9 +70,10 @@ function renderExplorar() {
   pintaCuando();
   const q = $('ex-q').value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const g = $('ex-grp').value, [a, b] = range($('ex-when').value);
-  const res = [];
+  const res = [], vista = q ? null : state.cartel, ocultos = { teatro: 0, lirica: 0, cine: 0 };
   for (const e of EV) {
     if (isDismissed(e) && !q) continue;
+    if (vista && !(enCartel(e) && (vista === 'todo' || tipoCartel(e) === vista))) continue;  // «En cartel»: solo las temporadas
     if (g && !e.cats.some(c => groupOf(c) === g)) continue;
     const f = state.filter;
     if (f && f.kind === 'cat' && !e.cats.includes(f.value)) continue;
@@ -81,6 +82,8 @@ function renderExplorar() {
     if (f && f.kind === 'id' && e.id !== f.value) continue;
     const occ = f && f.kind === 'id' ? (occurs(e, a, b) || { date: parse(e.inicio), ongoing: false }) : occurs(e, a, b);
     if (!occ || (!(f && f.kind === 'id') && !passF(e, occ))) continue;
+    // sin buscar ni filtrar, las temporadas en cartel solo en su estreno y últimos días (el resto, en «En cartel»)
+    if (!vista && !q && !f && !g && ocultoCartel(e, a, b, false)) { ocultos[tipoCartel(e)]++; continue; }
     if (q) { const h = (e.titulo + ' ' + (e.lugar || '') + ' ' + (e.distrito || '') + ' ' + (e.serie || '') + ' ' + (e.temas || []).join(' ') + ' ' + e.cats.map(labelOf).join(' ') + ' ' + (e.descripcion || '')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); if (!h.includes(q) && !q.split(/\s+/).every(w => h.includes(w) || (/^gratu?i?s|^gratuit/.test(w) && e.gratis))) continue; }
     res.push({ e, occ });
   }
@@ -92,7 +95,13 @@ function renderExplorar() {
   $('ex-active').innerHTML = f ? `<button class="filterchip" id="ex-clear" aria-label="Quitar filtro">${esc(f.kind === 'cat' ? labelOf(f.value) : f.kind === 'id' ? f.label : f.value)} <span aria-hidden="true">✕</span></button>` : '';
   $('ex-count').textContent = res.length + (res.length === 1 ? ' evento' : ' eventos');
   const cineBox = typeof carteleraBusqueda === 'function' ? carteleraBusqueda(q) : '';  // buscar una sala: sus películas (cartelera.js)
-  $('ex-list').innerHTML = cineBox + (res.length ? zoneNote() : '') + (conSeccion(res.slice(0, state.exShown), x => card(x.e, { occ: x.occ })) || (cineBox ? '' : q ? `<div class="empty">Ningún plan coincide con «${esc($('ex-q').value.trim())}» en estas fechas.</div>` : '<div class="empty">Ningún evento con esos filtros.</div>'));
+  const nOc = ocultos.teatro + ocultos.lirica + ocultos.cine;
+  const cartelHtml = vista ? `<div class="cartelhead"><button class="btnlink" data-cartel="">‹ Todos los planes</button>
+      <h2 style="margin:6px 0">En cartel ${esc(cuandoTxt($('ex-when').value).frase)}</h2>
+      <div class="seg">${[['todo', 'Todo']].concat(Object.entries(CARTEL).map(([k, v]) => [k, v.n])).map(([k, t]) => `<button class="pill" data-cartel="${k}" aria-pressed="${vista === k}">${t}</button>`).join('')}</div>
+      <p class="note">Obras, espectáculos y ciclos que están semanas en cartel y tienen función estos días.</p></div>`
+    : nOc ? `<button class="cartelbox" data-cartel="todo"><span aria-hidden="true">🎭</span> <span>Además, en cartel estos días: ${[ocultos.teatro + ocultos.lirica ? `${ocultos.teatro + ocultos.lirica} ${ocultos.teatro + ocultos.lirica === 1 ? 'obra o espectáculo' : 'obras y espectáculos'}` : '', ocultos.cine ? `${ocultos.cine} ${ocultos.cine === 1 ? 'ciclo o película' : 'ciclos y películas'}` : ''].filter(Boolean).join(' y ')}</span> <b>Ver ›</b></button>` : '';
+  $('ex-list').innerHTML = cartelHtml + cineBox + (res.length ? zoneNote() : '') + (conSeccion(res.slice(0, state.exShown), x => card(x.e, { occ: x.occ })) || (cineBox ? '' : q ? `<div class="empty">Ningún plan coincide con «${esc($('ex-q').value.trim())}» en estas fechas.</div>` : '<div class="empty">Ningún evento con esos filtros.</div>'));
   $('ex-more').hidden = res.length <= state.exShown;
 }
 function renderAgenda() {
@@ -194,6 +203,7 @@ function renderAll() {
 }
 function go(t) {
   if (state.tab !== t) { track('pestana', null, { a: t }); if (!toastUndo || $('toast-undo').textContent !== 'Deshacer') $('toast').hidden = true; }
+  if (t !== 'explorar') state.cartel = null;  // «En cartel» se cierra al cambiar de pestaña
   state.tab = t;
   const nav = (t === 'unicos') ? 'parati' : (t === 'fuentes') ? 'intereses' : t;
   tabs.forEach(x => { $('v-' + x).hidden = x !== t; $('t-' + x).setAttribute('aria-selected', x === nav); });

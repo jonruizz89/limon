@@ -400,6 +400,37 @@ try {
       await ctx.close();
     }
 
+    // ───────── «En cartel»: las temporadas largas de teatro solo en su estreno y últimos días; el resto, en «En cartel» o con la casilla
+    {
+      const { ctx, p, errores } = await abrir(b, perfil);
+      await cargada(p);
+      await p.evaluate(() => {
+        const base = BYID.e104;
+        const mk = (id, titulo, inicio, fin) => { const x = Object.assign({}, base, { id, titulo, inicio, fin, sesiones: [inicio], cats: ['teatro'] }); EV.push(x); BYID[id] = x; };
+        mk('e120', 'Temporada larga de prueba', '2026-10-01', '2027-03-01');   // a mitad de temporada
+        mk('e121', 'Estreno de temporada de prueba', '2026-12-15', '2027-02-28');  // se estrena esta semana
+      });
+      await ir(p, 'explorar');
+      const ids = async () => p.locator('#ex-list article.card').evaluateAll((xs) => xs.map((x) => x.dataset.eid));
+      let l = await ids();
+      ok(!l.includes('e120') && l.includes('e121'), T(`Explorar: la obra a mitad de temporada no llena la lista y la que se estrena sí (${l.filter((x) => x >= 'e120')})`));
+      ok(/Estreno/.test(await p.locator('#ex-list article.card[data-eid="e121"] .tags').textContent()), T('la obra que se estrena lleva la etiqueta «Estreno»'));
+      ok(await p.locator('#ex-list .cartelbox').isVisible(), T('Explorar avisa de lo que hay además en cartel'));
+      await p.click('#ex-list .cartelbox'); await p.waitForTimeout(300);
+      l = await ids();
+      ok(l.includes('e120') && l.includes('e121') && !l.includes('e102'), T(`«En cartel» enseña las temporadas (y solo ellas) con función esos días (${l.length} planes)`));
+      await p.click('#ex-list [data-cartel=""]'); await p.waitForTimeout(300);
+      await p.click('#v-explorar [data-ftoggle="ex"]'); await p.waitForTimeout(200);
+      await p.click('#ex-fpanel [data-fcartel="teatro"]'); await p.waitForTimeout(300);
+      l = await ids();
+      ok(l.includes('e120'), T('con «Incluir teatro» en Filtros, la temporada sale en la lista normal'));
+      await p.click('#ex-fpanel [data-fcartel="teatro"]'); await p.waitForTimeout(200);
+      await p.fill('#q-global', 'temporada larga'); await p.waitForTimeout(400);
+      ok((await ids()).includes('e120'), T('al buscarla por su nombre, sale aunque esté a mitad de temporada'));
+      ok(errores.length === 0, T(`«En cartel» sin errores de consola${errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''}`));
+      await ctx.close();
+    }
+
     // ───────── cartelera de salas: «Dónde verla» en un estreno y la sala al buscarla
     {
       const { ctx, p, errores } = await abrir(b, perfil);

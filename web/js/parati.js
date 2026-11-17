@@ -150,6 +150,7 @@ function renderParaTi() {
       if (isDismissed(e)) continue;
       if (isFamily(e) && !opts.ninos) continue;
       const occ = occurs(e, a, b); if (!occ || !passF(e, occ)) continue;
+      if (ocultoCartel(e, a, b, true)) continue;  // temporadas en cartel: solo estreno y últimos días (filtros.js)
       const s = (e.unico ? 3 : 0) + (e.destacado ? 2 : 0) + (e.fuentes.length > 1 ? 1 : 0) - (esProf(e) ? 6 : 0);
       items.push({ e, occ, s });  // en pueblos con pocos destacados, detrás van los demás por fecha
     }
@@ -161,7 +162,7 @@ function renderParaTi() {
     $('pt-list').innerHTML = trasTercera(arriba() + avisoHoy() + shareFindeBtn() + zoneNote() + friendsBlock(a, b) +
       // se eligen los más destacados y se enseñan por orden de día y hora (en un municipio, primero los suyos)
       franjaIntereses() + conSeccion(ZONE ? items.slice(0, state.ptShown) : items.slice(0, state.ptShown).sort((x, y) => (largo(x.e, x.occ) - largo(y.e, y.occ)) || (x.occ.date - y.occ.date) || (horaOrden(x.e) - horaOrden(y.e)) || (y.s - x.s)), x => card(x.e, { occ: x.occ })), unAviso());
-    $('pt-list').insertAdjacentHTML('beforeend', resumenCard());
+    $('pt-list').insertAdjacentHTML('beforeend', cartelLinea(a, b) + resumenCard());
     $('pt-more').hidden = items.length <= state.ptShown;
     document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));
     return;
@@ -169,6 +170,7 @@ function renderParaTi() {
   const items = [];
   for (const e of EV) {
     const occ = occurs(e, a, b); if (!occ || !passF(e, occ)) continue;
+    if (ocultoCartel(e, a, b, true)) continue;
     const sc = score(e); if (sc.s < 1.5) continue;
     if (ZONE) sc.s -= Math.min(2, zkm(e) / 10);  // a igualdad de gustos, antes lo cercano
     items.push({ e, occ, sc });
@@ -185,12 +187,18 @@ function renderParaTi() {
     (going.length ? SEC_LARGOS + going.map(x => card(x.e, { occ: x.occ, why: x.sc.hits })).join('') : '');
   logList(top.map(x => x.e.id));
   $('pt-list').innerHTML = trasTercera(arriba() + shareFindeBtn() + zoneNote() + friendsBlock(a, b) + (state.franja ? franjaIntereses() : '') + aiBlock() + (html ? '<h2>Todo lo que encaja</h2>' + html.replace('<h2>Con fecha</h2>', '') : '<div class="empty">No hay planes que encajen con tus intereses en estas fechas.</div>'), unAviso());
-  $('pt-list').insertAdjacentHTML('beforeend', resumenCard());
+  $('pt-list').insertAdjacentHTML('beforeend', cartelLinea(a, b) + resumenCard());
   $('pt-more').hidden = items.length <= state.ptShown;
   document.querySelectorAll('[data-when]').forEach(b => b.setAttribute('aria-pressed', b.dataset.when === state.when));
 }
 // ---------- avisos de la pantalla (instalar la app, permiso de medición, «¿al final fuiste?»): como mucho uno, y después de la
 // tercera tarjeta, nunca por encima de los planes. Solo va arriba el «¿fuiste?» que se abre desde un aviso o mientras se valora.
+// al final de Para ti: cuántas obras y ciclos más hay en cartel estos días, con enlace a «En cartel» de Explorar
+function cartelLinea(a, b) {
+  let n = 0;
+  for (const e of EV) if (enCartel(e) && !isDismissed(e) && ocultoCartel(e, a, b, true)) { const o = occurs(e, a, b); if (o && passF(e, o)) n++; }
+  return n ? `<button class="cartelbox" data-cartel="todo"><span aria-hidden="true">🎭</span> <span>Además, ${n} ${n === 1 ? 'obra, espectáculo o ciclo' : 'obras, espectáculos y ciclos'} en cartel estos días</span> <b>Ver ›</b></button>` : '';
+}
 function arriba() { return (fuiFocus || fuiRate) ? fuiCard() : ''; }
 function unAviso() { return (fuiFocus || fuiRate) ? '' : (fuiCard() || consentCard() || instalarCard()); }
 function trasTercera(html, aviso) {

@@ -142,7 +142,7 @@ function card(e, opt) {
           ${streetWarn(e, occ)}${rainWarn(e, occ)}${crewHtml(e)}${friendsHtml(e)}
           ${e.serie ? `<button class="serie link" data-f-serie="${esc(e.serie)}" aria-label="Ver todo el ciclo: ${esc(e.serie)}">${esc(e.serie)} ›</button>` : ''}
         </div></div>
-      <div class="tags">${NEW.has(e.id) ? '<span class="tag nuevo">Nuevo</span>' : ''}${price}${e.unico && !esProf(e) ? '<span class="tag uni">Único</span>' : ''}${temas.map(t => `<button class="tag tema link" data-f-tema="${esc(t)}" aria-label="Más planes sobre ${esc(t)}">${esc(t)}</button>`).join('')}${cats3.map(c => `<button class="tag link" data-f-cat="${esc(c)}" aria-label="Más planes de ${esc(labelOf(c))}">${esc(labelOf(c))}</button>`).join('')}</div>
+      <div class="tags">${NEW.has(e.id) ? '<span class="tag nuevo">Nuevo</span>' : ''}${occ && !occ.ongoing && enCartel(e) ? { estreno: '<span class="tag uni">Estreno</span>', ultimos: '<span class="tag uni">Últimos días</span>' }[momentoCartel(e, occ.date, occ.date)] || '' : ''}${price}${e.unico && !esProf(e) ? '<span class="tag uni">Único</span>' : ''}${temas.map(t => `<button class="tag tema link" data-f-tema="${esc(t)}" aria-label="Más planes sobre ${esc(t)}">${esc(t)}</button>`).join('')}${cats3.map(c => `<button class="tag link" data-f-cat="${esc(c)}" aria-label="Más planes de ${esc(labelOf(c))}">${esc(labelOf(c))}</button>`).join('')}</div>
       ${why}${more}
       ${open ? '' : `<button class="shr" data-sharev="${e.id}" aria-label="Compartir este plan">${SHARE_ICO}</button>`}
       <button class="save" data-save="${e.id}" aria-pressed="${isSaved}" aria-label="${isSaved ? 'Quitar de mi agenda' : 'Guardar en mi agenda'}">

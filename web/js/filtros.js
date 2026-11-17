@@ -34,7 +34,7 @@ let seenTimer = null;
 const saveSeen = () => { if (sinAlta) return; clearTimeout(seenTimer); seenTimer = setTimeout(() => store.set(SEEN_KEY, [...seenNow]), 1200); };
 function watchSeen() { if (seenObs) document.querySelectorAll('.card[data-eid]').forEach(c => { if (!seenNow.has(c.dataset.eid)) seenObs.observe(c); }); }
 const nNew = () => EV.filter(e => NEW.has(e.id) && inZone(e) && parse(e.fin) >= today && !isDismissed(e)).length;
-const nFilters = () => [F.dist, F.near && F.pos, F.franja, F.dias, F.precio].filter(Boolean).length;
+const nFilters = () => [F.dist, F.near && F.pos, F.franja, F.dias, F.precio].filter(Boolean).length + Object.values(F.cartel || {}).filter(Boolean).length;
 function passF(e, occ) {
   if (F.temp && TEMPORADA && !esTemporada(e)) return false;
   if (F.ventaja && ventajas.length && !(e.gratis || ventajaHit(e))) return false;
@@ -50,6 +50,32 @@ function passF(e, occ) {
   if (F.dias && occ && !occ.ongoing) { const wd = occ.date.getDay(), finde = wd === 0 || wd === 6 || (wd === 5 && (startHour(e) || 0) >= 18); if ((F.dias === 'finde') !== finde) return false; }
   if (F.precio === 'ventaja') { if (!e.gratis && !ventajaHit(e)) return false; }
   else if (F.precio) { const p = minPrice(e); if (F.precio === 'gratis' ? !e.gratis : (p == null || p > +F.precio)) return false; }
+  return true;
+}
+// ---------- obras y películas en cartel. Una temporada larga (más de dos semanas) de teatro, ópera, danza o cine no llena
+// las listas: sale en su estreno (primera semana), sus últimos días (última semana) y en preestrenos y coloquios. Todo lo que
+// está en cartel en las fechas elegidas se ve en «En cartel» (Explorar), o en las listas si se marca en Filtros
+const CARTEL = {
+  teatro: { n: 'Teatro, musicales y humor', c: ['teatro', 'microteatro', 'musicales', 'monologos', 'improv', 'circo', 'performance'] },
+  lirica: { n: 'Ópera y danza', c: ['opera', 'zarzuela', 'danza', 'ballet'] },
+  cine: { n: 'Cine', c: ['cine_clasico', 'vose', 'documental', 'festivales_cine', 'cortos', 'animacion', 'aire_libre', 'estrenos'] }
+};
+function tipoCartel(e) { for (const k of ['lirica', 'teatro', 'cine']) if (e.cats.some(c => CARTEL[k].c.includes(c))) return k; return null; }
+const temporadaLarga = e => (parse(e.fin) - parse(e.inicio)) / 864e5 > 13;
+const enCartel = e => !!tipoCartel(e) && temporadaLarga(e) && !e.cats.some(c => ['aprender', 'letras', 'ciencia', 'comunidad', 'deporte'].includes(groupOf(c))) && !/^(taller|curso|club de lectura)/i.test(e.titulo);  // un taller de cine o un club de lectura sobre ópera no son cartelera
+// ¿es su estreno o sus últimos días dentro de [a, b]?
+function momentoCartel(e, a, b) {
+  const ini = parse(e.inicio), fin = parse(e.fin);
+  if (a <= addDays(ini, 6) && b >= ini) return 'estreno';
+  if (a <= fin && b >= addDays(fin, -6)) return 'ultimos';
+  return null;
+}
+// ¿se queda fuera de las listas normales? (para: Para ti también entra si te interesa alguna de sus categorías)
+function ocultoCartel(e, a, b, paraTi) {
+  if (!enCartel(e)) return false;
+  const k = tipoCartel(e);
+  if ((F.cartel || {})[k] || e.cats.includes('preestrenos') || momentoCartel(e, a, b)) return false;
+  if (paraTi && e.cats.some(c => prefs[c] === 1 && CARTEL[k].c.includes(c))) return false;
   return true;
 }
 function filtersHtml() {
@@ -68,6 +94,8 @@ function filtersHtml() {
       <div><h3>Momento del día</h3><div class="row" style="margin-top:6px">${pill('franja', 'manana', 'Mañana')}${pill('franja', 'tarde', 'Tarde')}${pill('franja', 'noche', 'Noche')}</div></div>
       <div><h3>Días</h3><div class="row" style="margin-top:6px">${pill('dias', 'laborables', 'Entre semana')}${pill('dias', 'finde', 'Fin de semana')}</div></div>
       <div><h3>Precio</h3><div class="row" style="margin-top:6px">${pill('precio', 'gratis', 'Gratis')}${pill('precio', 10, 'Hasta 10 €')}${pill('precio', 20, 'Hasta 20 €')}${pill('precio', 40, 'Hasta 40 €')}${ventajas.length ? pill('precio', 'ventaja', 'Gratis o con mi descuento') : ''}</div>${ventajas.length ? '' : '<p class="note">Marca tus ventajas (Carné Joven, estudiante…) en Perfil para ver los planes con descuento para ti.</p>'}</div>
+      <div><h3>En cartel</h3><div class="row" style="margin-top:6px">${Object.entries(CARTEL).map(([k, v]) => `<button class="pill" data-fcartel="${k}" aria-pressed="${!!(F.cartel || {})[k]}">Incluir ${v.n.toLowerCase()}</button>`).join('')}</div>
+        <p class="note">Las obras y películas que están semanas en cartel solo salen en tus listas en su estreno y sus últimos días. Márcalo para verlas siempre; todas están también en «En cartel» de Explorar.</p></div>
       <div class="row"><button class="btn ghost" data-fclear>Quitar filtros</button><span class="note">Solo salen eventos con ese dato; los que no lo indican quedan fuera.</span></div>`;
 }
 function renderFilters() {
@@ -175,6 +203,7 @@ function iniciaFiltros() {
   // ---------- filtros: zona, hora del día, días y precio (compartidos por Para ti y Explorar)
   F = Object.assign({ dist: '', near: 0, pos: null, franja: '', dias: '', precio: '' }, store.get('filters', {}));
   F.pos = null;   F.near = 0;    // la ubicación no se guarda: se pide cada vez
+  F.cartel = store.get('cartel', {});  // qué temporadas en cartel se quieren ver siempre en las listas
   // si ya diste permiso antes (o activaste la opción), se usa sin volver a preguntar
   try {
     if (opts.dist) askPos(true);
@@ -222,8 +251,23 @@ function clicFset(ev) {
   return false;
 }
 function clicFclear(ev) {
-  if (ev.target.closest('[data-fclear]')) { F = { dist: '', near: 0, pos: F.pos, franja: '', dias: '', precio: '', temp: false }; setF('dist', ''); return true; }
+  if (ev.target.closest('[data-fclear]')) { F = { dist: '', near: 0, pos: F.pos, franja: '', dias: '', precio: '', temp: false, cartel: {} }; store.set('cartel', {}); setF('dist', ''); return true; }
   return false;
+}
+function clicFcartel(ev) {
+  const b = ev.target.closest('[data-fcartel]'); if (!b) return false;
+  const k = b.dataset.fcartel; F.cartel = Object.assign({}, F.cartel, { [k]: !(F.cartel || {})[k] });
+  store.set('cartel', F.cartel); track('filtro', null, { k: 'cartel_' + k, v: F.cartel[k] }); renderAll(); return true;
+}
+// «En cartel» en Explorar: todo lo que está en cartel en las fechas elegidas, por tipo
+function clicCartel(ev) {
+  const b = ev.target.closest('[data-cartel]'); if (!b) return false;
+  state.cartel = b.dataset.cartel || null; state.exShown = 20;
+  if (state.cartel && state.tab !== 'explorar') {  // desde Para ti: con sus mismas fechas
+    $('ex-when').value = state.when;  // las mismas fechas que se estaban mirando en Para ti
+    go('explorar');
+  } else renderAll();
+  window.scrollTo(0, 0); return true;
 }
 function clicCityBtn(ev) {
   if (ev.target.closest('#city-btn') || ev.target.closest('[data-zone-pick]')) { openZone(); return true; }

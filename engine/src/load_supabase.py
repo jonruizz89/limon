@@ -58,7 +58,12 @@ def api(method, path, body=None, prefer=None):
             txt = (gzip.decompress(_b) if r.headers.get('Content-Encoding') == 'gzip' else _b).decode()
             return json.loads(txt) if txt else None
     except urllib.error.HTTPError as e:
-        raise SystemExit(f'{method} {path}: {e.code} {e.read().decode()[:500]}')
+        _b = e.read()
+        try:
+            _b = gzip.decompress(_b) if e.headers.get('Content-Encoding') == 'gzip' else _b
+        except Exception:
+            pass
+        raise SystemExit(f'{method} {path}: {e.code} {_b.decode(errors="replace")[:500]}')
 
 
 def chunks(xs, n):
@@ -225,8 +230,16 @@ for v, ids_ in sin_lugar.items():
 if sin_lugar:
     print('lugar añadido a', sum(len(x) for x in sin_lugar.values()), 'eventos que no lo tenían')
 rows = [r for r in rows if r['ext_key'] not in ajenos]
-for _id, _k in cambio_clave.items():
-    api('PATCH', f'events?id=eq.{_id}', {'ext_key': _k}, 'return=minimal')
+for _id, _k in list(cambio_clave.items()):
+    try:
+        api('PATCH', f'events?id=eq.{_id}', {'ext_key': _k}, 'return=minimal')
+    except SystemExit as _e:
+        # la clave nueva ya la tiene otra fila (un plan ya pasado o de fuera de esta carga): no se cambia; el plan de hoy
+        # se une a esa fila al cargar y la vieja, si nadie la trae, la retira el paso 4
+        if ': 409 ' not in str(_e):
+            raise
+        cambio_clave.pop(_id)
+        print('clave ya usada por otra fila, no se cambia:', _id, _k)
 if cambio_clave:
     print('planes que conservan su ficha con la clave nueva', len(cambio_clave))
 

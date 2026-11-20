@@ -1,7 +1,9 @@
 name: Ciudades (motor genérico)
 
 # Alta manual de una ciudad: 1) crear la fila en `cities` (status borrador) · 2) lanzar este flujo con steps=discover,probe,extract,load,classify
-# Cada noche se vuelven a leer las fuentes activas de todas las ciudades. En Madrid solo las del motor genérico (p. ej. discotecas):
+# Cada noche se vuelven a leer las fuentes activas de las ciudades publicadas (las de borrador, solo a mano).
+# Fuera de Madrid, Barcelona y Euskadi (BUREO_PRIORIDAD), las fuentes con IA solo se leen los lunes, para gastar menos.
+# En Madrid solo las del motor genérico (p. ej. discotecas):
 # el resto de Madrid va por su propio flujo (nightly.yml).
 
 on:
@@ -49,7 +51,7 @@ jobs:
           if [ -n "$INPUT_CITY" ]; then
             echo "cities=[\"$INPUT_CITY\"]" >> "$GITHUB_OUTPUT"
           else
-            list=$(curl -sf "$SUPABASE_URL/rest/v1/cities?select=id" -H "apikey: $SUPABASE_SECRET" -H "Authorization: Bearer $SUPABASE_SECRET" | python3 -c 'import json,sys; print(json.dumps([c["id"] for c in json.load(sys.stdin)]))')
+            list=$(curl -sf "$SUPABASE_URL/rest/v1/cities?select=id&status=eq.publicada" -H "apikey: $SUPABASE_SECRET" -H "Authorization: Bearer $SUPABASE_SECRET" | python3 -c 'import json,sys; print(json.dumps([c["id"] for c in json.load(sys.stdin)]))')
             echo "cities=$list" >> "$GITHUB_OUTPUT"
           fi
 
@@ -72,7 +74,10 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       TICKETMASTER_KEY: ${{ secrets.TICKETMASTER_KEY }}
       BUREO_CITY: ${{ matrix.city }}
-      BUREO_CITY_MAX_USD: ${{ inputs.max_usd || '1' }}
+      BUREO_PRIORIDAD: madrid,barcelona,bizkaia,bilbao,gipuzkoa,donostia,araba,vitoria
+      # tope de gasto en IA por ciudad y noche: 0,30 $ en las prioritarias, 0,10 $ en el resto (a mano, lo que se pida)
+      BUREO_CITY_MAX_USD: ${{ inputs.max_usd || (contains(fromJson('["madrid","barcelona","bizkaia","bilbao","gipuzkoa","donostia","araba","vitoria"]'), matrix.city) && '0.3' || '0.1') }}
+      BUREO_AI_MAX_USD: ${{ inputs.max_usd || '0.15' }}
       BUREO_RAW: raw
       BUREO_AMBITOS: ${{ inputs.ambitos }}
       STEPS: ${{ inputs.steps || 'extract,load,classify' }}

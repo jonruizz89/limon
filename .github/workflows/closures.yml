@@ -64,7 +64,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        city: [bilbao, vitoria, donostia, gijon, malaga, barcelona]
+        city: [bilbao, vitoria, donostia, gijon, barcelona]   # Málaga, en borrador: solo a mano
     defaults:
       run:
         working-directory: engine/src/generic
@@ -78,5 +78,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET: ${{ secrets.SUPABASE_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          BUREO_CITY_MAX_USD: "0.5"
+          BUREO_CITY_MAX_USD: "0.15"
         run: python3 calle.py ${{ matrix.city }}

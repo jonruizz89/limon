@@ -27,6 +27,7 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SECRET: ${{ secrets.SUPABASE_SECRET }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      BUREO_AI_MAX_USD: "0.2"   # tope de gasto al clasificar con IA en cada ejecución
       BUREO_ENRICH_MAX: ${{ inputs.max || '400' }}
       PYTHONUNBUFFERED: "1"
     steps:

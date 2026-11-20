@@ -143,9 +143,15 @@ def main(cid):
     raw, per = [], {}
     fx = (city.get('features') or {}).get('fuera')
     fuera = re.compile(r'\b(' + '|'.join(re.escape(fold(x)) for x in fx) + r')\b') if fx else None
+    # ciudades fuera de las prioritarias (BUREO_PRIORIDAD): sus fuentes leídas con IA solo se leen un día a la semana
+    # (BUREO_IA_DIA, 0 = lunes); los demás días se saltan sin darlas por leídas, así que sus planes de antes se quedan
+    prio = {x.strip() for x in os.environ.get('BUREO_PRIORIDAD', '').split(',') if x.strip()}
+    ia_hoy = not prio or cid in prio or HOY.weekday() == int(os.environ.get('BUREO_IA_DIA', '0'))
     for s in srcs:
         if not (s.get('config') or {}).get('method'):
             continue
+        if not ia_hoy and s['config']['method'] in ('ia', 'rss'):
+            print(f'· {s["name"]}: con IA, hoy no toca (solo una vez a la semana en esta ciudad)'); continue
         try:
             evs = read_source(s, city)
         except Exception as ex:

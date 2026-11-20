@@ -86,4 +86,5 @@ jobs:
           SUPABASE_SECRET: ${{ secrets.SUPABASE_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           BUREO_CITY: madrid   # solo Madrid: las demás zonas se clasifican en su propia carga (city.yml)
+          BUREO_AI_MAX_USD: "0.25"   # tope de gasto al clasificar con IA en cada ejecución
         run: python3 src/classify.py

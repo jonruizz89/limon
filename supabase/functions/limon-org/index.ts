@@ -11,7 +11,7 @@ const SECRET = (() => {
 const AKEY = Deno.env.get('ANTHROPIC_API_KEY');
 const MODEL = Deno.env.get('LIMON_AI_MODEL') || 'claude-haiku-5-5';
 const MAX_REVIEWS_DAY = 20;  // revisiones por organizador y día
-const MAX_USD_DAY = Number(Deno.env.get('LIMON_AI_MAX_USD_DAY') || '1');  // el mismo tope diario que el resto de la IA
+const MAX_USD_DAY = Number(Deno.env.get('LIMON_AI_MAX_USD_DAY') || '0.3');  // el mismo tope diario que el resto de la IA
 const RESERVE = 0.02;  // lo que se aparta por revisión hasta saber su coste real
 const admin = createClient(URL, SECRET, { auth: { persistSession: false } });
 const CORS = {

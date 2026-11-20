@@ -13,7 +13,7 @@ const AKEY = Deno.env.get('ANTHROPIC_API_KEY');
 const MODEL = Deno.env.get('LIMON_AI_MODEL') || 'claude-haiku-5-5';
 const PRICE_IN = 0.10 / 1e6, PRICE_OUT = 0.50 / 1e6;
 const MAX_CALLS_USER_DAY = 30;
-const MAX_USD_DAY = Number(Deno.env.get('LIMON_AI_MAX_USD_DAY') || '1');
+const MAX_USD_DAY = Number(Deno.env.get('LIMON_AI_MAX_USD_DAY') || '0.3');
 const RESERVE = 0.02;      // lo que se aparta por llamada hasta saber su coste real
 const MAX_PROMPT = 60000;  // caracteres como mucho en el mensaje a la IA
 const cityOf = (c: unknown) => (typeof c === 'string' && /^[a-z0-9-]{2,40}$/.test(c) ? c : 'madrid');

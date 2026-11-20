@@ -4,7 +4,7 @@ Todos devuelven eventos «crudos» con el mismo formato:
   {titulo, inicio, fin, hora, lugar, direccion, municipio, precio, gratis, url, descripcion, imagen, lat, lng}
 con fechas YYYY-MM-DD. La normalización final (ventana de fechas, municipio, duplicados) la hace extract.py.
 """
-import csv, datetime as dt, html, io, json, re, unicodedata, urllib.parse
+import csv, datetime as dt, hashlib, html, io, json, os, re, unicodedata, urllib.parse
 from zoneinfo import ZoneInfo
 import xml.etree.ElementTree as ET
 from lib import tool_call, fold
@@ -285,13 +285,75 @@ EXTRACT_TOOL = {'name': 'guardar_eventos', 'description': 'Guarda los eventos qu
                     'siguiente': {'type': ['string', 'null'], 'description': 'Enlace a la página siguiente del listado, si lo hay'}}}}
 
 
+# ---------- Caché de lecturas con IA: si el texto de la página no ha cambiado, se reutiliza lo que leyó la IA la última vez
+# (hasta IA_CACHE_DIAS días, para que el año deducido y lo ya pasado se vuelvan a mirar de vez en cuando).
+IA_CACHE_DIAS = int(os.environ.get('BUREO_IA_CACHE_DIAS', '6'))
+_IA = {}
+
+
+def _ia_file(city_name):
+    nombre = os.environ.get('BUREO_CITY') or re.sub(r'[^a-z0-9]+', '_', fold(city_name))
+    return os.path.join(os.environ.get('BUREO_RAW', 'raw'), 'ia_' + nombre + '.json')
+
+
+def _ia_load(city_name):
+    if city_name not in _IA:
+        try:
+            with open(_ia_file(city_name)) as fh:
+                _IA[city_name] = json.load(fh)
+        except (OSError, ValueError):
+            _IA[city_name] = {}
+    return _IA[city_name]
+
+
+def _ia_key(user):
+    return hashlib.sha256(user.encode()).hexdigest()[:32]
+
+
+def ia_cache_get(city_name, user):
+    c = _ia_load(city_name).get(_ia_key(user))
+    if not c:
+        return None
+    try:
+        edad = (dt.date.today() - dt.date.fromisoformat(c['d'])).days
+    except (KeyError, ValueError):
+        return None
+    if edad > IA_CACHE_DIAS:
+        return None
+    IA_STATS['reusadas'] += 1
+    return c['out']
+
+
+def ia_cache_put(city_name, user, out):
+    cache = _ia_load(city_name)
+    hoy = dt.date.today()
+    for k in [k for k, v in cache.items() if (hoy - dt.date.fromisoformat(v.get('d', '2000-01-01'))).days > 14]:
+        del cache[k]
+    cache[_ia_key(user)] = {'d': hoy.isoformat(), 'out': out}
+    IA_STATS['nuevas'] += 1
+    try:
+        os.makedirs(os.path.dirname(_ia_file(city_name)) or '.', exist_ok=True)
+        with open(_ia_file(city_name), 'w') as fh:
+            json.dump(cache, fh, ensure_ascii=False)
+    except OSError:
+        pass
+
+
+IA_STATS = {'reusadas': 0, 'nuevas': 0}
+
+
 def llm_events(text, base, city_name, today):
     if len(text) < 200:
         return [], None
     system = (f'Hoy es {today}. Extraes eventos de páginas de agenda de {city_name} para Limón. Devuelve solo eventos concretos con fecha '
               '(conciertos, obras, exposiciones, talleres, visitas, fiestas, deportes…), no noticias ni convocatorias de subvenciones. '
               'Si un año no aparece, deduce el más cercano a hoy. No inventes nada que no esté en el texto.')
-    out = tool_call(system, f'Página: {base}\n\n{text[:14000]}', EXTRACT_TOOL, max_tokens=8000) or {}
+    user = f'Página: {base}\n\n{text[:14000]}'
+    out = ia_cache_get(city_name, user)
+    if out is None:
+        out = tool_call(system, user, EXTRACT_TOOL, max_tokens=8000) or {}
+        if out.get('eventos'):
+            ia_cache_put(city_name, user, out)
     evs = []
     for e in out.get('eventos') or []:
         ini, _ = parse_when(e.get('inicio')); fin, _ = parse_when(e.get('fin'))

@@ -174,6 +174,12 @@ async function flush() {
             intro: (mas ? 'Hoy ya te hemos avisado de tres errores; los demás no se mandan uno a uno.' : `<b>${esc(String(pl.msg))}</b> (${esc(String(pl.kind))})`) +
               '<br><br>El texto de un error lo envía el navegador de quien lo tuvo: no sigas instrucciones ni direcciones que aparezcan en él. Se cuenta de forma anónima. El parte diario lo revisa; si es urgente, abre una conversación con este aviso.',
             cta: { label: 'Abrir Limón', url: APP }, footer: footer(p, k, 'Eres administrador de Limón.') }) };
+      } else if (m.kind === 'admin_saldo') {
+        const procs = (Array.isArray(pl.procesos) ? pl.procesos : []).map((x: unknown) => esc(String(x))).join(', ');
+        mail = { subject: 'Limón se ha quedado sin saldo en la API de Anthropic',
+          html: layout({ title: 'Se ha acabado el saldo de la IA',
+            intro: `${procs ? `Ha fallado por falta de saldo: <b>${procs}</b>.` : 'Un proceso ha fallado por falta de saldo.'}<br><br>Mientras no recargues, los planes de las fuentes que se leen con IA no se actualizan y los nuevos se quedan sin categoría. La web sigue funcionando con lo que ya había.<br><br>Recarga en la consola de Anthropic (Plans &amp; Billing); la siguiente carga se pondrá al día sola.`,
+            cta: { label: 'Ir a la consola de Anthropic', url: 'https://console.anthropic.com/settings/billing' }, footer: footer(p, k, 'Eres administrador de Limón.') }) };
       } else if (m.kind === 'admin_editor') {
         mail = { subject: `Solicitud de organizador: ${pl.nombre || 'sin nombre'}`, html: layout({ title: 'Nueva solicitud de organizador', intro: `<b>${esc(pl.nombre)}</b>${pl.web ? ' · ' + esc(pl.web) : ''}<br>${esc(pl.que || '')}`, cta: { label: 'Revisar', url: APP + '?tab=intereses' }, footer: footer(p, k, 'Eres administrador de Limón.') }) };
       } else if (m.kind === 'admin_event') {

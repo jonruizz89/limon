@@ -296,7 +296,8 @@ def main(cid):
     out = os.path.join(os.environ.get('BUREO_OUT', 'out'), cid)
     os.makedirs(out, exist_ok=True)
     meta = {'ciudad': city['name'], 'generado': dt.datetime.now().isoformat(timespec='minutes'), 'por_fuente': per,
-            'eventos': len(eventos), 'situados_ahora': placed, 'coste_ia_usd': round(usd(), 3)}
+            'eventos': len(eventos), 'situados_ahora': placed, 'coste_ia_usd': round(usd(), 3),
+            'paginas_ia': dict(F.IA_STATS)}
     json.dump({'meta': meta, 'eventos': eventos}, open(os.path.join(out, 'events.json'), 'w'), ensure_ascii=False)
     print(json.dumps(meta, ensure_ascii=False, indent=1))
 

@@ -1,0 +1,45 @@
+name: Aviso de saldo de IA
+
+# Cuando termina un proceso que usa la IA, mira su registro: si ha fallado por falta de saldo en la API de Anthropic,
+# encola un correo a los administradores (uno al día como mucho) y lo envía en el momento.
+on:
+  workflow_run:
+    workflows: ["Actualización nocturna", "Ciudades (motor genérico)", "Completar descripciones", "Cortes de calle", "Clasificar con IA", "Auditoría de cobertura"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  aviso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Buscar el error de saldo en el registro
+        id: log
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ github.event.workflow_run.id }}
+        run: |
+          if gh run view "$RUN" -R "$GITHUB_REPOSITORY" --log 2>/dev/null | grep -q "credit balance is too low"; then
+            echo "sin=1" >> "$GITHUB_OUTPUT"; echo "Sin saldo en la API"
+          else
+            echo "Saldo correcto"
+          fi
+      - name: Avisar por correo
+        if: steps.log.outputs.sin == '1'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET: ${{ secrets.SUPABASE_SECRET }}
+          PROC: ${{ github.event.workflow_run.name }}
+        run: |
+          H=(-H "apikey: $SUPABASE_SECRET" -H "Authorization: Bearer $SUPABASE_SECRET" -H "Content-Type: application/json")
+          desde=$(date -u -d '20 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          ya=$(curl -sf "${H[@]}" "$SUPABASE_URL/rest/v1/mail_outbox?select=id&kind=eq.admin_saldo&created_at=gt.$desde&limit=1")
+          if [ "$ya" != "[]" ]; then echo "Ya se avisó hoy"; exit 0; fi
+          admins=$(curl -sf "${H[@]}" "$SUPABASE_URL/rest/v1/profiles?select=id&role=eq.admin")
+          body=$(jq -c --arg p "$PROC" --arg d "$(date -u +%F)" '[.[] | {user_id: .id, kind: "admin_saldo", ref: $d, payload: {procesos: [$p]}}]' <<<"$admins")
+          curl -sf "${H[@]}" -H "Prefer: return=minimal" -X POST "$SUPABASE_URL/rest/v1/mail_outbox" -d "$body"
+          curl -sS -m 120 -X POST "$SUPABASE_URL/functions/v1/limon-mail" -H "Authorization: Bearer $SUPABASE_SECRET" \
+            -H "Content-Type: application/json" -d '{"action":"flush"}'; echo

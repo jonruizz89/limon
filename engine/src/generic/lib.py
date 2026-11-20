@@ -183,9 +183,14 @@ def parse_page(html_text, base):
 
 
 # ---------- Claude
+SIN_SALDO = False
+
+
 def claude(body, timeout=300):
     if not AKEY:
         raise SystemExit('Falta ANTHROPIC_API_KEY')
+    if SIN_SALDO:
+        return {}
     for attempt in range(3):
         req = urllib.request.Request('https://api.anthropic.com/v1/messages', method='POST', data=json.dumps(body).encode())
         for k, v in (('x-api-key', AKEY), ('anthropic-version', '2023-06-01'), ('content-type', 'application/json')):
@@ -194,7 +199,12 @@ def claude(body, timeout=300):
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 res = json.loads(r.read().decode())
         except urllib.error.HTTPError as e:
-            print('  API', e.code, e.read().decode()[:200])
+            msg = e.read().decode()[:200]
+            print('  API', e.code, msg)
+            if 'credit balance' in msg:  # sin saldo: no tiene sentido reintentar ni seguir llamando (el aviso lo manda aviso.yml)
+                globals()['SIN_SALDO'] = True
+                print('  Sin saldo en la API de Anthropic: se omiten el resto de lecturas con IA de esta ejecución', flush=True)
+                return {}
             time.sleep(10 * (attempt + 1))
             continue
         u = res.get('usage') or {}

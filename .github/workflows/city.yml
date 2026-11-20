@@ -91,6 +91,13 @@ jobs:
           key: geo-${{ matrix.city }}-${{ github.run_id }}
           restore-keys: geo-${{ matrix.city }}-
 
+      - name: Recuperar la caché de lecturas con IA
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: engine/raw/ia_${{ matrix.city }}.json
+          key: ia-${{ matrix.city }}-${{ github.run_id }}
+          restore-keys: ia-${{ matrix.city }}-
+
       - name: 1 · Descubrir fuentes
         if: contains(env.STEPS, 'discover')
         working-directory: engine/src/generic
@@ -115,6 +122,13 @@ jobs:
         with:
           path: engine/raw/geo_${{ matrix.city }}.json
           key: geo-${{ matrix.city }}-${{ github.run_id }}
+
+      - name: Guardar la caché de lecturas con IA
+        if: always() && contains(env.STEPS, 'extract')
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: engine/raw/ia_${{ matrix.city }}.json
+          key: ia-${{ matrix.city }}-${{ github.run_id }}
 
       - name: Subir el resultado para revisarlo
         if: contains(env.STEPS, 'extract')

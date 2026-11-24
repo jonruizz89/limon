@@ -393,6 +393,8 @@ try {
       const expoAb = () => p.locator('#v-explorar article.card.abierta').filter({ hasText: 'pintura flamenca' }).first().locator('[data-save]').first();
       await expoAb().click(); await p.waitForTimeout(300);
       ok(/Guardado para el sáb 19 dic/.test(await p.locator('#toast-t').textContent()) && await p.evaluate(() => dias.e105) === '2026-12-19', T(`mirando el sábado 19 en Explorar, la exposición se guarda ya para ese día (${await p.locator('#toast-t').textContent()} · ${await p.evaluate(() => JSON.stringify([dias, $('ex-when').value, state.tab]))})`));
+      const txt105 = await p.evaluate(() => whenText(BYID.e105, { date: diaElegido(BYID.e105), ongoing: false }));
+      ok(/^En curso, hasta el 28 feb/.test(txt105), T(`con un día elegido, la tarjeta cuenta las fechas del plan y no «Desde» ese día (${txt105})`));
       // quitar el plan borra su día
       await expoAb().click(); await p.waitForTimeout(200);
       ok(await p.evaluate(() => !('e105' in dias)), T('al quitarlo de la agenda se olvida el día'));

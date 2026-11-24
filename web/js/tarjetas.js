@@ -61,7 +61,9 @@ function whenText(e, occ) {
   const d = occ ? occ.date : parse(e.inicio);
   const ini = parse(e.inicio), fin = parse(e.fin);
   let t = DIA[d.getDay()] + ' ' + d.getDate() + ' ' + MES[d.getMonth()];
-  if (+ini !== +fin && e.sesiones.length <= 1) t = (occ && occ.ongoing ? 'En curso' : 'Desde ' + t) + ', hasta el ' + fin.getDate() + ' ' + MES[fin.getMonth()];
+  // con un día elegido («Vas el …» ya lo dice), el texto cuenta las fechas del plan, no ese día
+  const elegido = occ && !occ.ongoing && diaElegido(e) && +diaElegido(e) === +occ.date;
+  if (+ini !== +fin && e.sesiones.length <= 1) t = (occ && occ.ongoing || (elegido && ini <= today) ? 'En curso' : 'Desde ' + (elegido ? DIA[ini.getDay()] + ' ' + ini.getDate() + ' ' + MES[ini.getMonth()] : t)) + ', hasta el ' + fin.getDate() + ' ' + MES[fin.getMonth()];
   else if (e.sesiones.length > 1) t += ' · ' + e.sesiones.length + ' sesiones';
   // horario corto tal cual; si es largo, la primera hora que diga (el horario completo va en la ficha); «--» no se enseña
   const sh = startHour(e), hh = sh == null ? '' : Math.floor(sh) + ':' + String(Math.round((sh % 1) * 60)).padStart(2, '0');

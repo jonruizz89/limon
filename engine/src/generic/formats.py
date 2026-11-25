@@ -192,7 +192,9 @@ def feed_items(text):
         g = lambda n: next((c for c in it if c.tag.split('}')[-1] == n), None)
         link = g('link')
         href = (link.get('href') if link is not None and link.get('href') else (link.text if link is not None else '')) or ''
-        title = g('title'); desc = g('description') or g('summary') or g('content')
+        title = g('title')
+        # ojo: un elemento de ElementTree sin hijos es «falso», así que no vale «a or b»: se elige el primero que exista
+        desc = next((d for d in (g('description'), g('summary'), g('content'), g('encoded')) if d is not None and (d.text or '').strip()), None)
         items.append(f"{clean(title.text if title is not None else '', 200)} ‹{href.strip()}›\n{clean(desc.text if desc is not None else '', 700)}")
     return items
 

@@ -261,7 +261,7 @@ def page(path, title, desc, body, crumbs=(), ld=None, app='/', img=None, noindex
 <main>{f'<nav class="crumbs" aria-label="Estás en">{bc}</nav>' if bc else ''}{body}</main>
 <footer>Limón reúne los planes de tu zona de agendas públicas y webs de organizadores; comprueba siempre la información en la fuente.
 Datos de la agenda municipal de Madrid (datos.madrid.es) de Kulturklik (Open Data Euskadi, CC BY 4.0) y de la agenda del Ayuntamiento de Zaragoza, entre otros.
-{sig}<br><a href="/planes/">Todas las zonas</a> · <a href="/para-salas/">Para salas</a> · <a href="/privacidad.html">Privacidad</a> · <a href="/condiciones.html">Condiciones</a></footer>
+{sig}<br><a href="/planes/">Todas las zonas</a> · <a href="/para-salas/">Para salas</a> · <a href="/privacidad.html">Privacidad</a> · <a href="/aviso-legal.html">Aviso legal</a> · <a href="/condiciones.html">Condiciones</a></footer>
 @@LIMON_BEACON@@</body></html>""".replace('@@LIMON_BEACON@@', BEACON)
     out = os.path.join(WEB, path.strip('/'), 'index.html')
     os.makedirs(os.path.dirname(out), exist_ok=True)
